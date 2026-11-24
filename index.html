@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SaldoHoras" />
+  <title>SaldoHoras — Banco de Horas &amp; Folgas 2026</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.55); }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-animate { animation: fadeSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+
+  <!-- ==================== TELA DE AUTENTICAÇÃO (SUPABASE) ==================== -->
+  <div id="authScreen" class="hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 modal-animate my-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+            <i data-lucide="clock-4" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">SaldoHoras</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Banco de Horas &amp; Folgas 2026</p>
+          </div>
+        </div>
+        <button id="authThemeToggle" type="button" title="Alternar tema" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+          <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:inline"></i>
+        </button>
+      </div>
+
+      <!-- Abas Login / Cadastro -->
+      <div id="authTabs" class="grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-5 text-sm font-medium">
+        <button type="button" id="tabAuthLogin" onclick="switchAuthMode('login')" class="py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">
+          Entrar
+        </button>
+        <button type="button" id="tabAuthSignup" onclick="switchAuthMode('signup')" class="py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+          Criar Conta
+        </button>
+      </div>
+
+      <!-- Alertas de Autenticação -->
+      <div id="authAlert" class="hidden mb-4 p-3.5 rounded-xl text-xs leading-relaxed border"></div>
+
+      <!-- Formulário -->
+      <form id="authForm" class="space-y-4">
+        <div id="authNameWrapper" class="hidden">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Seu Nome Completo</label>
+          <input type="text" id="authName" placeholder="Ex.: Vítor Santos" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail corporativo ou pessoal</label>
+          <input type="email" id="authEmail" required placeholder="voce@empresa.com.br" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+        </div>
+
+        <div id="authPasswordWrapper">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Senha</label>
+            <button type="button" id="forgotPwdBtn" onclick="switchAuthMode('reset')" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+              Esqueci a senha
+            </button>
+          </div>
+          <input type="password" id="authPassword" minlength="6" placeholder="Mínimo 6 caracteres" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+        </div>
+
+        <button type="submit" id="authSubmitBtn" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-500/25 transition flex items-center justify-center gap-2">
+          <span>Entrar no Painel</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+
+        <button type="button" id="resendConfirmBtn" onclick="resendConfirmationEmail()" class="hidden w-full py-2 px-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition">
+          Reenviar e-mail de confirmação
+        </button>
+
+        <button type="button" id="backToLoginBtn" onclick="switchAuthMode('login')" class="hidden w-full py-2 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition">
+          ← Voltar para o login
+        </button>
+      </form>
+
+      <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          Nuvem Supabase Ativa
+        </span>
+        <span>RLS &amp; Confirmação de E-mail</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== BANNER DE CARREGAMENTO ==================== -->
+  <div id="loadingOverlay" class="fixed inset-0 z-40 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+    <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    <p class="text-xs font-medium text-slate-600 dark:text-slate-300">Sincronizando SaldoHoras...</p>
+  </div>
+
+  <!-- ==================== CABEÇALHO PRINCIPAL ==================== -->
+  <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <!-- Marca + Status -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <i data-lucide="clock-4" class="w-5 h-5"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">SaldoHoras</h1>
+            <span id="syncBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span id="syncText">Sincronizado</span>
+            </span>
+          </div>
+          <p id="headerSubtitle" class="text-xs text-slate-500 dark:text-slate-400 truncate">Controle de Feriados &amp; Compensações • 2026</p>
+        </div>
+      </div>
+
+      <!-- Ações Rápidas -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <!-- Menu Exportar -->
+        <div class="relative" id="exportMenuWrapper">
+          <button type="button" onclick="toggleExportMenu()" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-200 transition">
+            <i data-lucide="download" class="w-4 h-4 text-slate-500 dark:text-slate-400"></i>
+            <span class="hidden md:inline">Exportar</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+          </button>
+          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
+            <button type="button" onclick="exportPDF(); closeExportMenu();" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
+              <i data-lucide="file-text" class="w-4 h-4 text-rose-500"></i>
+              Baixar Relatório PDF
+            </button>
+            <button type="button" onclick="exportCSV(); closeExportMenu();" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
+              <i data-lucide="table" class="w-4 h-4 text-emerald-500"></i>
+              Exportar Planilha CSV
+            </button>
+            <div class="my-1 border-t border-slate-100 dark:border-slate-800"></div>
+            <button type="button" onclick="exportJSONBackup(); closeExportMenu();" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
+              <i data-lucide="database-backup" class="w-4 h-4 text-indigo-500"></i>
+              Fazer Backup (JSON)
+            </button>
+          </div>
+        </div>
+
+        <!-- Parâmetros -->
+        <button type="button" onclick="openSettingsModal()" title="Parâmetros e Conta" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Dark Mode -->
+        <button type="button" id="themeToggle" title="Alternar tema claro/escuro" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+          <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
+        </button>
+
+        <!-- Sair / Conta -->
+        <button type="button" onclick="handleLogout()" title="Sair da conta" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          <span class="hidden lg:inline">Sair</span>
+        </button>
+
+        <!-- Novo Lançamento -->
+        <button type="button" onclick="openEntryModal()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Novo <span class="hidden sm:inline">Lançamento</span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== CONTEÚDO PRINCIPAL ==================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Banner de Alerta de Vencimento -->
+    <div id="expiryAlertBanner" class="hidden bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-start sm:items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+        </div>
+        <p id="expiryAlertText" class="text-xs sm:text-sm text-amber-900 dark:text-amber-200 font-medium"></p>
+      </div>
+      <button type="button" onclick="applyQuickFilter('expiring')" class="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shrink-0">
+        Ver itens vencendo
+      </button>
+    </div>
+
+    <!-- Cards de KPI -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Saldo Atual (Realizado) -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Saldo Realizado</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="kpiRealizedHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">+0h</span>
+          <span id="kpiRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Disponível para uso imediato</p>
+      </div>
+
+      <!-- Saldo Projetado -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Saldo Projetado</span>
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <i data-lucide="trending-up" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="kpiProjectedHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">+0h</span>
+          <span id="kpiProjectedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 tabular-nums">0,0 dias</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Inclui feriados e folgas previstos</p>
+      </div>
+
+      <!-- Total Acumulado (Créditos) -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Créditos (Feriados/Extras)</span>
+          <div class="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="kpiCreditsHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">+0h</span>
+          <span id="kpiCreditsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 lançamentos</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Jornada padrão: <strong id="kpiJourneyLabel" class="text-slate-700 dark:text-slate-300">8h/dia</strong></p>
+      </div>
+
+      <!-- Total Compensado (Débitos) -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Folgas &amp; Saídas</span>
+          <div class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <i data-lucide="calendar-minus" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="kpiDebitsHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">0h</span>
+          <span id="kpiDebitsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 folgas</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Soma de compensações realizadas e previstas</p>
+      </div>
+    </section>
+
+    <!-- Navegação por Abas -->
+    <div class="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto">
+      <button type="button" onclick="switchMainTab('extrato')" id="tabBtn-extrato" class="tab-btn px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex items-center gap-2 transition">
+        <i data-lucide="list-ordered" class="w-4 h-4"></i>
+        Extrato Cronológico
+      </button>
+      <button type="button" onclick="switchMainTab('graficos')" id="tabBtn-graficos" class="tab-btn px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 whitespace-nowrap flex items-center gap-2 transition">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+        Gráficos &amp; Simulador
+      </button>
+      <button type="button" onclick="switchMainTab('comunicacao')" id="tabBtn-comunicacao" class="tab-btn px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 whitespace-nowrap flex items-center gap-2 transition">
+        <i data-lucide="send" class="w-4 h-4"></i>
+        E-mail &amp; WhatsApp RH
+      </button>
+    </div>
+
+    <!-- ==================== ABA 1: EXTRATO CRONOLÓGICO ==================== -->
+    <section id="tabPanel-extrato" class="space-y-4">
+      <!-- Barra de Filtros e Busca -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
+        <div class="flex flex-col md:flex-row gap-3">
+          <!-- Busca -->
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="searchInput" oninput="renderAll()" placeholder="Buscar por evento, feriado ou observação... (atalho: /)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
+          </div>
+
+          <!-- Select Tipo -->
+          <select id="typeFilter" onchange="renderAll()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="all">Todos os tipos</option>
+            <option value="credit">Créditos (+ Feriados/Extras)</option>
+            <option value="debit">Débitos (- Folgas/Saídas)</option>
+          </select>
+
+          <!-- Select Status -->
+          <select id="statusFilter" onchange="renderAll()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="all">Todos os status</option>
+            <option value="realized">Realizados</option>
+            <option value="planned">Previstos</option>
+          </select>
+
+          <!-- Botão Ordenação -->
+          <button type="button" onclick="toggleSortOrder()" id="sortOrderBtn" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 transition shrink-0">
+            <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-indigo-500"></i>
+            <span id="sortOrderLabel">Mais antigos</span>
+          </button>
+        </div>
+
+        <!-- Pílulas de Filtro Rápido -->
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="text-[11px] font-medium text-slate-400 mr-1">Filtros rápidos:</span>
+          <button type="button" onclick="applyQuickFilter('all')" id="pill-all" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition">Todos</button>
+          <button type="button" onclick="applyQuickFilter('planned')" id="pill-planned" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Apenas Previstos</button>
+          <button type="button" onclick="applyQuickFilter('holidays')" id="pill-holidays" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Somente Feriados</button>
+          <button type="button" onclick="applyQuickFilter('expiring')" id="pill-expiring" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Vencendo em breve</button>
+        </div>
+      </div>
+
+      <!-- Visão Mobile: Cards Empilhados -->
+      <div id="mobileCardsContainer" class="grid grid-cols-1 gap-3 md:hidden"></div>
+
+      <!-- Visão Desktop: Tabela Completa -->
+      <div class="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <th class="py-3.5 px-4">Data</th>
+                <th class="py-3.5 px-4">Evento / Descrição</th>
+                <th class="py-3.5 px-4">Status</th>
+                <th class="py-3.5 px-4 text-right">Horas</th>
+                <th class="py-3.5 px-4 text-right">Saldo Acum.</th>
+                <th class="py-3.5 px-4">Validade / Prazo</th>
+                <th class="py-3.5 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="entriesTableBody" class="divide-y divide-slate-100 dark:divide-slate-800/80 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Estado Vazio -->
+      <div id="emptyState" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="calendar-x" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white">Nenhum lançamento encontrado</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Ajuste os filtros acima ou clique em <strong>Novo Lançamento</strong> para registrar um feriado trabalhado ou folga.</p>
+      </div>
+    </section>
+
+    <!-- ==================== ABA 2: GRÁFICOS & SIMULADOR ==================== -->
+    <section id="tabPanel-graficos" class="hidden space-y-6">
+      <!-- Simulador Interativo de Folgas -->
+      <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="space-y-2 max-w-xl">
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              Simulador Rápido de Folgas
+            </div>
+            <h3 class="text-lg sm:text-xl font-bold">Planeje seus próximos dias de descanso</h3>
+            <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias inteiros de folga você deseja tirar e veja o impacto imediato no seu saldo projetado.</p>
+          </div>
+
+          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 max-w-lg space-y-4">
+            <div class="flex items-center justify-between">
+              <label for="simDaysSlider" class="text-xs font-semibold uppercase tracking-wider text-indigo-100">Dias de Folga Simulados</label>
+              <span id="simDaysValue" class="text-xl font-extrabold tabular-nums">2 dias (-16h)</span>
+            </div>
+            <input type="range" id="simDaysSlider" min="1" max="15" value="2" oninput="updateSimulator()" class="w-full accent-white cursor-pointer" />
+            <div class="flex items-center justify-between pt-2 border-t border-white/15 text-xs">
+              <div>
+                <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
+                <strong id="simRemainingResult" class="text-base font-bold tabular-nums">+0h (0,0 dias)</strong>
+              </div>
+              <button type="button" onclick="scheduleFromSimulator()" class="px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                Agendar Folga
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grade de Gráficos -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Evolução do Saldo Acumulado (2026)</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Crescimento e consumo de horas ao longo dos eventos</p>
+          <div class="h-72">
+            <canvas id="balanceChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Proporção Créditos vs. Folgas</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Distribuição total de horas no período</p>
+          <div class="h-72 flex items-center justify-center">
+            <canvas id="ratioChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ABA 3: COMUNICAÇÃO RH / GESTÃO ==================== -->
+    <section id="tabPanel-comunicacao" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Card E-mail -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <i data-lucide="mail" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">E-mail Formal (Gestão / RH)</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Texto editável com resumo atualizado do saldo</p>
+              </div>
+            </div>
+            <button type="button" onclick="regenerateMessages()" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <textarea id="emailTemplate" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5 pt-2">
+          <button type="button" onclick="copyText('emailTemplate', 'E-mail copiado!')" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+            Copiar Texto
+          </button>
+          <button type="button" onclick="openMailClient()" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            Abrir no E-mail
+          </button>
+        </div>
+      </div>
+
+      <!-- Card WhatsApp -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <i data-lucide="message-circle" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Mensagem Rápida (WhatsApp)</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Formato direto para alinhar folgas com seu gestor</p>
+              </div>
+            </div>
+            <button type="button" onclick="regenerateMessages()" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <textarea id="whatsappTemplate" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5 pt-2">
+          <button type="button" onclick="copyText('whatsappTemplate', 'Mensagem copiada!')" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+            Copiar Mensagem
+          </button>
+          <button type="button" onclick="openWhatsApp()" class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            Enviar WhatsApp
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO ==================== -->
+  <div id="entryModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Novo Lançamento</h2>
+        <button type="button" onclick="closeEntryModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="entryForm" class="mt-4 space-y-4">
+        <input type="hidden" id="entryId" />
+
+        <!-- Tipo: Crédito ou Débito -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <label class="cursor-pointer">
+            <input type="radio" name="entryType" value="credit" checked onchange="onEntryTypeChange()" class="peer sr-only" />
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-emerald-500 peer-checked:bg-emerald-50/70 dark:peer-checked:bg-emerald-950/40 text-center transition">
+              <span class="block text-xs font-bold text-emerald-700 dark:text-emerald-400">+ Crédito de Horas</span>
+              <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Feriado trabalhado / Extra</span>
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="entryType" value="debit" onchange="onEntryTypeChange()" class="peer sr-only" />
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-rose-500 peer-checked:bg-rose-50/70 dark:peer-checked:bg-rose-950/40 text-center transition">
+              <span class="block text-xs font-bold text-rose-700 dark:text-rose-400">- Débito / Folga</span>
+              <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Compensação / Saída</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data do Evento</label>
+            <input type="date" id="entryDate" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Quantidade de Horas</label>
+            <div class="flex gap-1.5">
+              <input type="number" id="entryHours" step="0.5" min="0.5" max="240" required value="8" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              <button type="button" onclick="setStandardDayHours()" title="Preencher com 1 dia de jornada" class="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
+                1 dia
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Descrição / Feriado</label>
+          <input type="text" id="entryTitle" required placeholder="Ex.: Feriado Tiradentes (Plantão) ou Folga Compensatória" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Status</label>
+            <select id="entryStatus" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="realized">Realizado (Confirmado)</option>
+              <option value="planned">Previsto (Agendado)</option>
+            </select>
+          </div>
+          <div id="expiryFieldWrapper">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data Limite / Vencimento</label>
+            <input type="date" id="entryExpiry" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Observações (opcional)</label>
+          <input type="text" id="entryNotes" placeholder="Ex.: Acordo coletivo, alinhado com gestor..." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeEntryModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+            Salvar Lançamento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: PARÂMETROS, CONTA & BACKUP ==================== -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate my-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h2 class="text-base font-bold text-slate-900 dark:text-white">Parâmetros &amp; Conta</h2>
+        <button type="button" onclick="closeSettingsModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="settingsForm" class="mt-4 space-y-4">
+        <!-- Info Usuário Logado -->
+        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Conta Conectada</span>
+            <p id="settingsUserEmail" class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">—</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 shrink-0">Verificada</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Seu Nome (para relatórios e e-mails)</label>
+          <input type="text" id="settingUserName" required placeholder="Seu nome completo" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Jornada Diária (horas)</label>
+            <input type="number" id="settingDailyHours" step="0.5" min="1" max="24" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Prazo Padrão de Validade (dias)</label>
+            <input type="number" id="settingExpiryDays" min="15" max="730" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">E-mail do Gestor / RH (opcional)</label>
+            <input type="email" id="settingManagerEmail" placeholder="gestor@empresa.com" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">WhatsApp Gestor (DDD + Número)</label>
+            <input type="text" id="settingManagerPhone" placeholder="5511999999999" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <!-- Backup e Dados -->
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+          <span class="block text-xs font-bold text-slate-700 dark:text-slate-300">Backup &amp; Restauração</span>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="exportJSONBackup()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-500"></i>
+              Exportar JSON
+            </button>
+            <label class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-500"></i>
+              Importar JSON
+              <input type="file" accept=".json" onchange="importJSONBackup(event)" class="hidden" />
+            </label>
+            <button type="button" onclick="loadSampleData()" class="px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/70 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40 transition flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              Carregar Exemplo 2026
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+            Salvar Parâmetros
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST DE NOTIFICAÇÃO ==================== -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 dark:text-emerald-600"></i>
+    <span id="toastMsg">Ação concluída</span>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURAÇÃO SUPABASE (PROJETO MEU BANCO DE HORAS)
+    // =========================================================================
+    const SUPABASE_URL = 'https://opctsxkugbljvghcgnvj.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_nClSbvyd31jCHu1qpz4t-w_tUJ0RzUh';
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // =========================================================================
+    // ESTADO DA APLICAÇÃO
+    // =========================================================================
+    let currentUser = null;
+    let authMode = 'login'; // 'login' | 'signup' | 'reset'
+    let sortAscending = true;
+    let quickFilter = 'all';
+    let balanceChartInstance = null;
+    let ratioChartInstance = null;
+
+    let settings = {
+      userName: '',
+      dailyHours: 8,
+      expiryDays: 180,
+      managerEmail: '',
+      managerPhone: ''
+    };
+
+    let entries = [];
+
+    const SAMPLE_ENTRIES_2026 = [
+      { id: 'sample-1', date: '2026-01-01', title: 'Confraternização Universal (Plantão)', type: 'credit', hours: 8, status: 'realized', expiry: '2026-06-30', notes: 'Feriado nacional trabalhado' },
+      { id: 'sample-2', date: '2026-02-17', title: 'Carnaval (Escala Operacional)', type: 'credit', hours: 8, status: 'realized', expiry: '2026-08-16', notes: 'Plantão de infraestrutura' },
+      { id: 'sample-3', date: '2026-04-03', title: 'Sexta-Feira Santa', type: 'credit', hours: 8, status: 'realized', expiry: '2026-09-30', notes: 'Feriado nacional' },
+      { id: 'sample-4', date: '2026-04-21', title: 'Tiradentes', type: 'credit', hours: 8, status: 'realized', expiry: '2026-10-18', notes: 'Feriado nacional' },
+      { id: 'sample-5', date: '2026-05-01', title: 'Dia do Trabalho', type: 'credit', hours: 8, status: 'realized', expiry: '2026-10-28', notes: 'Feriado nacional' },
+      { id: 'sample-6', date: '2026-06-04', title: 'Corpus Christi', type: 'credit', hours: 8, status: 'realized', expiry: '2026-12-01', notes: 'Feriado municipal/ponto facultativo' },
+      { id: 'sample-7', date: '2026-07-09', title: 'Revolução Constitucionalista (SP)', type: 'credit', hours: 8, status: 'realized', expiry: '2027-01-05', notes: 'Feriado estadual SP' },
+      { id: 'sample-8', date: '2026-07-24', title: 'Folga Compensatória (Sexta)', type: 'debit', hours: 8, status: 'realized', expiry: '', notes: 'Compensação 1 dia' },
+      { id: 'sample-9', date: '2026-09-07', title: 'Independência do Brasil', type: 'credit', hours: 8, status: 'realized', expiry: '2027-03-06', notes: 'Feriado nacional' },
+      { id: 'sample-10', date: '2026-10-12', title: 'Nossa Senhora Aparecida', type: 'credit', hours: 8, status: 'realized', expiry: '2027-04-10', notes: 'Feriado nacional' },
+      { id: 'sample-11', date: '2026-11-02', title: 'Finados', type: 'credit', hours: 8, status: 'realized', expiry: '2027-05-01', notes: 'Feriado nacional' },
+      { id: 'sample-12', date: '2026-11-20', title: 'Consciência Negra', type: 'credit', hours: 8, status: 'realized', expiry: '2027-05-19', notes: 'Feriado nacional' },
+      { id: 'sample-13', date: '2026-12-28', title: 'Recesso / Emenda Ano Novo (Previsto)', type: 'debit', hours: 24, status: 'planned', expiry: '', notes: '3 dias de folga planejados' }
+    ];
+
+    // =========================================================================
+    // INICIALIZAÇÃO & TEMA
+    // =========================================================================
+    function initTheme() {
+      const savedTheme = localStorage.getItem('saldohoras_theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('saldohoras_theme', isDark ? 'dark' : 'light');
+      if (balanceChartInstance || ratioChartInstance) renderCharts();
+    }
+
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+    document.getElementById('authThemeToggle').addEventListener('click', toggleTheme);
+
+    // Atalhos de teclado
+    document.addEventListener('keydown', (e) => {
+      if (!currentUser) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        openEntryModal();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        switchMainTab('extrato');
+        document.getElementById('searchInput').focus();
+      }
+    });
+
+    // =========================================================================
+    // AUTENTICAÇÃO SUPABASE (LOGIN, CADASTRO, CONFIRMAÇÃO E RESET)
+    // =========================================================================
+    function switchAuthMode(mode) {
+      authMode = mode;
+      const alertBox = document.getElementById('authAlert');
+      alertBox.classList.add('hidden');
+      document.getElementById('resendConfirmBtn').classList.add('hidden');
+
+      const tabLogin = document.getElementById('tabAuthLogin');
+      const tabSignup = document.getElementById('tabAuthSignup');
+      const nameWrap = document.getElementById('authNameWrapper');
+      const pwdWrap = document.getElementById('authPasswordWrapper');
+      const pwdInput = document.getElementById('authPassword');
+      const submitBtn = document.getElementById('authSubmitBtn');
+      const backBtn = document.getElementById('backToLoginBtn');
+      const authTabs = document.getElementById('authTabs');
+
+      if (mode === 'login') {
+        authTabs.classList.remove('hidden');
+        tabLogin.className = 'py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
+        tabSignup.className = 'py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+        nameWrap.classList.add('hidden');
+        pwdWrap.classList.remove('hidden');
+        pwdInput.required = true;
+        backBtn.classList.add('hidden');
+        submitBtn.innerHTML = '<span>Entrar no Painel</span><i data-lucide="arrow-right" class="w-4 h-4"></i>';
+      } else if (mode === 'signup') {
+        authTabs.classList.remove('hidden');
+        tabSignup.className = 'py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
+        tabLogin.className = 'py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+        nameWrap.classList.remove('hidden');
+        pwdWrap.classList.remove('hidden');
+        pwdInput.required = true;
+        backBtn.classList.add('hidden');
+        submitBtn.innerHTML = '<span>Criar Conta e Enviar Confirmação</span><i data-lucide="user-plus" class="w-4 h-4"></i>';
+      } else if (mode === 'reset') {
+        authTabs.classList.add('hidden');
+        nameWrap.classList.add('hidden');
+        pwdWrap.classList.add('hidden');
+        pwdInput.required = false;
+        backBtn.classList.remove('hidden');
+        submitBtn.innerHTML = '<span>Enviar Link de Recuperação</span><i data-lucide="mail" class="w-4 h-4"></i>';
+      }
+      lucide.createIcons();
+    }
+
+    function showAuthAlert(message, type = 'error') {
+      const box = document.getElementById('authAlert');
+      box.classList.remove('hidden', 'bg-rose-50', 'text-rose-800', 'border-rose-200', 'dark:bg-rose-950/60', 'dark:text-rose-200', 'dark:border-rose-800', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/60', 'dark:text-emerald-200', 'dark:border-emerald-800', 'bg-amber-50', 'text-amber-800', 'border-amber-200', 'dark:bg-amber-950/60', 'dark:text-amber-200', 'dark:border-amber-800');
+      if (type === 'success') {
+        box.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/60', 'dark:text-emerald-200', 'dark:border-emerald-800');
+      } else if (type === 'warning') {
+        box.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200', 'dark:bg-amber-950/60', 'dark:text-amber-200', 'dark:border-amber-800');
+      } else {
+        box.classList.add('bg-rose-50', 'text-rose-800', 'border-rose-200', 'dark:bg-rose-950/60', 'dark:text-rose-200', 'dark:border-rose-800');
+      }
+      box.innerHTML = message;
+    }
+
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      const fullName = document.getElementById('authName').value.trim();
+      const btn = document.getElementById('authSubmitBtn');
+      const originalHtml = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Processando...';
+      document.getElementById('resendConfirmBtn').classList.add('hidden');
+
+      try {
+        if (authMode === 'login') {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) {
+            if (error.message.toLowerCase().includes('email not confirmed')) {
+              showAuthAlert('<strong>E-mail ainda não confirmado.</strong> Verifique sua caixa de entrada (ou spam) e clique no link enviado antes de entrar.', 'warning');
+              document.getElementById('resendConfirmBtn').classList.remove('hidden');
+            } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+              showAuthAlert('E-mail ou senha incorretos. Verifique seus dados e tente novamente.', 'error');
+            } else {
+              showAuthAlert(error.message, 'error');
+            }
+          }
+        } else if (authMode === 'signup') {
+          if (!fullName) {
+            showAuthAlert('Informe seu nome completo para criar a conta.', 'error');
+            return;
+          }
+          const redirectTo = window.location.origin + window.location.pathname;
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: redirectTo,
+              data: { full_name: fullName }
+            }
+          });
+          if (error) {
+            showAuthAlert(error.message, 'error');
+          } else {
+            showAuthAlert(
+              `<strong>Conta criada com sucesso!</strong> Enviamos um link de confirmação para <strong>${escapeHtml(email)}</strong>. Confirme seu e-mail para liberar o acesso.`,
+              'success'
+            );
+            switchAuthMode('login');
+            showAuthAlert(
+              `<strong>Quase lá!</strong> Confirme o link enviado para <strong>${escapeHtml(email)}</strong> (confira também a caixa de spam) e depois faça login abaixo.`,
+              'success'
+            );
+          }
+        } else if (authMode === 'reset') {
+          const redirectTo = window.location.origin + window.location.pathname;
+          const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+          if (error) {
+            showAuthAlert(error.message, 'error');
+          } else {
+            showAuthAlert(`Enviamos um link de redefinição de senha para <strong>${escapeHtml(email)}</strong>.`, 'success');
+          }
+        }
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        lucide.createIcons();
+      }
+    });
+
+    async function resendConfirmationEmail() {
+      const email = document.getElementById('authEmail').value.trim();
+      if (!email) return;
+      const redirectTo = window.location.origin + window.location.pathname;
+      const { error } = await supabaseClient.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: redirectTo }
+      });
+      if (error) {
+        showAuthAlert('Erro ao reenviar: ' + error.message, 'error');
+      } else {
+        showAuthAlert(`Novo e-mail de confirmação enviado para <strong>${escapeHtml(email)}</strong>.`, 'success');
+        document.getElementById('resendConfirmBtn').classList.add('hidden');
+      }
+    }
+
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      currentUser = null;
+      entries = [];
+      document.getElementById('authScreen').classList.remove('hidden');
+      showToast('Sessão encerrada');
+    }
+
+    // =========================================================================
+    // SINCRONIZAÇÃO DE DADOS COM SUPABASE (POSTGRESQL + RLS)
+    // =========================================================================
+    function setSyncStatus(state) {
+      const badge = document.getElementById('syncBadge');
+      const text = document.getElementById('syncText');
+      if (state === 'saving') {
+        text.textContent = 'Salvando...';
+        badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70';
+      } else if (state === 'error') {
+        text.textContent = 'Erro ao sincronizar';
+        badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70';
+      } else {
+        text.textContent = 'Nuvem Ativa';
+        badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70';
+      }
+    }
+
+    async function loadUserData() {
+      if (!currentUser) return;
+      setSyncStatus('saving');
+
+      try {
+        // 1. Carregar parâmetros do usuário
+        const { data: settingsData, error: settingsErr } = await supabaseClient
+          .from('bh_settings')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        const metaName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+
+        if (settingsData) {
+          settings = {
+            userName: settingsData.user_name || metaName,
+            dailyHours: Number(settingsData.daily_hours) || 8,
+            expiryDays: Number(settingsData.expiry_days) || 180,
+            managerEmail: settingsData.manager_email || '',
+            managerPhone: settingsData.manager_phone || ''
+          };
+        } else {
+          settings = {
+            userName: metaName,
+            dailyHours: 8,
+            expiryDays: 180,
+            managerEmail: '',
+            managerPhone: ''
+          };
+          await saveSettingsToCloud();
+        }
+
+        // 2. Carregar lançamentos do usuário
+        const { data: entriesData, error: entriesErr } = await supabaseClient
+          .from('bh_entries')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('date', { ascending: true });
+
+        if (entriesErr) throw entriesErr;
+
+        entries = (entriesData || []).map(row => ({
+          id: row.id,
+          date: row.date,
+          title: row.title,
+          type: row.type,
+          hours: Number(row.hours),
+          status: row.status,
+          expiry: row.expiry || '',
+          notes: row.notes || ''
+        }));
+
+        updateHeaderUserInfo();
+        setSyncStatus('ok');
+        renderAll();
+      } catch (err) {
+        console.error('Erro ao carregar dados do Supabase:', err);
+        setSyncStatus('error');
+        showToast('Erro ao carregar dados da nuvem');
+      } finally {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+      }
+    }
+
+    async function saveSettingsToCloud() {
+      if (!currentUser) return;
+      setSyncStatus('saving');
+      const { error } = await supabaseClient.from('bh_settings').upsert({
+        user_id: currentUser.id,
+        user_name: settings.userName,
+        daily_hours: settings.dailyHours,
+        expiry_days: settings.expiryDays,
+        manager_email: settings.managerEmail,
+        manager_phone: settings.managerPhone,
+        updated_at: new Date().toISOString()
+      });
+      setSyncStatus(error ? 'error' : 'ok');
+    }
+
+    async function upsertEntryToCloud(entry) {
+      if (!currentUser) return;
+      setSyncStatus('saving');
+      const { error } = await supabaseClient.from('bh_entries').upsert({
+        id: entry.id,
+        user_id: currentUser.id,
+        date: entry.date,
+        title: entry.title,
+        type: entry.type,
+        hours: entry.hours,
+        status: entry.status,
+        expiry: entry.expiry || null,
+        notes: entry.notes || ''
+      });
+      setSyncStatus(error ? 'error' : 'ok');
+    }
+
+    async function deleteEntryFromCloud(id) {
+      if (!currentUser) return;
+      setSyncStatus('saving');
+      const { error } = await supabaseClient
+        .from('bh_entries')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('id', id);
+      setSyncStatus(error ? 'error' : 'ok');
+    }
+
+    function updateHeaderUserInfo() {
+      const displayName = settings.userName || currentUser?.email || 'Usuário';
+      document.getElementById('headerSubtitle').textContent = `${displayName} • Controle de Feriados & Folgas 2026`;
+      document.getElementById('settingsUserEmail').textContent = currentUser?.email || '—';
+    }
+
+    // Monitorar sessão de autenticação
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (session && session.user) {
+        currentUser = session.user;
+        document.getElementById('authScreen').classList.add('hidden');
+        await loadUserData();
+      } else {
+        currentUser = null;
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        document.getElementById('authScreen').classList.remove('hidden');
+      }
+    });
+
+    // =========================================================================
+    // CÁLCULOS & RENDERIZAÇÃO PRINCIPAL
+    // =========================================================================
+    function getChronologicalEntries() {
+      const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+      let runningBalance = 0;
+      return sorted.map(item => {
+        const delta = item.type === 'credit' ? Number(item.hours) : -Number(item.hours);
+        runningBalance += delta;
+        return { ...item, delta, runningBalance };
+      });
+    }
+
+    function formatHours(val) {
+      const num = Number(val) || 0;
+      const sign = num > 0 ? '+' : '';
+      return `${sign}${Number.isInteger(num) ? num : num.toFixed(1).replace('.', ',')}h`;
+    }
+
+    function formatDays(hours) {
+      const days = (Number(hours) || 0) / (Number(settings.dailyHours) || 8);
+      return `${days.toFixed(1).replace('.', ',')} dias`;
+    }
+
+    function formatDateBR(isoDate) {
+      if (!isoDate) return '—';
+      const [y, m, d] = isoDate.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function getExpiryInfo(expiryIso, status) {
+      if (!expiryIso) return { label: 'Sem vencimento', badgeClass: 'text-slate-400', isExpiringSoon: false };
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const exp = new Date(expiryIso + 'T00:00:00');
+      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        return {
+          label: `${formatDateBR(expiryIso)} (Vencido)`,
+          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
+          isExpiringSoon: true
+        };
+      }
+      if (diffDays <= 60) {
+        return {
+          label: `${formatDateBR(expiryIso)} (${diffDays}d)`,
+          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+          isExpiringSoon: true
+        };
+      }
+      return {
+        label: formatDateBR(expiryIso),
+        badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+        isExpiringSoon: false
+      };
+    }
+
+    function renderAll() {
+      const chrono = getChronologicalEntries();
+
+      // KPIs
+      let realizedBalance = 0;
+      let projectedBalance = 0;
+      let creditsHours = 0;
+      let creditsCount = 0;
+      let debitsHours = 0;
+      let debitsCount = 0;
+      let expiringItems = [];
+
+      chrono.forEach(item => {
+        projectedBalance += item.delta;
+        if (item.status === 'realized') realizedBalance += item.delta;
+        if (item.type === 'credit') {
+          creditsHours += Number(item.hours);
+          creditsCount++;
+          const exp = getExpiryInfo(item.expiry, item.status);
+          if (exp.isExpiringSoon) expiringItems.push(item);
+        } else {
+          debitsHours += Number(item.hours);
+          debitsCount++;
+        }
+      });
+
+      document.getElementById('kpiRealizedHours').textContent = formatHours(realizedBalance);
+      document.getElementById('kpiRealizedDays').textContent = formatDays(realizedBalance);
+      document.getElementById('kpiProjectedHours').textContent = formatHours(projectedBalance);
+      document.getElementById('kpiProjectedDays').textContent = formatDays(projectedBalance);
+      document.getElementById('kpiCreditsHours').textContent = formatHours(creditsHours);
+      document.getElementById('kpiCreditsCount').textContent = `${creditsCount} ${creditsCount === 1 ? 'registro' : 'registros'}`;
+      document.getElementById('kpiDebitsHours').textContent = `-${Number.isInteger(debitsHours) ? debitsHours : debitsHours.toFixed(1).replace('.', ',')}h`;
+      document.getElementById('kpiDebitsCount').textContent = `${debitsCount} ${debitsCount === 1 ? 'folga' : 'folgas'}`;
+      document.getElementById('kpiJourneyLabel').textContent = `${settings.dailyHours}h/dia`;
+
+      // Banner de alerta de vencimento
+      const alertBanner = document.getElementById('expiryAlertBanner');
+      if (expiringItems.length > 0 && projectedBalance > 0) {
+        alertBanner.classList.remove('hidden');
+        document.getElementById('expiryAlertText').textContent =
+          `Atenção: Você possui ${expiringItems.length} ${expiringItems.length === 1 ? 'crédito de feriado' : 'créditos de feriados'} com vencimento próximo ou expirado.`;
+      } else {
+        alertBanner.classList.add('hidden');
+      }
+
+      // Filtros
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      const typeF = document.getElementById('typeFilter').value;
+      const statusF = document.getElementById('statusFilter').value;
+
+      let filtered = chrono.filter(item => {
+        if (typeF !== 'all' && item.type !== typeF) return false;
+        if (statusF !== 'all' && item.status !== statusF) return false;
+        if (quickFilter === 'planned' && item.status !== 'planned') return false;
+        if (quickFilter === 'holidays' && item.type !== 'credit') return false;
+        if (quickFilter === 'expiring') {
+          const exp = getExpiryInfo(item.expiry, item.status);
+          if (item.type !== 'credit' || !exp.isExpiringSoon) return false;
+        }
+        if (query) {
+          const hay = `${item.title} ${item.notes || ''} ${formatDateBR(item.date)}`.toLowerCase();
+          if (!hay.includes(query)) return false;
+        }
+        return true;
+      });
+
+      if (!sortAscending) filtered.reverse();
+
+      const tbody = document.getElementById('entriesTableBody');
+      const mobileContainer = document.getElementById('mobileCardsContainer');
+      const emptyState = document.getElementById('emptyState');
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        mobileContainer.innerHTML = '';
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+
+        // Renderizar Tabela Desktop
+        tbody.innerHTML = filtered.map(item => {
+          const isCredit = item.type === 'credit';
+          const isRealized = item.status === 'realized';
+          const expInfo = isCredit ? getExpiryInfo(item.expiry, item.status) : { label: '—', badgeClass: 'text-slate-400' };
+
+          return `
+            <tr class="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition group">
+              <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">${formatDateBR(item.date)}</td>
+              <td class="py-3.5 px-4">
+                <div class="font-semibold text-slate-900 dark:text-white">${escapeHtml(item.title)}</div>
+                ${item.notes ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.notes)}</div>` : ''}
+              </td>
+              <td class="py-3.5 px-4 whitespace-nowrap">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
+                  <span class="w-1.5 h-1.5 rounded-full ${isRealized ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+                  ${isRealized ? 'Realizado' : 'Previsto'}
+                </span>
+              </td>
+              <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                ${formatHours(item.delta)}
+              </td>
+              <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap text-slate-800 dark:text-slate-200">
+                ${formatHours(item.runningBalance)}
+              </td>
+              <td class="py-3.5 px-4 whitespace-nowrap">
+                ${isCredit && item.expiry
+                  ? `<span class="inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium ${expInfo.badgeClass}">${expInfo.label}</span>`
+                  : `<span class="text-xs text-slate-400">—</span>`}
+              </td>
+              <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                <div class="inline-flex items-center gap-1">
+                  <button type="button" onclick="editEntry('${item.id}')" title="Editar" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                  </button>
+                  <button type="button" onclick="deleteEntry('${item.id}')" title="Excluir" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        // Renderizar Cards Mobile
+        mobileContainer.innerHTML = filtered.map(item => {
+          const isCredit = item.type === 'credit';
+          const isRealized = item.status === 'realized';
+          const expInfo = isCredit ? getExpiryInfo(item.expiry, item.status) : null;
+
+          return `
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">${formatDateBR(item.date)}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
+                      ${isRealized ? 'Realizado' : 'Previsto'}
+                    </span>
+                  </div>
+                  <h4 class="font-bold text-sm text-slate-900 dark:text-white mt-1">${escapeHtml(item.title)}</h4>
+                  ${item.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.notes)}</p>` : ''}
+                </div>
+                <span class="font-mono text-sm font-extrabold tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                  ${formatHours(item.delta)}
+                </span>
+              </div>
+
+              <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-3">
+                  <span class="text-slate-500 dark:text-slate-400">Saldo: <strong class="font-mono text-slate-800 dark:text-slate-200">${formatHours(item.runningBalance)}</strong></span>
+                  ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-1">
+                  <button type="button" onclick="editEntry('${item.id}')" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                  </button>
+                  <button type="button" onclick="deleteEntry('${item.id}')" class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      updateSimulator(projectedBalance);
+      regenerateMessages();
+      if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
+        renderCharts();
+      }
+      lucide.createIcons();
+    }
+
+    // =========================================================================
+    // FILTROS RÁPIDOS & ABAS
+    // =========================================================================
+    function applyQuickFilter(filterName) {
+      quickFilter = filterName;
+      document.querySelectorAll('.quick-pill').forEach(btn => {
+        btn.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
+      });
+      const activePill = document.getElementById(`pill-${filterName}`);
+      if (activePill) {
+        activePill.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition';
+      }
+      renderAll();
+    }
+
+    function toggleSortOrder() {
+      sortAscending = !sortAscending;
+      document.getElementById('sortOrderLabel').textContent = sortAscending ? 'Mais antigos' : 'Mais recentes';
+      renderAll();
+    }
+
+    function switchMainTab(tabName) {
+      ['extrato', 'graficos', 'comunicacao'].forEach(t => {
+        document.getElementById(`tabPanel-${t}`).classList.toggle('hidden', t !== tabName);
+        const btn = document.getElementById(`tabBtn-${t}`);
+        if (t === tabName) {
+          btn.className = 'tab-btn px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex items-center gap-2 transition';
+        } else {
+          btn.className = 'tab-btn px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 whitespace-nowrap flex items-center gap-2 transition';
+        }
+      });
+      if (tabName === 'graficos') renderCharts();
+    }
+
+    // =========================================================================
+    // CRUD LANÇAMENTOS
+    // =========================================================================
+    function openEntryModal(prefill = null) {
+      document.getElementById('entryForm').reset();
+      document.getElementById('entryId').value = '';
+      document.getElementById('entryModalTitle').textContent = 'Novo Lançamento';
+
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('entryDate').value = prefill?.date || today;
+      document.getElementById('entryHours').value = prefill?.hours || settings.dailyHours;
+      document.getElementById('entryTitle').value = prefill?.title || '';
+      document.getElementById('entryStatus').value = prefill?.status || 'realized';
+
+      const typeVal = prefill?.type || 'credit';
+      document.querySelector(`input[name="entryType"][value="${typeVal}"]`).checked = true;
+      onEntryTypeChange();
+
+      if (typeVal === 'credit') {
+        const expDate = new Date();
+        expDate.setDate(expDate.getDate() + Number(settings.expiryDays || 180));
+        document.getElementById('entryExpiry').value = expDate.toISOString().split('T')[0];
+      }
+
+      document.getElementById('entryModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeEntryModal() {
+      document.getElementById('entryModal').classList.add('hidden');
+    }
+
+    function onEntryTypeChange() {
+      const type = document.querySelector('input[name="entryType"]:checked').value;
+      document.getElementById('expiryFieldWrapper').classList.toggle('hidden', type !== 'credit');
+    }
+
+    function setStandardDayHours() {
+      document.getElementById('entryHours').value = settings.dailyHours;
+    }
+
+    function editEntry(id) {
+      const item = entries.find(e => e.id === id);
+      if (!item) return;
+      document.getElementById('entryModalTitle').textContent = 'Editar Lançamento';
+      document.getElementById('entryId').value = item.id;
+      document.querySelector(`input[name="entryType"][value="${item.type}"]`).checked = true;
+      onEntryTypeChange();
+      document.getElementById('entryDate').value = item.date;
+      document.getElementById('entryHours').value = item.hours;
+      document.getElementById('entryTitle').value = item.title;
+      document.getElementById('entryStatus').value = item.status;
+      document.getElementById('entryExpiry').value = item.expiry || '';
+      document.getElementById('entryNotes').value = item.notes || '';
+      document.getElementById('entryModal').classList.remove('hidden');
+    }
+
+    async function deleteEntry(id) {
+      if (!confirm('Deseja realmente excluir este lançamento?')) return;
+      entries = entries.filter(e => e.id !== id);
+      renderAll();
+      await deleteEntryFromCloud(id);
+      showToast('Lançamento excluído');
+    }
+
+    document.getElementById('entryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('entryId').value || crypto.randomUUID();
+      const type = document.querySelector('input[name="entryType"]:checked').value;
+      const entryObj = {
+        id,
+        type,
+        date: document.getElementById('entryDate').value,
+        hours: parseFloat(document.getElementById('entryHours').value),
+        title: document.getElementById('entryTitle').value.trim(),
+        status: document.getElementById('entryStatus').value,
+        expiry: type === 'credit' ? document.getElementById('entryExpiry').value : '',
+        notes: document.getElementById('entryNotes').value.trim()
+      };
+
+      const idx = entries.findIndex(item => item.id === id);
+      if (idx >= 0) entries[idx] = entryObj;
+      else entries.push(entryObj);
+
+      closeEntryModal();
+      renderAll();
+      await upsertEntryToCloud(entryObj);
+      showToast('Lançamento salvo na nuvem!');
+    });
+
+    // =========================================================================
+    // PARÂMETROS & BACKUP
+    // =========================================================================
+    function openSettingsModal() {
+      document.getElementById('settingUserName').value = settings.userName || '';
+      document.getElementById('settingDailyHours').value = settings.dailyHours;
+      document.getElementById('settingExpiryDays').value = settings.expiryDays;
+      document.getElementById('settingManagerEmail').value = settings.managerEmail || '';
+      document.getElementById('settingManagerPhone').value = settings.managerPhone || '';
+      document.getElementById('settingsModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      settings.userName = document.getElementById('settingUserName').value.trim();
+      settings.dailyHours = parseFloat(document.getElementById('settingDailyHours').value) || 8;
+      settings.expiryDays = parseInt(document.getElementById('settingExpiryDays').value, 10) || 180;
+      settings.managerEmail = document.getElementById('settingManagerEmail').value.trim();
+      settings.managerPhone = document.getElementById('settingManagerPhone').value.replace(/\D/g, '');
+
+      updateHeaderUserInfo();
+      closeSettingsModal();
+      renderAll();
+      await saveSettingsToCloud();
+      showToast('Parâmetros atualizados!');
+    });
+
+    async function loadSampleData() {
+      if (!confirm('Isso adicionará os lançamentos de exemplo de 2026 à sua conta. Continuar?')) return;
+      const cloned = SAMPLE_ENTRIES_2026.map(item => ({ ...item, id: crypto.randomUUID() }));
+      entries = [...entries, ...cloned];
+      closeSettingsModal();
+      renderAll();
+      for (const item of cloned) {
+        await upsertEntryToCloud(item);
+      }
+      showToast('Exemplo 2026 carregado!');
+    }
+
+    function exportJSONBackup() {
+      const payload = { exportedAt: new Date().toISOString(), settings, entries };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `saldohoras-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup JSON baixado!');
+    }
+
+    async function importJSONBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!Array.isArray(parsed.entries)) throw new Error('Formato inválido');
+          if (!confirm(`Importar ${parsed.entries.length} lançamentos para sua conta na nuvem?`)) return;
+
+          if (parsed.settings) {
+            settings = { ...settings, ...parsed.settings };
+            await saveSettingsToCloud();
+          }
+
+          for (const raw of parsed.entries) {
+            const clean = { ...raw, id: raw.id || crypto.randomUUID() };
+            const idx = entries.findIndex(x => x.id === clean.id);
+            if (idx >= 0) entries[idx] = clean;
+            else entries.push(clean);
+            await upsertEntryToCloud(clean);
+          }
+
+          closeSettingsModal();
+          renderAll();
+          showToast('Backup importado com sucesso!');
+        } catch (err) {
+          alert('Arquivo JSON inválido.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // =========================================================================
+    // SIMULADOR & GRÁFICOS
+    // =========================================================================
+    function updateSimulator(cachedProjected = null) {
+      let projected = cachedProjected;
+      if (projected === null) {
+        projected = entries.reduce((acc, item) => acc + (item.type === 'credit' ? Number(item.hours) : -Number(item.hours)), 0);
+      }
+      const simDays = parseInt(document.getElementById('simDaysSlider').value, 10) || 1;
+      const simHours = simDays * (Number(settings.dailyHours) || 8);
+      const remaining = projected - simHours;
+
+      document.getElementById('simDaysValue').textContent = `${simDays} ${simDays === 1 ? 'dia' : 'dias'} (-${simHours}h)`;
+      document.getElementById('simRemainingResult').textContent = `${formatHours(remaining)} (${formatDays(remaining)})`;
+    }
+
+    function scheduleFromSimulator() {
+      const simDays = parseInt(document.getElementById('simDaysSlider').value, 10) || 1;
+      const simHours = simDays * (Number(settings.dailyHours) || 8);
+      openEntryModal({
+        type: 'debit',
+        hours: simHours,
+        title: `Folga Compensatória (${simDays} ${simDays === 1 ? 'dia' : 'dias'})`,
+        status: 'planned'
+      });
+    }
+
+    function renderCharts() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      const chrono = getChronologicalEntries();
+      const labels = chrono.map(i => formatDateBR(i.date).slice(0, 5));
+      const dataPoints = chrono.map(i => i.runningBalance);
+
+      if (balanceChartInstance) balanceChartInstance.destroy();
+      const ctx1 = document.getElementById('balanceChart').getContext('2d');
+      balanceChartInstance = new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Saldo Acumulado (h)',
+            data: dataPoints,
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79, 70, 229, 0.14)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointBackgroundColor: '#4f46e5'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+            y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 } } }
+          }
+        }
+      });
+
+      const totalCredits = entries.filter(e => e.type === 'credit').reduce((s, e) => s + Number(e.hours), 0);
+      const totalDebits = entries.filter(e => e.type === 'debit').reduce((s, e) => s + Number(e.hours), 0);
+
+      if (ratioChartInstance) ratioChartInstance.destroy();
+      const ctx2 = document.getElementById('ratioChart').getContext('2d');
+      ratioChartInstance = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: ['Créditos (h)', 'Folgas/Saídas (h)'],
+          datasets: [{
+            data: [totalCredits, totalDebits],
+            backgroundColor: ['#10b981', '#f43f5e'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } }
+          }
+        }
+      });
+    }
+
+    // =========================================================================
+    // COMUNICAÇÃO RH / WHATSAPP
+    // =========================================================================
+    function regenerateMessages() {
+      const chrono = getChronologicalEntries();
+      const realized = chrono.filter(i => i.status === 'realized').reduce((s, i) => s + i.delta, 0);
+      const projected = chrono.reduce((s, i) => s + i.delta, 0);
+      const plannedDebits = chrono.filter(i => i.status === 'planned' && i.type === 'debit');
+      const senderName = settings.userName || 'Colaborador';
+
+      const plannedLines = plannedDebits.length
+        ? plannedDebits.map(p => `• ${formatDateBR(p.date)}: ${p.title} (-${p.hours}h)`).join('\n')
+        : '• Nenhuma folga futura agendada no momento.';
+
+      document.getElementById('emailTemplate').value =
+`Assunto: Alinhamento de Banco de Horas e Folgas Compensatórias — ${senderName}
+
+Olá, tudo bem?
+
+Segue o resumo atualizado do meu banco de horas para alinhamento e registro:
+
+• Saldo Realizado (disponível hoje): ${formatHours(realized)} (${formatDays(realized)})
+• Saldo Projetado (considerando agendamentos): ${formatHours(projected)} (${formatDays(projected)})
+• Jornada de referência: ${settings.dailyHours}h/dia
+
+Compensações / Folgas previstas:
+${plannedLines}
+
+Fico à disposição para confirmarmos as datas sem impacto na operação.
+
+Atenciosamente,
+${senderName}`;
+
+      document.getElementById('whatsappTemplate').value =
+`Olá! Tudo certo? Passando para alinhar meu *Banco de Horas*:\n\n` +
+`✅ *Saldo disponível hoje:* ${formatHours(realized)} (${formatDays(realized)})\n` +
+`📅 *Saldo projetado:* ${formatHours(projected)} (${formatDays(projected)})\n\n` +
+`*Folgas previstas:*\n${plannedLines}\n\n` +
+`Podemos confirmar essas datas? — _${senderName}_`;
+    }
+
+    function copyText(elementId, toastText) {
+      const el = document.getElementById(elementId);
+      el.select();
+      navigator.clipboard.writeText(el.value);
+      showToast(toastText);
+    }
+
+    function openMailClient() {
+      const body = document.getElementById('emailTemplate').value;
+      const to = settings.managerEmail || '';
+      const subject = encodeURIComponent(`Alinhamento Banco de Horas — ${settings.userName || '2026'}`);
+      window.open(`mailto:${to}?subject=${subject}&body=${encodeURIComponent(body)}`, '_blank');
+    }
+
+    function openWhatsApp() {
+      const text = encodeURIComponent(document.getElementById('whatsappTemplate').value);
+      const phone = settings.managerPhone ? settings.managerPhone : '';
+      window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+    }
+
+    // =========================================================================
+    // EXPORTAÇÃO PDF & CSV
+    // =========================================================================
+    function toggleExportMenu() {
+      document.getElementById('exportDropdown').classList.toggle('hidden');
+    }
+    function closeExportMenu() {
+      document.getElementById('exportDropdown').classList.add('hidden');
+    }
+    document.addEventListener('click', (e) => {
+      if (!document.getElementById('exportMenuWrapper').contains(e.target)) closeExportMenu();
+    });
+
+    function exportCSV() {
+      const chrono = getChronologicalEntries();
+      const headers = ['Data', 'Evento', 'Tipo', 'Status', 'Horas', 'Saldo_Acumulado', 'Vencimento', 'Observacoes'];
+      const rows = chrono.map(i => [
+        formatDateBR(i.date),
+        `"${(i.title || '').replace(/"/g, '""')}"`,
+        i.type === 'credit' ? 'Credito' : 'Debito',
+        i.status === 'realized' ? 'Realizado' : 'Previsto',
+        i.delta,
+        i.runningBalance,
+        i.expiry ? formatDateBR(i.expiry) : '',
+        `"${(i.notes || '').replace(/"/g, '""')}"`
+      ]);
+      const csv = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `saldohoras-extrato-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Planilha CSV exportada!');
+    }
+
+    function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const chrono = getChronologicalEntries();
+      const realized = chrono.filter(i => i.status === 'realized').reduce((s, i) => s + i.delta, 0);
+      const projected = chrono.reduce((s, i) => s + i.delta, 0);
+      const ownerName = settings.userName || currentUser?.email || 'Colaborador';
+
+      // Cabeçalho Executivo
+      doc.setFillColor(30, 27, 75);
+      doc.rect(0, 0, 297, 28, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SaldoHoras — Extrato de Banco de Horas & Folgas', 14, 13);
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Colaborador: ${ownerName}  |  Jornada: ${settings.dailyHours}h/dia  |  Emitido em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 21);
+
+      // Resumo KPIs
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Saldo Realizado: ${formatHours(realized)} (${formatDays(realized)})    |    Saldo Projetado: ${formatHours(projected)} (${formatDays(projected)})`, 14, 37);
+
+      const tableRows = chrono.map(i => [
+        formatDateBR(i.date),
+        i.title,
+        i.status === 'realized' ? 'Realizado' : 'Previsto',
+        formatHours(i.delta),
+        formatHours(i.runningBalance),
+        i.expiry ? formatDateBR(i.expiry) : '—',
+        i.notes || ''
+      ]);
+
+      doc.autoTable({
+        startY: 42,
+        head: [['Data', 'Evento / Descrição', 'Status', 'Horas', 'Saldo Acum.', 'Vencimento', 'Observações']],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 24 },
+          2: { cellWidth: 22 },
+          3: { halign: 'right', cellWidth: 20 },
+          4: { halign: 'right', cellWidth: 24 },
+          5: { cellWidth: 24 }
+        }
+      });
+
+      doc.save(`SaldoHoras_${ownerName.replace(/\s+/g, '_')}_2026.pdf`);
+      showToast('Relatório PDF baixado!');
+    }
+
+    // =========================================================================
+    // UTILITÁRIOS
+    // =========================================================================
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('hidden');
+      toast.classList.add('flex');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('flex');
+      }, 2800);
+    }
+
+    // Start
+    initTheme();
+    lucide.createIcons();
+  </script>
+</body>
+</html>
