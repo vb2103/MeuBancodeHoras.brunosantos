@@ -1,12 +1,12 @@
 {
-  "name": "SaldoHoras — Banco de Horas & Folgas 2026",
+  "name": "SaldoHoras — Banco de Horas & Folgas",
   "short_name": "SaldoHoras",
-  "description": "Controle de banco de horas, feriados trabalhados e folgas compensatórias com sincronização via Supabase.",
+  "description": "Controle de banco de horas em HH:MM, feriados dinâmicos, regras por sindicato/ramo e folgas com sincronização Supabase.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0f172a",
+  "background_color": "#090d16",
   "theme_color": "#4f46e5",
   "lang": "pt-BR"
 }
