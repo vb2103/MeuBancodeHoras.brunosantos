@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#4f46e5" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="SaldoHoras" />
+  <link rel="manifest" href="manifest.json" />
   <title>SaldoHoras — Banco de Horas &amp; Folgas 2026</title>
 
   <!-- Tailwind CSS -->
@@ -74,7 +75,7 @@
         </div>
         <button id="authThemeToggle" type="button" title="Alternar tema" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
           <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
-          <i data-lucide="sun" class="w-4 h-4 hidden dark:inline"></i>
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
         </button>
       </div>
 
@@ -156,7 +157,7 @@
             <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">SaldoHoras</h1>
             <span id="syncBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              <span id="syncText">Sincronizado</span>
+              <span id="syncText">Nuvem Ativa</span>
             </span>
           </div>
           <p id="headerSubtitle" class="text-xs text-slate-500 dark:text-slate-400 truncate">Controle de Feriados &amp; Compensações • 2026</p>
@@ -273,7 +274,7 @@
         </div>
         <div class="flex items-baseline gap-2">
           <span id="kpiCreditsHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">+0h</span>
-          <span id="kpiCreditsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 lançamentos</span>
+          <span id="kpiCreditsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 registros</span>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Jornada padrão: <strong id="kpiJourneyLabel" class="text-slate-700 dark:text-slate-300">8h/dia</strong></p>
       </div>
@@ -381,7 +382,7 @@
           <i data-lucide="calendar-x" class="w-6 h-6"></i>
         </div>
         <h3 class="text-sm font-bold text-slate-900 dark:text-white">Nenhum lançamento encontrado</h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Ajuste os filtros acima ou clique em <strong>Novo Lançamento</strong> para registrar um feriado trabalhado ou folga.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">Ajuste os filtros acima, clique em <strong>Novo Lançamento</strong> (atalho <kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">N</kbd>) ou abra <strong>Parâmetros</strong> para carregar o exemplo de 2026.</p>
       </div>
     </section>
 
@@ -510,7 +511,7 @@
   </main>
 
   <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO ==================== -->
-  <div id="entryModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="entryModal" onclick="if(event.target === this) closeEntryModal()" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Novo Lançamento</h2>
@@ -584,7 +585,7 @@
           <button type="button" onclick="closeEntryModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
             Cancelar
           </button>
-          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+          <button type="submit" id="entrySubmitBtn" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
             Salvar Lançamento
           </button>
         </div>
@@ -593,7 +594,7 @@
   </div>
 
   <!-- ==================== MODAL: PARÂMETROS, CONTA & BACKUP ==================== -->
-  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+  <div id="settingsModal" onclick="if(event.target === this) closeSettingsModal()" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate my-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <h2 class="text-base font-bold text-slate-900 dark:text-white">Parâmetros &amp; Conta</h2>
@@ -652,7 +653,7 @@
               Importar JSON
               <input type="file" accept=".json" onchange="importJSONBackup(event)" class="hidden" />
             </label>
-            <button type="button" onclick="loadSampleData()" class="px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/70 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40 transition flex items-center gap-1.5">
+            <button type="button" onclick="loadSampleData()" id="loadSampleBtn" class="px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/70 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40 transition flex items-center gap-1.5">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
               Carregar Exemplo 2026
             </button>
@@ -663,7 +664,7 @@
           <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
             Cancelar
           </button>
-          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+          <button type="submit" id="settingsSubmitBtn" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
             Salvar Parâmetros
           </button>
         </div>
@@ -690,11 +691,12 @@
     // ESTADO DA APLICAÇÃO
     // =========================================================================
     let currentUser = null;
-    let authMode = 'login'; // 'login' | 'signup' | 'reset'
+    let authMode = 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
     let sortAscending = true;
     let quickFilter = 'all';
     let balanceChartInstance = null;
     let ratioChartInstance = null;
+    let isSubmitting = false;
 
     let settings = {
       userName: '',
@@ -707,19 +709,19 @@
     let entries = [];
 
     const SAMPLE_ENTRIES_2026 = [
-      { id: 'sample-1', date: '2026-01-01', title: 'Confraternização Universal (Plantão)', type: 'credit', hours: 8, status: 'realized', expiry: '2026-06-30', notes: 'Feriado nacional trabalhado' },
-      { id: 'sample-2', date: '2026-02-17', title: 'Carnaval (Escala Operacional)', type: 'credit', hours: 8, status: 'realized', expiry: '2026-08-16', notes: 'Plantão de infraestrutura' },
-      { id: 'sample-3', date: '2026-04-03', title: 'Sexta-Feira Santa', type: 'credit', hours: 8, status: 'realized', expiry: '2026-09-30', notes: 'Feriado nacional' },
-      { id: 'sample-4', date: '2026-04-21', title: 'Tiradentes', type: 'credit', hours: 8, status: 'realized', expiry: '2026-10-18', notes: 'Feriado nacional' },
-      { id: 'sample-5', date: '2026-05-01', title: 'Dia do Trabalho', type: 'credit', hours: 8, status: 'realized', expiry: '2026-10-28', notes: 'Feriado nacional' },
-      { id: 'sample-6', date: '2026-06-04', title: 'Corpus Christi', type: 'credit', hours: 8, status: 'realized', expiry: '2026-12-01', notes: 'Feriado municipal/ponto facultativo' },
-      { id: 'sample-7', date: '2026-07-09', title: 'Revolução Constitucionalista (SP)', type: 'credit', hours: 8, status: 'realized', expiry: '2027-01-05', notes: 'Feriado estadual SP' },
-      { id: 'sample-8', date: '2026-07-24', title: 'Folga Compensatória (Sexta)', type: 'debit', hours: 8, status: 'realized', expiry: '', notes: 'Compensação 1 dia' },
-      { id: 'sample-9', date: '2026-09-07', title: 'Independência do Brasil', type: 'credit', hours: 8, status: 'realized', expiry: '2027-03-06', notes: 'Feriado nacional' },
-      { id: 'sample-10', date: '2026-10-12', title: 'Nossa Senhora Aparecida', type: 'credit', hours: 8, status: 'realized', expiry: '2027-04-10', notes: 'Feriado nacional' },
-      { id: 'sample-11', date: '2026-11-02', title: 'Finados', type: 'credit', hours: 8, status: 'realized', expiry: '2027-05-01', notes: 'Feriado nacional' },
-      { id: 'sample-12', date: '2026-11-20', title: 'Consciência Negra', type: 'credit', hours: 8, status: 'realized', expiry: '2027-05-19', notes: 'Feriado nacional' },
-      { id: 'sample-13', date: '2026-12-28', title: 'Recesso / Emenda Ano Novo (Previsto)', type: 'debit', hours: 24, status: 'planned', expiry: '', notes: '3 dias de folga planejados' }
+      { id: '11111111-1111-4111-8111-111111111101', date: '2026-01-01', title: 'Confraternização Universal (Plantão)', type: 'credit', hours: 8, status: 'realized', expiry: '2026-06-30', notes: 'Feriado nacional trabalhado' },
+      { id: '11111111-1111-4111-8111-111111111102', date: '2026-02-17', title: 'Carnaval (Escala Operacional)', type: 'credit', hours: 8, status: 'realized', expiry: '2026-08-16', notes: 'Plantão de infraestrutura' },
+      { id: '11111111-1111-4111-8111-111111111103', date: '2026-04-03', title: 'Sexta-Feira Santa', type: 'credit', hours: 8, status: 'realized', expiry: '2026-09-30', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111104', date: '2026-04-21', title: 'Tiradentes', type: 'credit', hours: 8, status: 'realized', expiry: '2026-10-18', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111105', date: '2026-05-01', title: 'Dia do Trabalho', type: 'credit', hours: 8, status: 'realized', expiry: '2026-10-28', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111106', date: '2026-06-04', title: 'Corpus Christi', type: 'credit', hours: 8, status: 'realized', expiry: '2026-12-01', notes: 'Feriado municipal/ponto facultativo' },
+      { id: '11111111-1111-4111-8111-111111111107', date: '2026-07-09', title: 'Revolução Constitucionalista (SP)', type: 'credit', hours: 8, status: 'realized', expiry: '2027-01-05', notes: 'Feriado estadual SP' },
+      { id: '11111111-1111-4111-8111-111111111108', date: '2026-07-24', title: 'Folga Compensatória (Sexta)', type: 'debit', hours: 8, status: 'realized', expiry: '', notes: 'Compensação 1 dia' },
+      { id: '11111111-1111-4111-8111-111111111109', date: '2026-09-07', title: 'Independência do Brasil', type: 'credit', hours: 8, status: 'realized', expiry: '2027-03-06', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111110', date: '2026-10-12', title: 'Nossa Senhora Aparecida', type: 'credit', hours: 8, status: 'realized', expiry: '2027-04-10', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111111', date: '2026-11-02', title: 'Finados', type: 'credit', hours: 8, status: 'realized', expiry: '2027-05-01', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111112', date: '2026-11-20', title: 'Consciência Negra', type: 'credit', hours: 8, status: 'realized', expiry: '2027-05-19', notes: 'Feriado nacional' },
+      { id: '11111111-1111-4111-8111-111111111113', date: '2026-12-28', title: 'Recesso / Emenda Ano Novo (Previsto)', type: 'debit', hours: 24, status: 'planned', expiry: '', notes: '3 dias de folga planejados' }
     ];
 
     // =========================================================================
@@ -744,8 +746,21 @@
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
     document.getElementById('authThemeToggle').addEventListener('click', toggleTheme);
 
-    // Atalhos de teclado
+    // Atalhos de teclado globais (ESC fecha modais; N cria lançamento; / busca)
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!document.getElementById('entryModal').classList.contains('hidden')) {
+          closeEntryModal();
+          return;
+        }
+        if (!document.getElementById('settingsModal').classList.contains('hidden')) {
+          closeSettingsModal();
+          return;
+        }
+        closeExportMenu();
+        return;
+      }
+
       if (!currentUser) return;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
       if (e.key === 'n' || e.key === 'N') {
@@ -770,11 +785,18 @@
       const tabLogin = document.getElementById('tabAuthLogin');
       const tabSignup = document.getElementById('tabAuthSignup');
       const nameWrap = document.getElementById('authNameWrapper');
+      const emailInput = document.getElementById('authEmail');
+      const emailWrapper = emailInput.parentElement;
       const pwdWrap = document.getElementById('authPasswordWrapper');
       const pwdInput = document.getElementById('authPassword');
+      const forgotBtn = document.getElementById('forgotPwdBtn');
       const submitBtn = document.getElementById('authSubmitBtn');
       const backBtn = document.getElementById('backToLoginBtn');
       const authTabs = document.getElementById('authTabs');
+
+      emailWrapper.classList.remove('hidden');
+      emailInput.required = true;
+      forgotBtn.classList.remove('hidden');
 
       if (mode === 'login') {
         authTabs.classList.remove('hidden');
@@ -801,6 +823,18 @@
         pwdInput.required = false;
         backBtn.classList.remove('hidden');
         submitBtn.innerHTML = '<span>Enviar Link de Recuperação</span><i data-lucide="mail" class="w-4 h-4"></i>';
+      } else if (mode === 'update_password') {
+        authTabs.classList.add('hidden');
+        nameWrap.classList.add('hidden');
+        emailWrapper.classList.add('hidden');
+        emailInput.required = false;
+        forgotBtn.classList.add('hidden');
+        pwdWrap.classList.remove('hidden');
+        pwdInput.required = true;
+        pwdInput.value = '';
+        pwdInput.placeholder = 'Digite sua nova senha (mín. 6 caracteres)';
+        backBtn.classList.add('hidden');
+        submitBtn.innerHTML = '<span>Salvar Nova Senha</span><i data-lucide="key-round" class="w-4 h-4"></i>';
       }
       lucide.createIcons();
     }
@@ -820,6 +854,9 @@
 
     document.getElementById('authForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (isSubmitting) return;
+      isSubmitting = true;
+
       const email = document.getElementById('authEmail').value.trim();
       const password = document.getElementById('authPassword').value;
       const fullName = document.getElementById('authName').value.trim();
@@ -832,7 +869,7 @@
 
       try {
         if (authMode === 'login') {
-          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
           if (error) {
             if (error.message.toLowerCase().includes('email not confirmed')) {
               showAuthAlert('<strong>E-mail ainda não confirmado.</strong> Verifique sua caixa de entrada (ou spam) e clique no link enviado antes de entrar.', 'warning');
@@ -849,7 +886,7 @@
             return;
           }
           const redirectTo = window.location.origin + window.location.pathname;
-          const { data, error } = await supabaseClient.auth.signUp({
+          const { error } = await supabaseClient.auth.signUp({
             email,
             password,
             options: {
@@ -860,13 +897,9 @@
           if (error) {
             showAuthAlert(error.message, 'error');
           } else {
-            showAuthAlert(
-              `<strong>Conta criada com sucesso!</strong> Enviamos um link de confirmação para <strong>${escapeHtml(email)}</strong>. Confirme seu e-mail para liberar o acesso.`,
-              'success'
-            );
             switchAuthMode('login');
             showAuthAlert(
-              `<strong>Quase lá!</strong> Confirme o link enviado para <strong>${escapeHtml(email)}</strong> (confira também a caixa de spam) e depois faça login abaixo.`,
+              `<strong>Conta criada com sucesso!</strong> Enviamos um link de confirmação para <strong>${escapeHtml(email)}</strong> (verifique também a caixa de spam) e depois faça login abaixo.`,
               'success'
             );
           }
@@ -878,8 +911,19 @@
           } else {
             showAuthAlert(`Enviamos um link de redefinição de senha para <strong>${escapeHtml(email)}</strong>.`, 'success');
           }
+        } else if (authMode === 'update_password') {
+          const { error } = await supabaseClient.auth.updateUser({ password });
+          if (error) {
+            showAuthAlert('Erro ao atualizar senha: ' + error.message, 'error');
+          } else {
+            showToast('Senha atualizada com sucesso!');
+            switchAuthMode('login');
+            document.getElementById('authScreen').classList.add('hidden');
+            if (currentUser) await loadUserData();
+          }
         }
       } finally {
+        isSubmitting = false;
         btn.disabled = false;
         btn.innerHTML = originalHtml;
         lucide.createIcons();
@@ -907,12 +951,13 @@
       await supabaseClient.auth.signOut();
       currentUser = null;
       entries = [];
+      switchAuthMode('login');
       document.getElementById('authScreen').classList.remove('hidden');
       showToast('Sessão encerrada');
     }
 
     // =========================================================================
-    // SINCRONIZAÇÃO DE DADOS COM SUPABASE (POSTGRESQL + RLS)
+    // SINCRONIZAÇÃO DE DADOS COM SUPABASE (bh_params & bh_entries)
     // =========================================================================
     function setSyncStatus(state) {
       const badge = document.getElementById('syncBadge');
@@ -934,22 +979,24 @@
       setSyncStatus('saving');
 
       try {
-        // 1. Carregar parâmetros do usuário
-        const { data: settingsData, error: settingsErr } = await supabaseClient
-          .from('bh_settings')
+        const metaName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+
+        // 1. Carregar parâmetros do usuário (tabela bh_params)
+        const { data: paramsData, error: paramsErr } = await supabaseClient
+          .from('bh_params')
           .select('*')
           .eq('user_id', currentUser.id)
           .maybeSingle();
 
-        const metaName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+        if (paramsErr) throw paramsErr;
 
-        if (settingsData) {
+        if (paramsData) {
           settings = {
-            userName: settingsData.user_name || metaName,
-            dailyHours: Number(settingsData.daily_hours) || 8,
-            expiryDays: Number(settingsData.expiry_days) || 180,
-            managerEmail: settingsData.manager_email || '',
-            managerPhone: settingsData.manager_phone || ''
+            userName: paramsData.user_name || metaName,
+            dailyHours: Number(paramsData.daily_hours) || 8,
+            expiryDays: Number(paramsData.expiry_days) || 180,
+            managerEmail: paramsData.manager_email || '',
+            managerPhone: paramsData.manager_phone || ''
           };
         } else {
           settings = {
@@ -962,7 +1009,7 @@
           await saveSettingsToCloud();
         }
 
-        // 2. Carregar lançamentos do usuário
+        // 2. Carregar lançamentos do usuário (tabela bh_entries)
         const { data: entriesData, error: entriesErr } = await supabaseClient
           .from('bh_entries')
           .select('*')
@@ -988,7 +1035,7 @@
       } catch (err) {
         console.error('Erro ao carregar dados do Supabase:', err);
         setSyncStatus('error');
-        showToast('Erro ao carregar dados da nuvem');
+        showToast('Erro ao sincronizar com o Supabase');
       } finally {
         document.getElementById('loadingOverlay').classList.add('hidden');
       }
@@ -997,16 +1044,20 @@
     async function saveSettingsToCloud() {
       if (!currentUser) return;
       setSyncStatus('saving');
-      const { error } = await supabaseClient.from('bh_settings').upsert({
+      const { error } = await supabaseClient.from('bh_params').upsert({
         user_id: currentUser.id,
         user_name: settings.userName,
         daily_hours: settings.dailyHours,
         expiry_days: settings.expiryDays,
         manager_email: settings.managerEmail,
-        manager_phone: settings.managerPhone,
-        updated_at: new Date().toISOString()
+        manager_phone: settings.managerPhone
       });
-      setSyncStatus(error ? 'error' : 'ok');
+      if (error) {
+        console.error('Erro ao salvar bh_params:', error);
+        setSyncStatus('error');
+        throw error;
+      }
+      setSyncStatus('ok');
     }
 
     async function upsertEntryToCloud(entry) {
@@ -1023,7 +1074,12 @@
         expiry: entry.expiry || null,
         notes: entry.notes || ''
       });
-      setSyncStatus(error ? 'error' : 'ok');
+      if (error) {
+        console.error('Erro ao salvar bh_entries:', error);
+        setSyncStatus('error');
+        throw error;
+      }
+      setSyncStatus('ok');
     }
 
     async function deleteEntryFromCloud(id) {
@@ -1034,7 +1090,12 @@
         .delete()
         .eq('user_id', currentUser.id)
         .eq('id', id);
-      setSyncStatus(error ? 'error' : 'ok');
+      if (error) {
+        console.error('Erro ao excluir em bh_entries:', error);
+        setSyncStatus('error');
+        throw error;
+      }
+      setSyncStatus('ok');
     }
 
     function updateHeaderUserInfo() {
@@ -1043,8 +1104,17 @@
       document.getElementById('settingsUserEmail').textContent = currentUser?.email || '—';
     }
 
-    // Monitorar sessão de autenticação
+    // Monitorar sessão de autenticação (incluindo link de recuperação de senha)
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        currentUser = session.user;
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        document.getElementById('authScreen').classList.remove('hidden');
+        switchAuthMode('update_password');
+        showAuthAlert('Defina sua nova senha abaixo para acessar o <strong>SaldoHoras</strong>.', 'warning');
+        return;
+      }
+
       if (session && session.user) {
         currentUser = session.user;
         document.getElementById('authScreen').classList.add('hidden');
@@ -1086,7 +1156,7 @@
       return `${d}/${m}/${y}`;
     }
 
-    function getExpiryInfo(expiryIso, status) {
+    function getExpiryInfo(expiryIso) {
       if (!expiryIso) return { label: 'Sem vencimento', badgeClass: 'text-slate-400', isExpiringSoon: false };
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1117,7 +1187,6 @@
     function renderAll() {
       const chrono = getChronologicalEntries();
 
-      // KPIs
       let realizedBalance = 0;
       let projectedBalance = 0;
       let creditsHours = 0;
@@ -1132,7 +1201,7 @@
         if (item.type === 'credit') {
           creditsHours += Number(item.hours);
           creditsCount++;
-          const exp = getExpiryInfo(item.expiry, item.status);
+          const exp = getExpiryInfo(item.expiry);
           if (exp.isExpiringSoon) expiringItems.push(item);
         } else {
           debitsHours += Number(item.hours);
@@ -1150,7 +1219,6 @@
       document.getElementById('kpiDebitsCount').textContent = `${debitsCount} ${debitsCount === 1 ? 'folga' : 'folgas'}`;
       document.getElementById('kpiJourneyLabel').textContent = `${settings.dailyHours}h/dia`;
 
-      // Banner de alerta de vencimento
       const alertBanner = document.getElementById('expiryAlertBanner');
       if (expiringItems.length > 0 && projectedBalance > 0) {
         alertBanner.classList.remove('hidden');
@@ -1160,7 +1228,6 @@
         alertBanner.classList.add('hidden');
       }
 
-      // Filtros
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       const typeF = document.getElementById('typeFilter').value;
       const statusF = document.getElementById('statusFilter').value;
@@ -1171,7 +1238,7 @@
         if (quickFilter === 'planned' && item.status !== 'planned') return false;
         if (quickFilter === 'holidays' && item.type !== 'credit') return false;
         if (quickFilter === 'expiring') {
-          const exp = getExpiryInfo(item.expiry, item.status);
+          const exp = getExpiryInfo(item.expiry);
           if (item.type !== 'credit' || !exp.isExpiringSoon) return false;
         }
         if (query) {
@@ -1194,11 +1261,10 @@
       } else {
         emptyState.classList.add('hidden');
 
-        // Renderizar Tabela Desktop
         tbody.innerHTML = filtered.map(item => {
           const isCredit = item.type === 'credit';
           const isRealized = item.status === 'realized';
-          const expInfo = isCredit ? getExpiryInfo(item.expiry, item.status) : { label: '—', badgeClass: 'text-slate-400' };
+          const expInfo = isCredit ? getExpiryInfo(item.expiry) : { label: '—', badgeClass: 'text-slate-400' };
 
           return `
             <tr class="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition group">
@@ -1238,11 +1304,10 @@
           `;
         }).join('');
 
-        // Renderizar Cards Mobile
         mobileContainer.innerHTML = filtered.map(item => {
           const isCredit = item.type === 'credit';
           const isRealized = item.status === 'realized';
-          const expInfo = isCredit ? getExpiryInfo(item.expiry, item.status) : null;
+          const expInfo = isCredit ? getExpiryInfo(item.expiry) : null;
 
           return `
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
@@ -1378,6 +1443,7 @@
       document.getElementById('entryExpiry').value = item.expiry || '';
       document.getElementById('entryNotes').value = item.notes || '';
       document.getElementById('entryModal').classList.remove('hidden');
+      lucide.createIcons();
     }
 
     async function deleteEntry(id) {
@@ -1390,27 +1456,43 @@
 
     document.getElementById('entryForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const id = document.getElementById('entryId').value || crypto.randomUUID();
-      const type = document.querySelector('input[name="entryType"]:checked').value;
-      const entryObj = {
-        id,
-        type,
-        date: document.getElementById('entryDate').value,
-        hours: parseFloat(document.getElementById('entryHours').value),
-        title: document.getElementById('entryTitle').value.trim(),
-        status: document.getElementById('entryStatus').value,
-        expiry: type === 'credit' ? document.getElementById('entryExpiry').value : '',
-        notes: document.getElementById('entryNotes').value.trim()
-      };
+      if (isSubmitting) return;
+      isSubmitting = true;
 
-      const idx = entries.findIndex(item => item.id === id);
-      if (idx >= 0) entries[idx] = entryObj;
-      else entries.push(entryObj);
+      const btn = document.getElementById('entrySubmitBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
 
-      closeEntryModal();
-      renderAll();
-      await upsertEntryToCloud(entryObj);
-      showToast('Lançamento salvo na nuvem!');
+      try {
+        const id = document.getElementById('entryId').value || crypto.randomUUID();
+        const type = document.querySelector('input[name="entryType"]:checked').value;
+        const entryObj = {
+          id,
+          type,
+          date: document.getElementById('entryDate').value,
+          hours: parseFloat(document.getElementById('entryHours').value),
+          title: document.getElementById('entryTitle').value.trim(),
+          status: document.getElementById('entryStatus').value,
+          expiry: type === 'credit' ? document.getElementById('entryExpiry').value : '',
+          notes: document.getElementById('entryNotes').value.trim()
+        };
+
+        const idx = entries.findIndex(item => item.id === id);
+        if (idx >= 0) entries[idx] = entryObj;
+        else entries.push(entryObj);
+
+        closeEntryModal();
+        renderAll();
+        await upsertEntryToCloud(entryObj);
+        showToast('Lançamento salvo na nuvem!');
+      } catch (err) {
+        showToast('Falha ao salvar na nuvem');
+      } finally {
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     });
 
     // =========================================================================
@@ -1432,29 +1514,55 @@
 
     document.getElementById('settingsForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      settings.userName = document.getElementById('settingUserName').value.trim();
-      settings.dailyHours = parseFloat(document.getElementById('settingDailyHours').value) || 8;
-      settings.expiryDays = parseInt(document.getElementById('settingExpiryDays').value, 10) || 180;
-      settings.managerEmail = document.getElementById('settingManagerEmail').value.trim();
-      settings.managerPhone = document.getElementById('settingManagerPhone').value.replace(/\D/g, '');
+      if (isSubmitting) return;
+      isSubmitting = true;
 
-      updateHeaderUserInfo();
-      closeSettingsModal();
-      renderAll();
-      await saveSettingsToCloud();
-      showToast('Parâmetros atualizados!');
+      const btn = document.getElementById('settingsSubmitBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+
+      try {
+        settings.userName = document.getElementById('settingUserName').value.trim();
+        settings.dailyHours = parseFloat(document.getElementById('settingDailyHours').value) || 8;
+        settings.expiryDays = parseInt(document.getElementById('settingExpiryDays').value, 10) || 180;
+        settings.managerEmail = document.getElementById('settingManagerEmail').value.trim();
+        settings.managerPhone = document.getElementById('settingManagerPhone').value.replace(/\D/g, '');
+
+        updateHeaderUserInfo();
+        closeSettingsModal();
+        renderAll();
+        await saveSettingsToCloud();
+        showToast('Parâmetros atualizados!');
+      } catch (err) {
+        showToast('Erro ao salvar parâmetros');
+      } finally {
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     });
 
     async function loadSampleData() {
+      if (isSubmitting) return;
       if (!confirm('Isso adicionará os lançamentos de exemplo de 2026 à sua conta. Continuar?')) return;
-      const cloned = SAMPLE_ENTRIES_2026.map(item => ({ ...item, id: crypto.randomUUID() }));
-      entries = [...entries, ...cloned];
-      closeSettingsModal();
-      renderAll();
-      for (const item of cloned) {
-        await upsertEntryToCloud(item);
+      isSubmitting = true;
+      const btn = document.getElementById('loadSampleBtn');
+      btn.disabled = true;
+
+      try {
+        const cloned = SAMPLE_ENTRIES_2026.map(item => ({ ...item, id: crypto.randomUUID() }));
+        entries = [...entries, ...cloned];
+        closeSettingsModal();
+        renderAll();
+        await Promise.all(cloned.map(item => upsertEntryToCloud(item)));
+        showToast('Exemplo 2026 carregado!');
+      } catch (err) {
+        showToast('Erro ao carregar exemplo na nuvem');
+      } finally {
+        isSubmitting = false;
+        btn.disabled = false;
       }
-      showToast('Exemplo 2026 carregado!');
     }
 
     function exportJSONBackup() {
@@ -1484,19 +1592,21 @@
             await saveSettingsToCloud();
           }
 
-          for (const raw of parsed.entries) {
-            const clean = { ...raw, id: raw.id || crypto.randomUUID() };
+          const toSave = parsed.entries.map(raw => ({ ...raw, id: raw.id || crypto.randomUUID() }));
+          toSave.forEach(clean => {
             const idx = entries.findIndex(x => x.id === clean.id);
             if (idx >= 0) entries[idx] = clean;
             else entries.push(clean);
-            await upsertEntryToCloud(clean);
-          }
+          });
 
           closeSettingsModal();
           renderAll();
+          await Promise.all(toSave.map(clean => upsertEntryToCloud(clean)));
           showToast('Backup importado com sucesso!');
         } catch (err) {
           alert('Arquivo JSON inválido.');
+        } finally {
+          event.target.value = '';
         }
       };
       reader.readAsText(file);
@@ -1698,7 +1808,6 @@ ${senderName}`;
       const projected = chrono.reduce((s, i) => s + i.delta, 0);
       const ownerName = settings.userName || currentUser?.email || 'Colaborador';
 
-      // Cabeçalho Executivo
       doc.setFillColor(30, 27, 75);
       doc.rect(0, 0, 297, 28, 'F');
       doc.setTextColor(255, 255, 255);
@@ -1709,7 +1818,6 @@ ${senderName}`;
       doc.setFont('helvetica', 'normal');
       doc.text(`Colaborador: ${ownerName}  |  Jornada: ${settings.dailyHours}h/dia  |  Emitido em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 21);
 
-      // Resumo KPIs
       doc.setTextColor(30, 41, 59);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
