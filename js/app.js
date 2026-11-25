@@ -13,12 +13,16 @@ import {
 import {
   buildCalendarEventsFromEntries,
   buildCommunicationTemplates,
+  computeIntegrityDigest,
   copyElementText,
   downloadIcsEvents,
   exportCSV,
+  exportExcelXML,
   exportJSONBackup,
-  exportPDF
+  exportPDF,
+  exportStructuredXML
 } from './export.js';
+import { createExportModalManager } from './export-modal.js';
 import { createModalManager } from './modals.js';
 import { createProfileManager } from './profile.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
@@ -754,45 +758,102 @@ function closeExportMenu() {
 
 document.getElementById('exportMenuBtn').addEventListener('click', (e) => {
   e.stopPropagation();
-  document.getElementById('exportDropdown').classList.toggle('hidden');
+  const dd = document.getElementById('exportDropdown');
+  dd.classList.toggle('hidden');
+  if (!dd.classList.contains('hidden')) updateQuickExportCountHint();
 });
 document.addEventListener('click', (e) => {
   if (!document.getElementById('exportMenuWrapper').contains(e.target)) closeExportMenu();
 });
 
 function getExportDataset() {
-  const { chrono, filtered, hasActiveFilters } = getFilteredEntriesState();
+  const { chrono, remainingMap, filtered, hasActiveFilters } = getFilteredEntriesState();
   const filteredOnly = Boolean(document.getElementById('exportFilteredOnly')?.checked) && hasActiveFilters;
   const rows = filteredOnly ? filtered : chrono;
   const scopeLabel = filteredOnly
     ? `Escopo: Filtro aplicado (${rows.length} de ${chrono.length} registros)`
     : `Escopo: Extrato completo (${chrono.length} registros)`;
-  return { rows, scopeLabel };
+  return { chrono, remainingMap, rows, scopeLabel, filteredOnly };
 }
 
-document.getElementById('exportPdfBtn').addEventListener('click', () => {
+function updateQuickExportCountHint() {
+  const hint = document.getElementById('exportQuickCountHint');
+  if (!hint) return;
+  const { chrono, rows, filteredOnly } = getExportDataset();
+  hint.textContent = filteredOnly
+    ? `${rows.length} de ${chrono.length} registros (filtrados)`
+    : `${chrono.length} ${chrono.length === 1 ? 'registro' : 'registros'} no recorte`;
+}
+
+document.getElementById('exportFilteredOnly')?.addEventListener('change', updateQuickExportCountHint);
+
+document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+  const { chrono, remainingMap, rows, scopeLabel } = getExportDataset();
+  const integrityCode = await computeIntegrityDigest(rows, settings, scopeLabel);
+  const opts = { userEmail: currentUser?.email, scopeLabel, globalChrono: chrono, remainingMap, integrityCode };
   try {
-    const { rows, scopeLabel } = getExportDataset();
-    exportPDF(rows, settings, currentUser?.email, scopeLabel);
-    showToast('Relatório PDF baixado!');
+    exportPDF(rows, settings, opts);
+    showToast('Relatório PDF oficial baixado!');
   } catch (err) {
-    showToast(err.message || 'Erro ao gerar PDF');
+    if (err?.code === 'JSPDF_UNAVAILABLE') {
+      exportModal.triggerNativePrint(rows, opts);
+    } else {
+      showToast(err.message || 'Erro ao gerar PDF');
+    }
+  } finally {
+    closeExportMenu();
+  }
+});
+
+document.getElementById('exportXmlBtn')?.addEventListener('click', async () => {
+  try {
+    const { chrono, remainingMap, rows, scopeLabel } = getExportDataset();
+    const integrityCode = await computeIntegrityDigest(rows, settings, scopeLabel);
+    exportStructuredXML(rows, remainingMap, settings, {
+      userEmail: currentUser?.email,
+      scopeLabel,
+      globalChrono: chrono,
+      integrityCode
+    });
+    showToast('Arquivo XML (.xml) exportado!');
+  } catch (err) {
+    showToast(err.message || 'Erro ao gerar XML');
+  } finally {
+    closeExportMenu();
+  }
+});
+
+document.getElementById('exportExcelXmlBtn')?.addEventListener('click', async () => {
+  try {
+    const { chrono, remainingMap, rows, scopeLabel } = getExportDataset();
+    exportExcelXML(rows, remainingMap, settings, {
+      userEmail: currentUser?.email,
+      scopeLabel,
+      globalChrono: chrono
+    });
+    showToast('Planilha Excel (.xls) exportada!');
+  } catch (err) {
+    showToast(err.message || 'Erro ao gerar planilha Excel');
   } finally {
     closeExportMenu();
   }
 });
 
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
-  const { rows } = getExportDataset();
-  exportCSV(rows);
-  closeExportMenu();
-  showToast('Planilha CSV exportada!');
+  try {
+    const { rows } = getExportDataset();
+    exportCSV(rows, { includeSummary: true });
+    showToast('Planilha CSV exportada!');
+  } catch (err) {
+    showToast(err.message || 'Erro ao exportar CSV');
+  } finally {
+    closeExportMenu();
+  }
 });
 
 document.getElementById('exportIcsBtn')?.addEventListener('click', () => {
   try {
-    const { remainingMap } = computeChronologicalAndFIFO(entries);
-    const { rows } = getExportDataset();
+    const { remainingMap, rows } = getExportDataset();
     const events = buildCalendarEventsFromEntries(rows, remainingMap, settings);
     downloadIcsEvents(events);
     showToast(`${events.length} lembretes exportados para agenda (.ics)!`);
@@ -803,17 +864,52 @@ document.getElementById('exportIcsBtn')?.addEventListener('click', () => {
   }
 });
 
-document.getElementById('exportJsonBtn').addEventListener('click', () => {
-  exportJSONBackup(settings, entries);
+document.getElementById('exportJsonBtn').addEventListener('click', async () => {
+  const { chrono } = computeChronologicalAndFIFO(entries);
+  const code = await computeIntegrityDigest(chrono, settings, 'Backup JSON Completo');
+  exportJSONBackup(settings, entries, code);
   showToast('Backup JSON baixado!');
 });
-document.getElementById('exportJsonMenuBtn').addEventListener('click', () => {
-  exportJSONBackup(settings, entries);
+document.getElementById('exportJsonMenuBtn').addEventListener('click', async () => {
+  const { chrono } = computeChronologicalAndFIFO(entries);
+  const code = await computeIntegrityDigest(chrono, settings, 'Backup JSON Completo');
+  exportJSONBackup(settings, entries, code);
   closeExportMenu();
   showToast('Backup JSON baixado!');
 });
 
-document.getElementById('importJsonInput').addEventListener('change', (event) => {
+document.getElementById('openExportModalBtn')?.addEventListener('click', () => {
+  closeExportMenu();
+  exportModal.openExportModal();
+});
+
+document.getElementById('commDownloadRealizedPdfBtn')?.addEventListener('click', async () => {
+  const { chrono, remainingMap } = computeChronologicalAndFIFO(entries);
+  const realizedRows = chrono.filter((e) => e.status === 'realized');
+  const scopeLabel = `Somente Realizados p/ RH (${realizedRows.length} de ${chrono.length} registros)`;
+  const integrityCode = await computeIntegrityDigest(realizedRows, settings, scopeLabel);
+  const opts = { userEmail: currentUser?.email, scopeLabel, globalChrono: chrono, remainingMap, integrityCode };
+  try {
+    exportPDF(realizedRows, settings, opts);
+    showToast('PDF de realizados baixado para o RH!');
+  } catch (err) {
+    if (err?.code === 'JSPDF_UNAVAILABLE') exportModal.triggerNativePrint(realizedRows, opts);
+    else showToast(err.message || 'Sem registros realizados para gerar PDF');
+  }
+});
+
+document.getElementById('commDownloadIcsBtn')?.addEventListener('click', () => {
+  try {
+    const { chrono, remainingMap } = computeChronologicalAndFIFO(entries);
+    const events = buildCalendarEventsFromEntries(chrono, remainingMap, settings);
+    downloadIcsEvents(events);
+    showToast(`${events.length} lembretes exportados para agenda (.ics)!`);
+  } catch (err) {
+    showToast(err.message || 'Nenhuma folga prevista ou prazo em aberto para agenda.');
+  }
+});
+
+function handleJsonImportChange(event) {
   const file = event.target.files?.[0];
   if (!file || !currentUser) return;
 
@@ -873,6 +969,7 @@ document.getElementById('importJsonInput').addEventListener('change', (event) =>
         await upsertEntriesBatchToCloud(currentUser.id, validEntries, setSyncStatus);
         updateHeaderUserInfo();
         modals.closeSettingsModal();
+        exportModal.closeExportModal();
         renderAll();
         showToast(`Backup importado (${validEntries.length} registros)!`);
       } catch {
@@ -889,7 +986,21 @@ document.getElementById('importJsonInput').addEventListener('change', (event) =>
     }
   };
   reader.readAsText(file);
+}
+
+const exportModal = createExportModalManager({
+  getExportContext: getFilteredEntriesState,
+  getSettings: () => settings,
+  getEntries: () => entries,
+  getUserEmail: () => currentUser?.email || '',
+  onImportJsonEvent: handleJsonImportChange,
+  showToast,
+  registerExternalModal: modals.registerExternalModal,
+  captureLastFocus: modals.captureLastFocus,
+  restoreLastFocus: modals.restoreLastFocus
 });
+
+document.getElementById('importJsonInput').addEventListener('change', handleJsonImportChange);
 
 // Atalhos de teclado globais
 document.addEventListener('keydown', (e) => {

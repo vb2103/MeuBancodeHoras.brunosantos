@@ -127,10 +127,34 @@ export function sanitizeCsvCell(str) {
 }
 
 /**
- * Remove emojis/caracteres fora do suporte WinAnsi da fonte padrão Helvetica do jsPDF.
+ * Escapa texto com segurança para documentos XML / SpreadsheetML.
+ */
+export function escapeXml(str) {
+  return String(str ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Normaliza símbolos comuns e remove caracteres fora do suporte WinAnsi (Helvetica do jsPDF).
  */
 export function sanitizePdfText(str) {
   return String(str ?? '')
+    .replace(/[→➔➜]/g, '->')
+    .replace(/←/g, '<-')
+    .replace(/≈/g, '~')
+    .replace(/[•·]/g, '-')
+    .replace(/[–—]/g, '-')
+    .replace(/≥/g, '>=')
+    .replace(/≤/g, '<=')
+    .replace(/[✓✔]/g, 'OK')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/…/g, '...')
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
     .replace(/[\u2600-\u27BF]/g, '')
     .replace(/\s+/g, ' ')

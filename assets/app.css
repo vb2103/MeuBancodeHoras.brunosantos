@@ -55,3 +55,23 @@ body {
     animation: none;
   }
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  body > *:not(#printReportSheet) {
+    display: none !important;
+  }
+
+  #printReportSheet {
+    display: block !important;
+  }
+}

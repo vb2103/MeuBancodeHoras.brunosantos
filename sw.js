@@ -1,4 +1,4 @@
-const CACHE_NAME = 'saldohoras-shell-v6';
+const CACHE_NAME = 'saldohoras-shell-v7';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -16,6 +16,7 @@ const APP_SHELL_ASSETS = [
   './js/auth.js',
   './js/charts.js',
   './js/export.js',
+  './js/export-modal.js',
   './js/modals.js',
   './js/profile.js',
   './js/app.js'

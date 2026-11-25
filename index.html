@@ -177,14 +177,25 @@
             <span class="hidden md:inline">Exportar</span>
             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
           </button>
-          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
-            <label class="px-3.5 py-2 flex items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60">
-              <input type="checkbox" id="exportFilteredOnly" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-              <span>Exportar apenas filtros ativos</span>
-            </label>
+          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
+            <div class="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 space-y-1">
+              <label class="flex items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer">
+                <input type="checkbox" id="exportFilteredOnly" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Exportar apenas filtros ativos</span>
+              </label>
+              <span id="exportQuickCountHint" class="block text-[10px] font-mono text-slate-400 tabular-nums">0 registros no recorte</span>
+            </div>
             <button type="button" id="exportPdfBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
               <i data-lucide="file-text" class="w-4 h-4 text-rose-500"></i>
               Baixar Relatório PDF
+            </button>
+            <button type="button" id="exportXmlBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
+              <i data-lucide="code-2" class="w-4 h-4 text-amber-500"></i>
+              Exportar XML (RH / ERP)
+            </button>
+            <button type="button" id="exportExcelXmlBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+              Planilha Excel (.xls XML)
             </button>
             <button type="button" id="exportCsvBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
               <i data-lucide="table" class="w-4 h-4 text-emerald-500"></i>
@@ -198,6 +209,10 @@
             <button type="button" id="exportJsonMenuBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
               <i data-lucide="database-backup" class="w-4 h-4 text-indigo-500"></i>
               Fazer Backup (JSON)
+            </button>
+            <button type="button" id="openExportModalBtn" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 flex items-center gap-2.5">
+              <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+              Personalizar / Central...
             </button>
           </div>
         </div>
@@ -647,14 +662,22 @@
             <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2.5 pt-2">
-            <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 pt-2">
+            <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
               <i data-lucide="copy" class="w-4 h-4"></i>
               Copiar Texto
             </button>
-            <button type="button" id="openMailClientBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
+            <button type="button" id="commDownloadRealizedPdfBtn" title="Baixar PDF com lançamentos realizados para anexar ao RH" class="py-2.5 px-3 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50/70 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+              <span>PDF RH</span>
+            </button>
+            <button type="button" id="commDownloadIcsBtn" title="Baixar agenda .ICS das folgas previstas" class="py-2.5 px-3 rounded-xl border border-sky-200 dark:border-sky-800/70 bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+              <span>.ICS</span>
+            </button>
+            <button type="button" id="openMailClientBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5">
               <i data-lucide="external-link" class="w-4 h-4"></i>
-              Abrir no E-mail
+              Abrir E-mail
             </button>
           </div>
         </div>
@@ -1281,6 +1304,177 @@
       </div>
     </div>
   </div>
+
+  <!-- ==================== MODAL: CENTRAL DE EXPORTAÇÃO & RELATÓRIOS ==================== -->
+  <div id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-6 modal-animate my-auto space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <i data-lucide="download" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 id="exportModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Central de Exportação &amp; Relatórios</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Escolha o recorte, visualize a prévia e baixe no formato ideal</p>
+          </div>
+        </div>
+        <button type="button" id="closeExportModalBtn" aria-label="Fechar central de exportação" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Escopo de Dados -->
+      <div class="space-y-2">
+        <span class="block text-xs font-bold text-slate-700 dark:text-slate-300">1. O que você deseja incluir?</span>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="exportScope" value="all" checked class="peer sr-only" />
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-indigo-500 peer-checked:bg-indigo-50/70 dark:peer-checked:bg-indigo-950/40 text-center text-xs font-semibold transition">Extrato completo</div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="exportScope" value="realized" class="peer sr-only" />
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-indigo-500 peer-checked:bg-indigo-50/70 dark:peer-checked:bg-indigo-950/40 text-center text-xs font-semibold transition">Só Realizados (RH)</div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="exportScope" value="screen" class="peer sr-only" />
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-indigo-500 peer-checked:bg-indigo-50/70 dark:peer-checked:bg-indigo-950/40 text-center text-xs font-semibold transition">Filtros da tela</div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="exportScope" value="custom" class="peer sr-only" />
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-indigo-500 peer-checked:bg-indigo-50/70 dark:peer-checked:bg-indigo-950/40 text-center text-xs font-semibold transition">Período (De/Até)</div>
+          </label>
+        </div>
+
+        <div id="exportCustomDatesBox" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+          <div>
+            <label for="exportDateFrom" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Data inicial</label>
+            <input type="date" id="exportDateFrom" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+          </div>
+          <div>
+            <label for="exportDateTo" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Data final</label>
+            <input type="date" id="exportDateTo" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+          </div>
+          <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer pb-1.5">
+            <input type="checkbox" id="exportCustomRealizedOnly" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600" />
+            <span>Apenas realizados</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Prévia Ao Vivo -->
+      <div id="exportPreviewBox" class="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">Prévia do Recorte</span>
+          <strong id="exportPreviewCount" class="text-slate-900 dark:text-white font-semibold">—</strong>
+        </div>
+        <div class="flex items-center gap-4 tabular-nums">
+          <div>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Saldo Recorte</span>
+            <strong id="exportPreviewRecorteSaldo" class="font-mono font-bold text-indigo-700 dark:text-indigo-300">+00:00</strong>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Saldo Geral Conta</span>
+            <strong id="exportPreviewGlobalSaldo" class="font-mono font-bold text-slate-900 dark:text-white">+00:00</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Opções do PDF / Impressão -->
+      <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex flex-wrap items-center gap-4">
+          <label class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" id="exportOptIncludeFifo" checked class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600" />
+            <span>Incluir vencimentos FIFO</span>
+          </label>
+          <label class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" id="exportOptIncludeSignatures" checked class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600" />
+            <span>Quadro de assinaturas</span>
+          </label>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <label for="exportOptOrientation" class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Página PDF:</label>
+          <select id="exportOptOrientation" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+            <option value="landscape">Paisagem (completa)</option>
+            <option value="portrait">Retrato (vertical)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cartões de Formato -->
+      <div class="space-y-2">
+        <span class="block text-xs font-bold text-slate-700 dark:text-slate-300">2. Escolha o formato</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-2.5">
+            <div>
+              <h4 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-4 h-4 text-rose-500"></i>
+                Relatório Oficial (PDF)
+              </h4>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Ideal para enviar ao RH, conferência trabalhista e assinatura com código SHA-256.</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" id="modalDownloadPdfBtn" class="flex-1 py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition">Baixar PDF</button>
+              <button type="button" id="modalPrintReportBtn" title="Imprimir ou Salvar PDF nativo offline" class="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">Imprimir</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-2.5">
+            <div>
+              <h4 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <i data-lucide="code-2" class="w-4 h-4 text-amber-500"></i>
+                XML &amp; Excel Formatado
+              </h4>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">XML estruturado para sistemas ERP/RH ou Planilha Excel XML com 2 abas e cores.</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" id="modalDownloadStructuredXmlBtn" class="flex-1 py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition">XML (.xml)</button>
+              <button type="button" id="modalDownloadExcelXmlBtn" class="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition">Excel (.xls)</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-2.5">
+            <div>
+              <h4 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <i data-lucide="table" class="w-4 h-4 text-emerald-500"></i>
+                Planilha CSV &amp; Agenda
+              </h4>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">CSV leve com totais para Google Sheets ou eventos .ICS para Google/Outlook Calendar.</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" id="modalDownloadCsvBtn" class="flex-1 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">CSV (.csv)</button>
+              <button type="button" id="modalDownloadIcsBtn" class="flex-1 py-2 px-3 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-xs font-semibold transition">Agenda (.ics)</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-2.5">
+            <div>
+              <h4 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <i data-lucide="database-backup" class="w-4 h-4 text-indigo-500"></i>
+                Backup Completo (JSON)
+              </h4>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Exporte cópia integral de segurança ou restaure lançamentos de outro backup sem apagar dados.</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" id="modalDownloadJsonBtn" class="flex-1 py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">Backup JSON</button>
+              <label class="flex-1 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-center text-slate-700 dark:text-slate-200 cursor-pointer transition">
+                Restaurar
+                <input type="file" id="exportModalImportJsonInput" accept=".json" class="hidden" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+        <button type="button" id="cancelExportModalBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FOLHA DE IMPRESSÃO NATIVA (@media print) ==================== -->
+  <section id="printReportSheet" class="hidden print:block" aria-hidden="true"></section>
 
   <!-- ==================== BOTÃO FLUTUANTE MOBILE (FAB) ==================== -->
   <button type="button" id="mobileFabNewEntry" aria-label="Novo Lançamento" class="sm:hidden fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 px-4 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-xl shadow-indigo-600/30 transition">

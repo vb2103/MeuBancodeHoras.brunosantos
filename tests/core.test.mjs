@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { addDaysToISO, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell } from '../js/config.js';
+import { addDaysToISO, escapeXml, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell, sanitizePdfText } from '../js/config.js';
 import { validateAndNormalizeImportedEntries } from '../js/db.js';
-import { buildCalendarEventsFromEntries, generateIcsContent } from '../js/export.js';
+import {
+  buildCalendarEventsFromEntries,
+  computeExportSummary,
+  computeIntegrityDigest,
+  exportCSV,
+  exportPDF,
+  generateExcelSpreadsheetXml,
+  generateIcsContent,
+  generateStructuredXml
+} from '../js/export.js';
 import { computeEasterISO, computeOfflineHolidays, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from '../js/holidays.js';
 import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
 import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
@@ -243,4 +252,36 @@ test('getHolidayBridgeOpportunity detecta pontes de terça/quinta e gera eventos
   assert.match(ics, /DTSTART;VALUE=DATE:20260605/);
   assert.match(ics, /DTEND;VALUE=DATE:20260606/);
   assert.match(ics, /BEGIN:VALARM/);
+});
+
+test('XML estruturado, Excel XML, sanitização PDF e digest SHA-256 funcionam corretamente', async () => {
+  assert.equal(escapeXml('A & B <tag> "x" \'y\''), 'A &amp; B &lt;tag&gt; &quot;x&quot; &apos;y&apos;');
+  assert.equal(sanitizePdfText('Ponto 08:00 → +01:00 ≈ 0,1d — ✓'), 'Ponto 08:00 -> +01:00 ~ 0,1d - OK');
+
+  const sample = [
+    { id: '1', date: '2026-09-07', title: 'Feriado & Plantão', type: 'credit', category: 'holiday', workedMinutes: 480, minutes: 672, multiplier: 1.4, status: 'realized', expiry: '2027-03-06', notes: '<obs>' },
+    { id: '2', date: '2026-10-05', title: 'Folga Compensatória', type: 'debit', category: 'time_off', workedMinutes: 480, minutes: 480, multiplier: 1.0, status: 'planned', expiry: '', notes: '' }
+  ];
+  const { chrono, remainingMap } = computeChronologicalAndFIFO(sample, '2026-11-25');
+  const settings = { userName: 'Vitor Bruno', stateUf: 'SP', dailyMinutes: 480, holidayMultiplier: 1.4, overtimeMultiplier: 1.5, expiryDays: 180, unionMode: 'union', unionCode: 'sindpd_sp' };
+  const digest = await computeIntegrityDigest(chrono, settings, 'Extrato completo');
+  assert.match(digest, /^SH-[0-9A-F]{12}$/);
+
+  const sum = computeExportSummary(chrono);
+  assert.equal(sum.bonusMinutes, 192);
+  assert.equal(sum.projectedMinutes, 192);
+
+  const xml = generateStructuredXml(chrono, remainingMap, settings, { integrityCode: digest, globalChrono: chrono, userEmail: 'v@teste.com' });
+  assert.match(xml, /<bancoHoras versao="1\.0"/);
+  assert.match(xml, /codigoVerificacao="SH-/);
+  assert.match(xml, /Feriado &amp; Plantão/);
+  assert.match(xml, /&lt;obs&gt;/);
+
+  const xlsXml = generateExcelSpreadsheetXml(chrono, remainingMap, settings, { globalChrono: chrono });
+  assert.match(xlsXml, /progid="Excel\.Sheet"/);
+  assert.match(xlsXml, /<Worksheet ss:Name="Resumo e FIFO">/);
+  assert.match(xlsXml, /<Worksheet ss:Name="Extrato Cronologico">/);
+
+  assert.throws(() => exportCSV([]), /Nenhum lançamento encontrado/);
+  assert.throws(() => exportPDF([], settings), /Nenhum lançamento encontrado/);
 });
