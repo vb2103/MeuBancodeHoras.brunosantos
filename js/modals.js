@@ -42,6 +42,44 @@ export function createModalManager(ctx) {
   let currentHolidayList = [];
   const selectedHolidayDates = new Set();
 
+  function restoreLastFocus() {
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      document.activeElement.blur();
+    }
+    if (lastFocusedEl && lastFocusedEl !== document.body && typeof lastFocusedEl.focus === 'function') {
+      lastFocusedEl.focus();
+    }
+    lastFocusedEl = null;
+  }
+
+  function getOpenModalElement() {
+    const ids = ['confirmModal', 'entryModal', 'holidaysModal', 'settingsModal'];
+    return ids.map((id) => document.getElementById(id)).find((el) => el && !el.classList.contains('hidden')) || null;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const modal = getOpenModalElement();
+    if (!modal) return;
+
+    const focusables = Array.from(
+      modal.querySelectorAll(
+        'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => el.offsetParent !== null);
+    if (!focusables.length) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
   // ==================== MODAL PRÓPRIO DE CONFIRMAÇÃO ====================
   function confirmDialog({
     title = 'Confirmar ação',
@@ -84,10 +122,7 @@ export function createModalManager(ctx) {
   function resolveConfirm(result) {
     const modal = document.getElementById('confirmModal');
     modal.classList.add('hidden');
-    if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') {
-      lastFocusedEl.focus();
-      lastFocusedEl = null;
-    }
+    restoreLastFocus();
     if (confirmResolver) {
       const fn = confirmResolver;
       confirmResolver = null;
@@ -215,6 +250,7 @@ export function createModalManager(ctx) {
 
   function closeEntryModal() {
     document.getElementById('entryModal').classList.add('hidden');
+    restoreLastFocus();
   }
 
   document.getElementById('closeEntryModalBtn').addEventListener('click', closeEntryModal);
@@ -280,6 +316,15 @@ export function createModalManager(ctx) {
 
   document.getElementById('entryHoursPart').addEventListener('input', updateEntryComputedPreview);
   document.getElementById('entryMinutesPart').addEventListener('input', updateEntryComputedPreview);
+  ['entryHoursPart', 'entryMinutesPart'].forEach((id) => {
+    const input = document.getElementById(id);
+    input.addEventListener('focus', () => input.select());
+    input.addEventListener('blur', () => {
+      const val = parseInt(input.value, 10) || 0;
+      input.value = String(id === 'entryHoursPart' ? Math.min(300, Math.max(0, val)) : Math.min(59, Math.max(0, val)));
+      updateEntryComputedPreview();
+    });
+  });
   document.getElementById('entryRulePreset').addEventListener('change', updateEntryComputedPreview);
   document.getElementById('entryCustomMultiplier').addEventListener('input', updateEntryComputedPreview);
 
@@ -430,6 +475,7 @@ export function createModalManager(ctx) {
 
   function closeSettingsModal() {
     document.getElementById('settingsModal').classList.add('hidden');
+    restoreLastFocus();
   }
 
   document.getElementById('closeSettingsModalBtn').addEventListener('click', closeSettingsModal);
@@ -572,15 +618,26 @@ export function createModalManager(ctx) {
       `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
   }
 
+  function getHolidayBatchWorkedMinutes() {
+    const settings = ctx.getSettings();
+    const raw = document.getElementById('holidayBatchHHMM')?.value || '';
+    const parsed = parseDurationToMinutes(raw);
+    return parsed && parsed > 0 ? parsed : (Number(settings.dailyMinutes) || 480);
+  }
+
+  function updateHolidaysRulePreview() {
+    const s = ctx.getSettings();
+    const hMult = Number(s.holidayMultiplier) || 1.4;
+    const workedM = getHolidayBatchWorkedMinutes();
+    const creditedM = applyMultiplierToMinutes(workedM, hMult);
+    document.getElementById('holidaysRulePreview').textContent =
+      `Conversão para banco de horas: ${formatHHMM(workedM)} × ${hMult}x = ${formatHHMM(creditedM, true)} por feriado`;
+  }
+
   async function refreshHolidaysView(forceRefresh = false) {
     const ufSelect = document.getElementById('holidayUfSelect');
     const uf = ufSelect.value || getActiveHolidayUf();
-    const s = ctx.getSettings();
-    const dailyM = Number(s.dailyMinutes) || 480;
-    const hMult = Number(s.holidayMultiplier) || 1.4;
-    const creditedM = applyMultiplierToMinutes(dailyM, hMult);
-    document.getElementById('holidaysRulePreview').textContent =
-      `Conversão para banco de horas: ${formatHHMM(dailyM)} × ${hMult}x = ${formatHHMM(creditedM, true)} (1 dia de feriado)`;
+    updateHolidaysRulePreview();
 
     document.getElementById('holidaysMetaText').textContent = `Carregando calendário de ${holidayYear}...`;
     const result = await fetchHolidaysForYear(holidayYear, uf, forceRefresh);
@@ -598,15 +655,22 @@ export function createModalManager(ctx) {
     selectedHolidayDates.clear();
     updateHolidayFilterPillsUI();
 
+    const batchInput = document.getElementById('holidayBatchHHMM');
+    if (batchInput) {
+      batchInput.value = formatHHMM(Number(ctx.getSettings().dailyMinutes) || 480);
+    }
+
     const uf = getActiveHolidayUf();
     document.getElementById('holidayUfSelect').value = uf;
     document.getElementById('holidaysModal').classList.remove('hidden');
     window.lucide?.createIcons();
+    document.getElementById('holidayUfSelect').focus();
     await refreshHolidaysView(false);
   }
 
   function closeHolidaysModal() {
     document.getElementById('holidaysModal').classList.add('hidden');
+    restoreLastFocus();
   }
 
   document.getElementById('closeHolidaysModalBtn').addEventListener('click', closeHolidaysModal);
@@ -685,19 +749,41 @@ export function createModalManager(ctx) {
       `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
   });
 
+  document.getElementById('holidayBatchHHMM')?.addEventListener('input', updateHolidaysRulePreview);
+  document.getElementById('holidayBatchHHMM')?.addEventListener('blur', (e) => {
+    const parsed = parseDurationToMinutes(e.target.value);
+    if (parsed && parsed > 0) {
+      e.target.value = formatHHMM(parsed);
+      updateHolidaysRulePreview();
+    }
+  });
+  document.querySelectorAll('[data-holiday-quick-duration]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.holidayQuickDuration === 'journey'
+        ? formatHHMM(Number(ctx.getSettings().dailyMinutes) || 480)
+        : btn.dataset.holidayQuickDuration;
+      const input = document.getElementById('holidayBatchHHMM');
+      if (input) {
+        input.value = val;
+        updateHolidaysRulePreview();
+      }
+    });
+  });
+
   document.getElementById('holidaysListContainer').addEventListener('click', (e) => {
     const btn = e.target.closest('.quick-add-holiday-btn');
     if (!btn) return;
     const h = currentHolidayList.find((item) => item.date === btn.dataset.quickHolidayDate);
     if (!h) return;
     const settings = ctx.getSettings();
+    const workedMins = getHolidayBatchWorkedMinutes();
     closeHolidaysModal();
     openEntryModal({
       type: 'credit',
       category: 'holiday',
       date: h.date,
       title: `${h.name} (Plantão/Feriado)`,
-      minutes: settings.dailyMinutes,
+      minutes: workedMins,
       status: h.date <= getLocalDateISO() ? 'realized' : 'planned',
       expiry: addDaysToISO(h.date, settings.expiryDays),
       notes: `Feriado ${h.scope}`
@@ -715,9 +801,18 @@ export function createModalManager(ctx) {
       return;
     }
 
+    const batchInput = document.getElementById('holidayBatchHHMM');
+    const rawBatch = batchInput?.value?.trim() || '';
+    const parsedBatch = rawBatch ? parseDurationToMinutes(rawBatch) : (Number(settings.dailyMinutes) || 480);
+    if (!parsedBatch || parsedBatch <= 0) {
+      ctx.showToast('Informe uma duração válida em HH:MM (ex.: 08:00 ou 04:00)');
+      batchInput?.focus();
+      return;
+    }
+
     const btn = document.getElementById('importSelectedHolidaysBtn');
     const mult = Number(settings.holidayMultiplier) || 1.0;
-    const workedMins = Number(settings.dailyMinutes) || 480;
+    const workedMins = parsedBatch;
     const creditedMins = applyMultiplierToMinutes(workedMins, mult);
     const todayISO = getLocalDateISO();
 

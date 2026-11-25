@@ -97,7 +97,7 @@ export function compareEntriesChrono(a, b) {
   return String(a.id || '').localeCompare(String(b.id || ''));
 }
 
-export function getExpiryBadge(expiryIso, remainingMinutes = null, todayIso = getLocalDateISO()) {
+export function getExpiryBadge(expiryIso, remainingMinutes = null, todayIso = getLocalDateISO(), totalMinutes = null) {
   if (!expiryIso || !isValidISODate(expiryIso)) {
     return {
       label: 'Sem vencimento',
@@ -118,13 +118,20 @@ export function getExpiryBadge(expiryIso, remainingMinutes = null, todayIso = ge
     };
   }
 
+  const partialSuffix = (
+    remainingMinutes !== null &&
+    totalMinutes !== null &&
+    remainingMinutes > 0 &&
+    remainingMinutes < totalMinutes
+  ) ? ` • resta ${formatHHMM(remainingMinutes)}` : '';
+
   const [ty, tm, td] = todayIso.split('-').map(Number);
   const [ey, em, ed] = expiryIso.split('-').map(Number);
   const diffDays = Math.round((Date.UTC(ey, em - 1, ed) - Date.UTC(ty, tm - 1, td)) / 86400000);
 
   if (diffDays < 0) {
     return {
-      label: `${formatDateBR(expiryIso)} (Vencido)`,
+      label: `${formatDateBR(expiryIso)} (Vencido${partialSuffix})`,
       badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
       isAlert: true,
       isExpired: true,
@@ -134,7 +141,7 @@ export function getExpiryBadge(expiryIso, remainingMinutes = null, todayIso = ge
 
   if (diffDays <= 60) {
     return {
-      label: `${formatDateBR(expiryIso)} (${diffDays}d)`,
+      label: `${formatDateBR(expiryIso)} (${diffDays}d${partialSuffix})`,
       badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
       isAlert: true,
       isExpired: false,
@@ -143,7 +150,7 @@ export function getExpiryBadge(expiryIso, remainingMinutes = null, todayIso = ge
   }
 
   return {
-    label: formatDateBR(expiryIso),
+    label: partialSuffix ? `${formatDateBR(expiryIso)} (resta ${formatHHMM(remainingMinutes)})` : formatDateBR(expiryIso),
     badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
     isAlert: false,
     isExpired: false,

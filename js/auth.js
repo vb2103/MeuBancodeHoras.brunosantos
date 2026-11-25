@@ -21,6 +21,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
   const backBtn = document.getElementById('backToLoginBtn');
   const authTabs = document.getElementById('authTabs');
   const loadingOverlay = document.getElementById('loadingOverlay');
+  const togglePwdBtn = document.getElementById('toggleAuthPwdBtn');
 
   function getSubmitHtmlForMode(mode) {
     if (mode === 'signup') {
@@ -67,6 +68,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       nameWrap.classList.add('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
+      pwdInput.autocomplete = 'current-password';
       pwdInput.placeholder = 'Mínimo 6 caracteres';
       backBtn.classList.add('hidden');
     } else if (mode === 'signup') {
@@ -76,6 +78,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       nameWrap.classList.remove('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
+      pwdInput.autocomplete = 'new-password';
       pwdInput.placeholder = 'Mínimo 6 caracteres';
       backBtn.classList.add('hidden');
     } else if (mode === 'reset') {
@@ -92,14 +95,32 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       forgotBtn.classList.add('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
+      pwdInput.autocomplete = 'new-password';
       pwdInput.value = '';
       pwdInput.placeholder = 'Digite sua nova senha (mín. 6 caracteres)';
       backBtn.classList.add('hidden');
     }
 
+    pwdInput.type = 'password';
+    if (togglePwdBtn) {
+      togglePwdBtn.setAttribute('aria-label', 'Mostrar senha');
+      togglePwdBtn.setAttribute('aria-pressed', 'false');
+      togglePwdBtn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
+    }
     submitBtn.innerHTML = getSubmitHtmlForMode(mode);
     window.lucide?.createIcons();
   }
+
+  togglePwdBtn?.addEventListener('click', () => {
+    const showing = pwdInput.type === 'text';
+    pwdInput.type = showing ? 'password' : 'text';
+    togglePwdBtn.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+    togglePwdBtn.setAttribute('aria-pressed', String(!showing));
+    togglePwdBtn.innerHTML = showing
+      ? '<i data-lucide="eye" class="w-4 h-4"></i>'
+      : '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+    window.lucide?.createIcons();
+  });
 
   tabLogin.addEventListener('click', () => switchAuthMode('login'));
   tabSignup.addEventListener('click', () => switchAuthMode('signup'));
@@ -210,7 +231,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
     }
   });
 
-  document.getElementById('logoutBtn').addEventListener('click', async () => {
+  async function performLogout() {
     try {
       await supabaseClient.auth.signOut();
     } finally {
@@ -220,6 +241,12 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       onSignedOut();
       onToast('Sessão encerrada');
     }
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', performLogout);
+  document.getElementById('settingsLogoutBtn')?.addEventListener('click', () => {
+    document.getElementById('settingsModal')?.classList.add('hidden');
+    performLogout();
   });
 
   supabaseClient.auth.onAuthStateChange(async (event, session) => {

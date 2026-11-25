@@ -36,16 +36,42 @@ let entries = [];
 let toastTimer = null;
 
 // ==================== TOAST & SYNC BADGE ====================
-function showToast(msg) {
+function showToast(msg, options = {}) {
+  const { actionLabel = null, onAction = null, duration = 3000 } = options || {};
   const toast = document.getElementById('toast');
+  const actionBtn = document.getElementById('toastActionBtn');
   document.getElementById('toastMsg').textContent = msg;
+
+  if (actionBtn) {
+    if (actionLabel && typeof onAction === 'function') {
+      actionBtn.textContent = actionLabel;
+      actionBtn.classList.remove('hidden');
+      actionBtn.onclick = async () => {
+        actionBtn.disabled = true;
+        clearTimeout(toastTimer);
+        toast.classList.add('hidden');
+        toast.classList.remove('flex');
+        actionBtn.classList.add('hidden');
+        actionBtn.disabled = false;
+        await onAction();
+      };
+    } else {
+      actionBtn.classList.add('hidden');
+      actionBtn.onclick = null;
+    }
+  }
+
   toast.classList.remove('hidden');
   toast.classList.add('flex');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     toast.classList.add('hidden');
     toast.classList.remove('flex');
-  }, 3000);
+    if (actionBtn) {
+      actionBtn.classList.add('hidden');
+      actionBtn.onclick = null;
+    }
+  }, duration);
 }
 
 function setSyncStatus(state) {
@@ -169,6 +195,12 @@ function populateYearFilterOptions() {
     : 'all';
 }
 
+function formatSimulatedDaysLabel(simDays) {
+  if (simDays === 0.5) return '0,5 dia (meio período)';
+  if (simDays === 1) return '1 dia';
+  return `${String(simDays).replace('.', ',')} dias`;
+}
+
 function updateSimulator(cachedProjectedMins = null) {
   const projectedMins = cachedProjectedMins !== null
     ? cachedProjectedMins
@@ -178,21 +210,84 @@ function updateSimulator(cachedProjectedMins = null) {
   const slider = document.getElementById('simDaysSlider');
   const maxSuggestedDays = Math.max(15, Math.min(60, Math.ceil(Math.max(0, projectedMins) / dailyMins) + 5));
   slider.max = String(maxSuggestedDays);
-  if (Number(slider.value) > maxSuggestedDays) slider.value = String(maxSuggestedDays);
+  if (parseFloat(slider.value) > maxSuggestedDays) slider.value = String(maxSuggestedDays);
 
-  const simDays = parseInt(slider.value, 10) || 1;
-  const simMins = simDays * dailyMins;
+  const simDays = Math.max(0.5, parseFloat(slider.value) || 1);
+  const simMins = Math.round(simDays * dailyMins);
   const remainingMins = projectedMins - simMins;
 
-  document.getElementById('simDaysValue').textContent = `${simDays} ${simDays === 1 ? 'dia' : 'dias'} (${formatHHMM(-simMins)})`;
+  document.getElementById('simDaysValue').textContent = `${formatSimulatedDaysLabel(simDays)} (${formatHHMM(-simMins)})`;
   document.getElementById('simRemainingResult').textContent =
     `${formatHHMM(remainingMins, true)} (${formatDaysFromMinutes(remainingMins, dailyMins)})`;
+}
+
+function getFilteredEntriesState() {
+  const { chrono, remainingMap, urgentItems, summary } = computeChronologicalAndFIFO(entries);
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const yearF = document.getElementById('yearFilter').value;
+  const typeF = document.getElementById('typeFilter').value;
+  const statusF = document.getElementById('statusFilter').value;
+
+  const hasActiveFilters = Boolean(query) || yearF !== 'all' || typeF !== 'all' || statusF !== 'all' || quickFilter !== 'all';
+
+  const filtered = chrono.filter((item) => {
+    if (yearF !== 'all' && !item.date.startsWith(`${yearF}-`)) return false;
+    if (typeF !== 'all' && item.type !== typeF) return false;
+    if (statusF !== 'all' && item.status !== statusF) return false;
+    if (quickFilter === 'planned' && item.status !== 'planned') return false;
+    if (quickFilter === 'holidays' && !isHolidayEntry(item)) return false;
+    if (quickFilter === 'expiring') {
+      const rem = remainingMap.get(item.id) ?? 0;
+      const badge = getExpiryBadge(item.expiry, rem, getLocalDateISO(), item.minutes);
+      if (item.type !== 'credit' || !badge.isAlert) return false;
+    }
+    if (query) {
+      const catLabel = ENTRY_CATEGORIES[item.category]?.label || '';
+      const hay = `${item.title} ${item.notes || ''} ${catLabel} ${formatDateBR(item.date)}`.toLowerCase();
+      if (!hay.includes(query)) return false;
+    }
+    return true;
+  });
+
+  return { chrono, remainingMap, urgentItems, summary, filtered, hasActiveFilters };
+}
+
+function buildCategoryBadgeHtml(item, extraClass = 'ml-1.5') {
+  if (!item.category || item.category === 'manual') return '';
+  const label = ENTRY_CATEGORIES[item.category]?.label || item.category;
+  return `<span class="inline-block ${extraClass} px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">${escapeHtml(label)}</span>`;
+}
+
+function buildWorkedSubtextHtml(item) {
+  if (item.type !== 'credit') return '';
+  const worked = Number(item.workedMinutes);
+  const mult = Number(item.multiplier || 1);
+  if (!worked || (worked === Number(item.minutes) && mult === 1)) return '';
+  return `<div class="text-[10px] font-normal text-slate-400 dark:text-slate-500 mt-0.5 tabular-nums">Trab. ${formatHHMM(worked)} × ${mult}x</div>`;
+}
+
+function buildActionButtonsHtml(item) {
+  const safeId = escapeHtml(item.id);
+  const safeTitle = escapeHtml(item.title);
+  const quickConfirm = item.status === 'planned'
+    ? `<button type="button" data-confirm-id="${safeId}" aria-label="Confirmar ${safeTitle} como realizado" title="Marcar como realizado" class="confirm-realized-btn p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/50 transition"><i data-lucide="check" class="w-4 h-4"></i></button>`
+    : '';
+  return `
+    ${quickConfirm}
+    <button type="button" data-edit-id="${safeId}" aria-label="Editar lançamento ${safeTitle}" title="Editar" class="edit-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
+      <i data-lucide="pencil" class="w-4 h-4"></i>
+    </button>
+    <button type="button" data-delete-id="${safeId}" aria-label="Excluir lançamento ${safeTitle}" title="Excluir" class="delete-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  `;
 }
 
 // ==================== RENDERIZAÇÃO PRINCIPAL ====================
 function renderAll() {
   populateYearFilterOptions();
-  const { chrono, remainingMap, urgentItems, summary } = computeChronologicalAndFIFO(entries);
+  const { chrono, remainingMap, urgentItems, summary, filtered, hasActiveFilters } = getFilteredEntriesState();
+  const todayISO = getLocalDateISO();
 
   document.getElementById('kpiRealizedHours').textContent = formatHHMM(summary.realizedMinutes, true);
   document.getElementById('kpiRealizedDays').textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
@@ -214,60 +309,40 @@ function renderAll() {
     alertBanner.classList.add('hidden');
   }
 
-  const query = document.getElementById('searchInput').value.trim().toLowerCase();
-  const yearF = document.getElementById('yearFilter').value;
-  const typeF = document.getElementById('typeFilter').value;
-  const statusF = document.getElementById('statusFilter').value;
-
-  const hasActiveFilters = Boolean(query) || yearF !== 'all' || typeF !== 'all' || statusF !== 'all' || quickFilter !== 'all';
   document.getElementById('clearFiltersBtn').classList.toggle('hidden', !hasActiveFilters);
 
-  const filtered = chrono.filter((item) => {
-    if (yearF !== 'all' && !item.date.startsWith(`${yearF}-`)) return false;
-    if (typeF !== 'all' && item.type !== typeF) return false;
-    if (statusF !== 'all' && item.status !== statusF) return false;
-    if (quickFilter === 'planned' && item.status !== 'planned') return false;
-    if (quickFilter === 'holidays' && !isHolidayEntry(item)) return false;
-    if (quickFilter === 'expiring') {
-      const rem = remainingMap.get(item.id) ?? 0;
-      const badge = getExpiryBadge(item.expiry, rem);
-      if (item.type !== 'credit' || !badge.isAlert) return false;
-    }
-    if (query) {
-      const catLabel = ENTRY_CATEGORIES[item.category]?.label || '';
-      const hay = `${item.title} ${item.notes || ''} ${catLabel} ${formatDateBR(item.date)}`.toLowerCase();
-      if (!hay.includes(query)) return false;
-    }
-    return true;
-  });
-
-  if (!sortAscending) filtered.reverse();
+  const visibleRows = sortAscending ? filtered : [...filtered].reverse();
 
   document.getElementById('filterCounter').textContent =
-    `${filtered.length} de ${chrono.length} ${chrono.length === 1 ? 'registro' : 'registros'}`;
+    `${visibleRows.length} de ${chrono.length} ${chrono.length === 1 ? 'registro' : 'registros'}`;
 
   const tbody = document.getElementById('entriesTableBody');
   const mobileContainer = document.getElementById('mobileCardsContainer');
   const emptyState = document.getElementById('emptyState');
+  const emptyOnboarding = document.getElementById('emptyOnboarding');
+  const emptyFiltered = document.getElementById('emptyFiltered');
 
-  if (filtered.length === 0) {
+  if (visibleRows.length === 0) {
     tbody.innerHTML = '';
     mobileContainer.innerHTML = '';
     emptyState.classList.remove('hidden');
+    if (emptyOnboarding && emptyFiltered) {
+      emptyOnboarding.classList.toggle('hidden', chrono.length > 0);
+      emptyFiltered.classList.toggle('hidden', chrono.length === 0);
+    }
   } else {
     emptyState.classList.add('hidden');
 
-    tbody.innerHTML = filtered.map((item) => {
+    tbody.innerHTML = visibleRows.map((item) => {
       const isCredit = item.type === 'credit';
       const isRealized = item.status === 'realized';
       const remMins = remainingMap.get(item.id) ?? item.minutes;
-      const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins) : { label: '—', badgeClass: 'text-slate-400' };
+      const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins, todayISO, item.minutes) : { label: '—', badgeClass: 'text-slate-400' };
       const multTag = isCredit && item.multiplier && Number(item.multiplier) !== 1
         ? `<span class="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 ml-1">(${item.multiplier}x)</span>`
         : '';
-      const catBadge = item.category && item.category !== 'manual'
-        ? `<span class="inline-block ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">${escapeHtml(ENTRY_CATEGORIES[item.category]?.label || item.category)}</span>`
-        : '';
+      const catBadge = buildCategoryBadgeHtml(item);
+      const workedSub = buildWorkedSubtextHtml(item);
 
       return `
         <tr class="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition group">
@@ -285,7 +360,8 @@ function renderAll() {
             </span>
           </td>
           <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-            ${formatHHMM(item.deltaMinutes, true)}${multTag}
+            <div>${formatHHMM(item.deltaMinutes, true)}${multTag}</div>
+            ${workedSub}
           </td>
           <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap text-slate-800 dark:text-slate-200">
             ${formatHHMM(item.runningMinutes, true)}
@@ -297,43 +373,44 @@ function renderAll() {
           </td>
           <td class="py-3.5 px-4 text-right whitespace-nowrap">
             <div class="inline-flex items-center gap-1">
-              <button type="button" data-edit-id="${escapeHtml(item.id)}" aria-label="Editar lançamento ${escapeHtml(item.title)}" title="Editar" class="edit-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
-                <i data-lucide="pencil" class="w-4 h-4"></i>
-              </button>
-              <button type="button" data-delete-id="${escapeHtml(item.id)}" aria-label="Excluir lançamento ${escapeHtml(item.title)}" title="Excluir" class="delete-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
+              ${buildActionButtonsHtml(item)}
             </div>
           </td>
         </tr>
       `;
     }).join('');
 
-    mobileContainer.innerHTML = filtered.map((item) => {
+    mobileContainer.innerHTML = visibleRows.map((item) => {
       const isCredit = item.type === 'credit';
       const isRealized = item.status === 'realized';
       const remMins = remainingMap.get(item.id) ?? item.minutes;
-      const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins) : null;
+      const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins, todayISO, item.minutes) : null;
       const multTag = isCredit && item.multiplier && Number(item.multiplier) !== 1
         ? ` <span class="text-[11px] font-normal text-indigo-500">(${item.multiplier}x)</span>`
         : '';
+      const catBadge = buildCategoryBadgeHtml(item, '');
+      const workedSub = buildWorkedSubtextHtml(item);
 
       return `
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(item.date)}</span>
                 <span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
                   ${isRealized ? 'Realizado' : 'Previsto'}
                 </span>
+                ${catBadge}
               </div>
               <h4 class="font-bold text-sm text-slate-900 dark:text-white mt-1">${escapeHtml(item.title)}</h4>
               ${item.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.notes)}</p>` : ''}
             </div>
-            <span class="font-mono text-sm font-extrabold tabular-nums shrink-0 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-              ${formatHHMM(item.deltaMinutes, true)}${multTag}
-            </span>
+            <div class="text-right shrink-0">
+              <span class="font-mono text-sm font-extrabold tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                ${formatHHMM(item.deltaMinutes, true)}${multTag}
+              </span>
+              ${workedSub}
+            </div>
           </div>
 
           <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs gap-2">
@@ -342,12 +419,7 @@ function renderAll() {
               ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
             </div>
             <div class="flex items-center gap-1 shrink-0">
-              <button type="button" data-edit-id="${escapeHtml(item.id)}" aria-label="Editar lançamento ${escapeHtml(item.title)}" class="edit-entry-btn p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <i data-lucide="pencil" class="w-4 h-4"></i>
-              </button>
-              <button type="button" data-delete-id="${escapeHtml(item.id)}" aria-label="Excluir lançamento ${escapeHtml(item.title)}" class="delete-entry-btn p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
+              ${buildActionButtonsHtml(item)}
             </div>
           </div>
         </div>
@@ -367,6 +439,29 @@ function renderAll() {
 }
 
 // ==================== DELEGAÇÃO DE AÇÕES NO EXTRATO ====================
+async function handleConfirmRealized(id, btn) {
+  if (!btn || btn.dataset.busy === '1' || !currentUser) return;
+  const target = entries.find((e) => e.id === id);
+  if (!target || target.status === 'realized') return;
+
+  btn.dataset.busy = '1';
+  btn.disabled = true;
+
+  const snapshot = [...entries];
+  const updated = { ...target, status: 'realized' };
+  entries = entries.map((e) => (e.id === id ? updated : e));
+  renderAll();
+
+  try {
+    await upsertEntryToCloud(currentUser.id, updated, setSyncStatus);
+    showToast(`"${updated.title}" marcado como realizado!`);
+  } catch {
+    entries = snapshot;
+    renderAll();
+    showToast('Erro ao confirmar na nuvem — alteração revertida');
+  }
+}
+
 async function handleDeleteEntry(id) {
   const item = entries.find((e) => e.id === id);
   if (!item || !currentUser) return;
@@ -380,13 +475,32 @@ async function handleDeleteEntry(id) {
   });
   if (!confirmed) return;
 
+  const deletedItem = { ...item };
   const snapshot = [...entries];
   entries = entries.filter((e) => e.id !== id);
   renderAll();
 
   try {
     await deleteEntryFromCloud(currentUser.id, id, setSyncStatus);
-    showToast('Lançamento excluído');
+    showToast(`"${deletedItem.title}" excluído`, {
+      actionLabel: 'Desfazer',
+      duration: 5500,
+      async onAction() {
+        if (!currentUser) return;
+        if (!entries.some((x) => x.id === deletedItem.id)) {
+          entries.push(deletedItem);
+          renderAll();
+        }
+        try {
+          await upsertEntryToCloud(currentUser.id, deletedItem, setSyncStatus);
+          showToast('Lançamento restaurado!');
+        } catch {
+          entries = entries.filter((x) => x.id !== deletedItem.id);
+          renderAll();
+          showToast('Erro ao restaurar lançamento na nuvem');
+        }
+      }
+    });
   } catch {
     entries = snapshot;
     renderAll();
@@ -395,6 +509,11 @@ async function handleDeleteEntry(id) {
 }
 
 function handleEntryActionClick(e) {
+  const confirmBtn = e.target.closest('.confirm-realized-btn');
+  if (confirmBtn) {
+    handleConfirmRealized(confirmBtn.dataset.confirmId, confirmBtn);
+    return;
+  }
   const editBtn = e.target.closest('.edit-entry-btn');
   if (editBtn) {
     const target = entries.find((item) => item.id === editBtn.dataset.editId);
@@ -439,17 +558,23 @@ function switchMainTab(tabName) {
   }
 }
 
-document.querySelectorAll('.quick-pill').forEach((btn) => {
-  btn.addEventListener('click', () => applyQuickFilter(btn.dataset.quickFilter));
-});
-document.getElementById('viewExpiringBtn').addEventListener('click', () => applyQuickFilter('expiring'));
-document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+function resetAllFilters() {
   document.getElementById('searchInput').value = '';
   document.getElementById('yearFilter').value = 'all';
   document.getElementById('typeFilter').value = 'all';
   document.getElementById('statusFilter').value = 'all';
   applyQuickFilter('all');
+}
+
+document.querySelectorAll('.quick-pill').forEach((btn) => {
+  btn.addEventListener('click', () => applyQuickFilter(btn.dataset.quickFilter));
 });
+document.getElementById('viewExpiringBtn').addEventListener('click', () => applyQuickFilter('expiring'));
+document.getElementById('clearFiltersBtn').addEventListener('click', resetAllFilters);
+document.getElementById('emptyClearFiltersBtn')?.addEventListener('click', resetAllFilters);
+document.getElementById('onboardingSettingsBtn')?.addEventListener('click', () => modals.openSettingsModal());
+document.getElementById('onboardingHolidaysBtn')?.addEventListener('click', () => modals.openHolidaysModal());
+document.getElementById('onboardingNewEntryBtn')?.addEventListener('click', () => modals.openEntryModal());
 
 document.getElementById('searchInput').addEventListener('input', renderAll);
 document.getElementById('yearFilter').addEventListener('change', renderAll);
@@ -468,20 +593,24 @@ document.querySelectorAll('.main-tab-btn').forEach((btn) => {
 
 // Botões de abertura de modais
 document.getElementById('openNewEntryBtn').addEventListener('click', () => modals.openEntryModal());
+document.getElementById('mobileFabNewEntry')?.addEventListener('click', () => modals.openEntryModal());
 document.getElementById('openSettingsBtn').addEventListener('click', () => modals.openSettingsModal());
 document.getElementById('openHolidaysBtn').addEventListener('click', () => modals.openHolidaysModal());
 
 // Simulador
 document.getElementById('simDaysSlider').addEventListener('input', () => updateSimulator());
 document.getElementById('scheduleFromSimBtn').addEventListener('click', () => {
-  const simDays = parseInt(document.getElementById('simDaysSlider').value, 10) || 1;
-  const simMins = simDays * (Number(settings.dailyMinutes) || 480);
+  const simDays = Math.max(0.5, parseFloat(document.getElementById('simDaysSlider').value) || 1);
+  const dailyMins = Number(settings.dailyMinutes) || 480;
+  const simMins = Math.round(simDays * dailyMins);
+  const targetDate = document.getElementById('simTargetDate')?.value || getLocalDateISO();
   modals.openEntryModal({
     type: 'debit',
     category: 'time_off',
+    date: targetDate,
     minutes: simMins,
-    title: `Folga Compensatória (${simDays} ${simDays === 1 ? 'dia' : 'dias'})`,
-    status: 'planned'
+    title: `Folga Compensatória (${formatSimulatedDaysLabel(simDays)})`,
+    status: targetDate <= getLocalDateISO() ? 'realized' : 'planned'
   }, false);
 });
 
@@ -529,10 +658,20 @@ document.addEventListener('click', (e) => {
   if (!document.getElementById('exportMenuWrapper').contains(e.target)) closeExportMenu();
 });
 
+function getExportDataset() {
+  const { chrono, filtered, hasActiveFilters } = getFilteredEntriesState();
+  const filteredOnly = Boolean(document.getElementById('exportFilteredOnly')?.checked) && hasActiveFilters;
+  const rows = filteredOnly ? filtered : chrono;
+  const scopeLabel = filteredOnly
+    ? `Escopo: Filtro aplicado (${rows.length} de ${chrono.length} registros)`
+    : `Escopo: Extrato completo (${chrono.length} registros)`;
+  return { rows, scopeLabel };
+}
+
 document.getElementById('exportPdfBtn').addEventListener('click', () => {
   try {
-    const { chrono } = computeChronologicalAndFIFO(entries);
-    exportPDF(chrono, settings, currentUser?.email);
+    const { rows, scopeLabel } = getExportDataset();
+    exportPDF(rows, settings, currentUser?.email, scopeLabel);
     showToast('Relatório PDF baixado!');
   } catch (err) {
     showToast(err.message || 'Erro ao gerar PDF');
@@ -542,8 +681,8 @@ document.getElementById('exportPdfBtn').addEventListener('click', () => {
 });
 
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
-  const { chrono } = computeChronologicalAndFIFO(entries);
-  exportCSV(chrono);
+  const { rows } = getExportDataset();
+  exportCSV(rows);
   closeExportMenu();
   showToast('Planilha CSV exportada!');
 });

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#4f46e5" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="SaldoHoras" />
@@ -12,21 +13,8 @@
   <link rel="apple-touch-icon" href="./assets/icons/icon-192.png" />
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-          }
-        }
-      }
-    };
-  </script>
+  <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
+  <link rel="stylesheet" href="./assets/tailwind.css" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -81,12 +69,12 @@
       <form id="authForm" class="space-y-4">
         <div id="authNameWrapper" class="hidden">
           <label for="authName" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Seu Nome Completo</label>
-          <input type="text" id="authName" placeholder="Ex.: Vítor Santos" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+          <input type="text" id="authName" autocomplete="name" placeholder="Ex.: Vítor Santos" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
         </div>
 
         <div id="authEmailWrapper">
           <label for="authEmail" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail corporativo ou pessoal</label>
-          <input type="email" id="authEmail" required placeholder="voce@empresa.com.br" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+          <input type="email" id="authEmail" required autocomplete="email" placeholder="voce@empresa.com.br" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
         </div>
 
         <div id="authPasswordWrapper">
@@ -96,7 +84,12 @@
               Esqueci a senha
             </button>
           </div>
-          <input type="password" id="authPassword" minlength="6" placeholder="Mínimo 6 caracteres" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+          <div class="relative">
+            <input type="password" id="authPassword" minlength="6" autocomplete="current-password" placeholder="Mínimo 6 caracteres" class="w-full pl-3.5 pr-11 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+            <button type="button" id="toggleAuthPwdBtn" aria-label="Mostrar ou ocultar senha" aria-pressed="false" title="Mostrar senha" class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
         </div>
 
         <button type="submit" id="authSubmitBtn" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-500/25 transition flex items-center justify-center gap-2">
@@ -163,7 +156,11 @@
             <span class="hidden md:inline">Exportar</span>
             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
           </button>
-          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
+          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
+            <label class="px-3.5 py-2 flex items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+              <input type="checkbox" id="exportFilteredOnly" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span>Exportar apenas filtros ativos</span>
+            </label>
             <button type="button" id="exportPdfBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
               <i data-lucide="file-text" class="w-4 h-4 text-rose-500"></i>
               Baixar Relatório PDF
@@ -189,21 +186,21 @@
           <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
         </button>
 
-        <button type="button" id="logoutBtn" aria-label="Sair da conta" title="Sair da conta" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="logoutBtn" aria-label="Sair da conta" title="Sair da conta" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="log-out" class="w-4 h-4"></i>
           <span class="hidden lg:inline">Sair</span>
         </button>
 
-        <button type="button" id="openNewEntryBtn" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition">
+        <button type="button" id="openNewEntryBtn" class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition">
           <i data-lucide="plus" class="w-4 h-4"></i>
-          <span>Novo <span class="hidden sm:inline">Lançamento</span></span>
+          <span>Novo Lançamento</span>
         </button>
       </div>
     </div>
   </header>
 
   <!-- ==================== CONTEÚDO PRINCIPAL ==================== -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 sm:pb-8 space-y-6">
 
     <!-- Banner de Alerta de Vencimento Real (FIFO) -->
     <div id="expiryAlertBanner" class="hidden bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -366,13 +363,65 @@
         </div>
       </div>
 
-      <!-- Estado Vazio -->
-      <div id="emptyState" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center space-y-3">
-        <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-          <i data-lucide="calendar-x" class="w-6 h-6"></i>
+      <!-- Estado Vazio / Onboarding -->
+      <div id="emptyState" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-10">
+        <!-- Caso 1: Conta sem lançamentos ainda -->
+        <div id="emptyOnboarding" class="space-y-6">
+          <div class="text-center max-w-lg mx-auto space-y-2">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+              <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Bem-vindo ao SaldoHoras</h3>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Comece seu controle em 3 passos simples. Tudo é convertido automaticamente em horas (<span class="font-mono font-semibold">HH:MM</span>) no seu banco de horas.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between gap-3">
+              <div class="space-y-1.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">Passo 1</span>
+                <h4 class="text-sm font-bold text-slate-900 dark:text-white">Regra &amp; Jornada</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Escolha seu sindicato (ex.: Sindpd-SP 1.4x) ou ramo da empresa, UF e jornada diária.</p>
+              </div>
+              <button type="button" id="onboardingSettingsBtn" class="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+                Configurar Parâmetros
+              </button>
+            </div>
+
+            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between gap-3">
+              <div class="space-y-1.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Passo 2</span>
+                <h4 class="text-sm font-bold text-slate-900 dark:text-white">Importar Feriados</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Consulte o calendário oficial da sua UF e lance os feriados trabalhados com multiplicador.</p>
+              </div>
+              <button type="button" id="onboardingHolidaysBtn" class="w-full py-2 px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
+                Abrir Feriados
+              </button>
+            </div>
+
+            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between gap-3">
+              <div class="space-y-1.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">Passo 3</span>
+                <h4 class="text-sm font-bold text-slate-900 dark:text-white">Lançar Hora ou Folga</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Registre horas extras, plantões ou folgas realizadas e planejadas com cálculo FIFO.</p>
+              </div>
+              <button type="button" id="onboardingNewEntryBtn" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+                + Novo Lançamento
+              </button>
+            </div>
+          </div>
         </div>
-        <h3 class="text-sm font-bold text-slate-900 dark:text-white">Nenhum lançamento encontrado</h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">Ajuste os filtros, clique em <strong>Novo Lançamento</strong> (atalho <kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">N</kbd>) ou abra <strong>Feriados</strong> para consultar e importar feriados oficiais do ano.</p>
+
+        <!-- Caso 2: Filtros ativos sem resultados -->
+        <div id="emptyFiltered" class="hidden text-center py-4 space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+            <i data-lucide="search-x" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Nenhum lançamento corresponde aos filtros</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">Limpe os filtros ativos ou tente buscar por outro termo ou período.</p>
+          <button type="button" id="emptyClearFiltersBtn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-semibold transition">
+            Limpar filtros
+          </button>
+        </div>
       </div>
     </section>
 
@@ -394,7 +443,11 @@
               <label for="simDaysSlider" class="text-xs font-semibold uppercase tracking-wider text-indigo-100">Dias de Folga Simulados</label>
               <span id="simDaysValue" class="text-lg sm:text-xl font-extrabold font-mono tabular-nums">2 dias (-16:00)</span>
             </div>
-            <input type="range" id="simDaysSlider" min="1" max="15" value="2" class="w-full accent-white cursor-pointer" />
+            <input type="range" id="simDaysSlider" min="0.5" max="15" step="0.5" value="2" class="w-full accent-white cursor-pointer" />
+            <div class="flex items-center justify-between gap-3 text-xs text-indigo-100">
+              <label for="simTargetDate" class="font-medium shrink-0">Data pretendida (opcional):</label>
+              <input type="date" id="simTargetDate" class="px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
+            </div>
             <div class="flex items-center justify-between pt-2 border-t border-white/15 text-xs gap-3">
               <div>
                 <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
@@ -545,9 +598,9 @@
         <div>
           <label for="entryHoursPart" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Duração Trabalhada / Folga (HH:MM)</label>
           <div class="flex flex-wrap items-center gap-1.5">
-            <input type="number" id="entryHoursPart" min="0" max="300" required value="8" aria-label="Horas" class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="number" id="entryHoursPart" inputmode="numeric" min="0" max="300" required value="8" aria-label="Horas" class="no-spinners w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
             <span class="text-xs font-bold text-slate-400">:</span>
-            <input type="number" id="entryMinutesPart" min="0" max="59" step="1" required value="0" aria-label="Minutos" class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="number" id="entryMinutesPart" inputmode="numeric" min="0" max="59" step="1" required value="0" aria-label="Minutos" class="no-spinners w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
             <button type="button" id="fillJourneyBtn" title="Preencher com a jornada configurada" class="px-2.5 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 shrink-0">
               1 dia
             </button>
@@ -675,15 +728,24 @@
       </div>
 
       <!-- Lista de Feriados -->
-      <div id="holidaysListContainer" class="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl"></div>
+      <div id="holidaysListContainer" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl"></div>
+
+      <!-- Duração padrão p/ importação em lote -->
+      <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex flex-wrap items-center gap-2">
+          <label for="holidayBatchHHMM" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Horas trab. por feriado:</label>
+          <input type="text" id="holidayBatchHHMM" inputmode="numeric" maxlength="6" value="08:00" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-semibold text-center tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button type="button" data-holiday-quick-duration="04:00" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">04:00</button>
+          <button type="button" data-holiday-quick-duration="06:00" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">06:00</button>
+          <button type="button" data-holiday-quick-duration="journey" class="px-2 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">1 dia</button>
+        </div>
+        <span id="holidaysRulePreview" class="text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums"></span>
+      </div>
 
       <!-- Rodapé -->
-      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
-        <div>
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 block">Apenas visualizar não altera seu extrato. Importar adiciona somente os marcados.</span>
-          <span id="holidaysRulePreview" class="block text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-300 mt-0.5 tabular-nums"></span>
-        </div>
-        <div class="flex items-center gap-2">
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
+        <span class="text-[11px] text-slate-500 dark:text-slate-400">Apenas visualizar não altera seu extrato. Importar adiciona somente os marcados.</span>
+        <div class="flex items-center gap-2 ml-auto">
           <button type="button" id="cancelHolidaysBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
             Fechar
           </button>
@@ -797,13 +859,19 @@
           </div>
         </div>
 
-        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
-          <button type="button" id="cancelSettingsModalBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-            Cancelar
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
+          <button type="button" id="settingsLogoutBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/70 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            Sair da conta
           </button>
-          <button type="submit" id="settingsSubmitBtn" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
-            Salvar Parâmetros
-          </button>
+          <div class="flex items-center gap-2.5 ml-auto">
+            <button type="button" id="cancelSettingsModalBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+              Cancelar
+            </button>
+            <button type="submit" id="settingsSubmitBtn" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+              Salvar Parâmetros
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -833,10 +901,17 @@
     </div>
   </div>
 
+  <!-- ==================== BOTÃO FLUTUANTE MOBILE (FAB) ==================== -->
+  <button type="button" id="mobileFabNewEntry" aria-label="Novo Lançamento" class="sm:hidden fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 px-4 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-xl shadow-indigo-600/30 transition">
+    <i data-lucide="plus" class="w-4 h-4"></i>
+    <span>Novo Lançamento</span>
+  </button>
+
   <!-- ==================== TOAST DE NOTIFICAÇÃO ==================== -->
-  <div id="toast" role="status" aria-live="polite" class="fixed bottom-5 right-5 z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
+  <div id="toast" role="status" aria-live="polite" class="fixed bottom-20 sm:bottom-5 right-4 sm:right-5 z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
     <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0"></i>
     <span id="toastMsg">Ação concluída</span>
+    <button type="button" id="toastActionBtn" class="hidden ml-1 px-2.5 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-[11px] font-bold transition shrink-0">Desfazer</button>
   </div>
 
   <script type="module" src="./js/app.js"></script>

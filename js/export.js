@@ -43,7 +43,7 @@ export function exportCSV(chronoEntries) {
   URL.revokeObjectURL(url);
 }
 
-export function exportPDF(chronoEntries, settings, userEmail = '') {
+export function exportPDF(chronoEntries, settings, userEmail = '', scopeLabel = 'Extrato completo') {
   if (!window.jspdf?.jsPDF) {
     throw new Error('Biblioteca jsPDF indisponível no momento.');
   }
@@ -64,7 +64,7 @@ export function exportPDF(chronoEntries, settings, userEmail = '') {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(
-    `Colaborador: ${ownerName}  |  Regra: ${ruleLabel} (${settings.stateUf || 'SP'})  |  Jornada: ${formatHHMM(settings.dailyMinutes)}/dia  |  Emitido em: ${new Date().toLocaleDateString('pt-BR')}`,
+    `Colaborador: ${ownerName}  |  Regra: ${ruleLabel} (${settings.stateUf || 'SP'})  |  Jornada: ${formatHHMM(settings.dailyMinutes)}/dia  |  ${sanitizePdfText(scopeLabel)}  |  Emitido: ${new Date().toLocaleDateString('pt-BR')}`,
     14,
     21
   );

@@ -31,8 +31,11 @@ test('formatHHMM e formatDaysFromMinutes calculam exatamente em minutos inteiros
   assert.equal(formatHHMM(-90, true), '-01:30');
   assert.equal(formatHHMM(0, true), '00:00');
   assert.equal(formatHHMM(528, false), '08:48');
+  assert.equal(formatDaysFromMinutes(240, 480), '0,5 dias');
   assert.equal(formatDaysFromMinutes(720, 480), '1,5 dias');
   assert.equal(applyMultiplierToMinutes(480, 1.5), 720);
+  const partialExp = getExpiryBadge('2026-12-31', 240, '2026-11-24', 672);
+  assert.match(partialExp.label, /resta 04:00/);
 });
 
 test('utilitários de data local evitam desvio UTC', () => {
