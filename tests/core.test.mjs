@@ -7,6 +7,7 @@ import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
 import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
 import {
   applyMultiplierToMinutes,
+  computeAnalyticsSummary,
   computeChronologicalAndFIFO,
   formatDaysFromMinutes,
   formatHHMM,
@@ -156,4 +157,26 @@ test('sanitizeCsvCell neutraliza CSV formula injection', () => {
   assert.equal(sanitizeCsvCell('=CMD()'), '"\'=CMD()"');
   assert.equal(sanitizeCsvCell('+SUM(A1:A2)'), '"\'+SUM(A1:A2)"');
   assert.equal(sanitizeCsvCell('Tiradentes "SP"'), '"Tiradentes ""SP"""');
+});
+
+test('computeAnalyticsSummary resume bônus de multiplicadores, série mensal e buckets FIFO', () => {
+  const sample = [
+    { id: '1', date: '2026-09-07', title: 'Independência', type: 'credit', category: 'holiday', workedMinutes: 480, minutes: 672, multiplier: 1.4, status: 'realized', expiry: '2027-03-06' },
+    { id: '2', date: '2026-09-20', title: 'Plantão Domingo', type: 'credit', category: 'overtime', workedMinutes: 240, minutes: 360, multiplier: 1.5, status: 'realized', expiry: '2027-03-19' },
+    { id: '3', date: '2026-10-05', title: 'Folga Parcial', type: 'debit', category: 'time_off', workedMinutes: 240, minutes: 240, multiplier: 1.0, status: 'realized', expiry: '' }
+  ];
+  const { chrono, remainingMap } = computeChronologicalAndFIFO(sample, '2026-11-25');
+  const summary = computeAnalyticsSummary(chrono, remainingMap, 480, '2026-11-25');
+
+  assert.equal(summary.workedMinutesTotal, 720);
+  assert.equal(summary.creditedMinutesTotal, 1032);
+  assert.equal(summary.bonusMinutes, 312); // (672-480) + (360-240)
+  assert.equal(summary.compensatedMinutes, 240);
+  assert.equal(summary.openRemainingMinutes, 792);
+  assert.equal(summary.monthlySeries.length, 2);
+  assert.equal(summary.monthlySeries[0].label, 'Set/26');
+  assert.equal(summary.monthlySeries[0].netMinutes, 1032);
+  assert.equal(summary.monthlySeries[1].label, 'Out/26');
+  assert.equal(summary.monthlySeries[1].debitsMinutes, 240);
+  assert.equal(summary.openBuckets[0].remainingMinutes, 432); // 672 - 240 FIFO
 });

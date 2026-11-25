@@ -379,8 +379,8 @@
                 <th class="py-3.5 px-4">Evento / Descrição</th>
                 <th class="py-3.5 px-4">Status</th>
                 <th class="py-3.5 px-4 text-right">Horas (HH:MM)</th>
-                <th class="py-3.5 px-4 text-right">Saldo Acum.</th>
-                <th class="py-3.5 px-4">Validade / Prazo</th>
+                <th class="py-3.5 px-4 text-right" title="Saldo total do banco acumulado até a data deste evento">Saldo Acum.</th>
+                <th class="py-3.5 px-4" title="Ordem FIFO: folgas abatem sempre os créditos que vencem primeiro">Validade / Prazo</th>
                 <th class="py-3.5 px-4 text-right">Ações</th>
               </tr>
             </thead>
@@ -461,7 +461,7 @@
               Simulador Rápido de Folgas
             </div>
             <h3 class="text-lg sm:text-xl font-bold">Planeje seus próximos dias de descanso</h3>
-            <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias de folga você deseja tirar com base na sua jornada de trabalho e veja o impacto no saldo projetado em HH:MM.</p>
+            <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias (ou meio período de <span class="font-mono font-semibold">0,5 dia</span>) você deseja folgar e veja na hora quanto ainda restará no seu banco.</p>
           </div>
 
           <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 max-w-lg space-y-4">
@@ -474,6 +474,7 @@
               <label for="simTargetDate" class="font-medium shrink-0">Data pretendida (opcional):</label>
               <input type="date" id="simTargetDate" class="px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
             </div>
+            <p id="simNegativeWarning" class="hidden px-3 py-1.5 rounded-lg bg-rose-500/30 border border-rose-300/40 text-[11px] font-medium text-white"></p>
             <div class="flex items-center justify-between pt-2 border-t border-white/15 text-xs gap-3">
               <div>
                 <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
@@ -488,21 +489,126 @@
         </div>
       </div>
 
+      <!-- Guia Rápido para Usuário Leigo -->
+      <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:px-5 shadow-sm group">
+        <summary class="flex items-center justify-between gap-3 cursor-pointer list-none text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
+          <span class="flex items-center gap-2">
+            <i data-lucide="help-circle" class="w-4 h-4 text-indigo-500"></i>
+            Entenda seu Banco de Horas em 30 segundos (guia simples)
+          </span>
+          <span class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">Abrir / fechar</span>
+        </summary>
+        <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+            <strong class="block text-slate-900 dark:text-white mb-1">1. Tudo vira horas (HH:MM)</strong>
+            Nenhum valor é convertido em dinheiro. Cada hora trabalhada extra ou em feriado aumenta o tempo disponível para suas folgas.
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+            <strong class="block text-slate-900 dark:text-white mb-1">2. Bônus de Feriado (ex.: 1.4x)</strong>
+            No Sindpd-SP, trabalhar 08:00 em feriado rende 40% a mais em descanso: entra <strong>11:12</strong> no banco.
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+            <strong class="block text-slate-900 dark:text-white mb-1">3. Regra FIFO dos vencimentos</strong>
+            Quando você tira uma folga, o sistema sempre desconta primeiro das horas mais antigas que vencem antes.
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+            <strong class="block text-slate-900 dark:text-white mb-1">4. Realizado vs. Previsto</strong>
+            <strong>Realizado</strong> já aconteceu e pode ser usado hoje; <strong>Previsto</strong> mostra como ficará o saldo com feriados e folgas futuros.
+          </div>
+        </div>
+      </details>
+
+      <!-- 3 Cards Explicativos em Português Simples -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <i data-lucide="calendar-check" class="w-4 h-4"></i>
+            <span>Posso folgar quanto tempo?</span>
+          </div>
+          <h4 id="analyticsPowerTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
+          <p id="analyticsPowerText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            <i data-lucide="hourglass" class="w-4 h-4"></i>
+            <span>Saúde dos Prazos (FIFO)</span>
+          </div>
+          <h4 id="analyticsExpiryTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
+          <p id="analyticsExpiryText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+            <i data-lucide="award" class="w-4 h-4"></i>
+            <span>Ganho com Multiplicadores</span>
+          </div>
+          <h4 id="analyticsOriginTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
+          <p id="analyticsOriginText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
+        </div>
+      </div>
+
+      <!-- Linha 1 de Gráficos: Evolução + Composição -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <h3 id="balanceChartTitle" class="text-sm font-bold text-slate-900 dark:text-white mb-1">Evolução do Saldo Acumulado (HH:MM)</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Crescimento e consumo de horas ao longo dos eventos</p>
-          <div class="h-72">
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <div>
+              <h3 id="balanceChartTitle" class="text-sm font-bold text-slate-900 dark:text-white">Caminho do seu Saldo ao Longo do Tempo</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pontos verdes = horas ganhas • Pontos vermelhos = folgas • Tracejado = zero</p>
+            </div>
+            <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
+              <button type="button" data-balance-scope="all" class="balance-scope-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">Tudo</button>
+              <button type="button" data-balance-scope="realized" class="balance-scope-btn px-2.5 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Realizado</button>
+            </div>
+          </div>
+          <div class="h-72 relative">
             <canvas id="balanceChart"></canvas>
+            <div id="balanceChartEmpty" class="hidden h-full flex items-center justify-center text-xs text-slate-400 text-center px-6">
+              Adicione lançamentos no extrato para acompanhar a curva do seu saldo em HH:MM.
+            </div>
           </div>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Proporção Créditos vs. Folgas</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Distribuição total de horas no período</p>
-          <div class="h-72 flex items-center justify-center">
-            <canvas id="ratioChart"></canvas>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Resumo Visual das Horas</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Quanto já foi usado ou está em aberto</p>
+            </div>
+            <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
+              <button type="button" data-ratio-mode="composition" class="ratio-mode-btn px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">Situação</button>
+              <button type="button" data-ratio-mode="origin" class="ratio-mode-btn px-2 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Origem</button>
+            </div>
           </div>
+          <div class="h-48 relative flex items-center justify-center">
+            <canvas id="ratioChart"></canvas>
+            <div id="ratioChartEmpty" class="hidden text-xs text-slate-400 text-center px-4">
+              Sem movimentações suficientes para exibir proporções.
+            </div>
+          </div>
+          <div id="ratioLegendDetails" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/70"></div>
+        </div>
+      </div>
+
+      <!-- Linha 2: Entradas vs Folgas por Mês + Linha do Tempo FIFO -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Comparativo Mês a Mês (Ganhas × Folgas)</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Compare quanto acumulou vs. quanto descansou em cada mês</p>
+          <div class="h-64 relative">
+            <canvas id="monthlyChart"></canvas>
+            <div id="monthlyChartEmpty" class="hidden h-full flex items-center justify-center text-xs text-slate-400 text-center px-6">
+              Nenhum mês registrado ainda.
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Prazos de Vencimento em Aberto (Ordem FIFO)</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lista dos créditos que ainda restam compensar, da validade mais urgente para a mais longa</p>
+          </div>
+          <div id="expiryBreakdownContainer" class="space-y-2.5 max-h-64 overflow-y-auto pr-1"></div>
         </div>
       </div>
     </section>

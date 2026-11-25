@@ -1,7 +1,8 @@
-import { formatDateBR } from './config.js';
-import { formatHHMM } from './time.js';
+import { escapeHtml, formatDateBR } from './config.js';
+import { computeAnalyticsSummary, formatDaysFromMinutes, formatHHMM } from './time.js';
 
 let balanceChartInstance = null;
+let monthlyChartInstance = null;
 let ratioChartInstance = null;
 
 export function destroyCharts() {
@@ -9,56 +10,241 @@ export function destroyCharts() {
     balanceChartInstance.destroy();
     balanceChartInstance = null;
   }
+  if (monthlyChartInstance) {
+    monthlyChartInstance.destroy();
+    monthlyChartInstance = null;
+  }
   if (ratioChartInstance) {
     ratioChartInstance.destroy();
     ratioChartInstance = null;
   }
 }
 
-export function renderCharts(chronoEntries) {
-  if (typeof window.Chart !== 'function') return;
+function createCenterTextPlugin(centerTitle, centerValue, isDark) {
+  return {
+    id: 'saldoCenterText',
+    beforeDraw(chart) {
+      const { ctx, chartArea } = chart;
+      if (!chartArea) return;
+      const cx = (chartArea.left + chartArea.right) / 2;
+      const cy = (chartArea.top + chartArea.bottom) / 2;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+      ctx.font = '600 11px Inter, system-ui, sans-serif';
+      ctx.fillText(centerTitle, cx, cy - 11);
+      ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+      ctx.font = '700 16px "JetBrains Mono", monospace';
+      ctx.fillText(centerValue, cx, cy + 10);
+      ctx.restore();
+    }
+  };
+}
 
-  const isDark = document.documentElement.classList.contains('dark');
-  const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)';
-  const textColor = isDark ? '#94a3b8' : '#64748b';
+function renderInsightsCards(analytics, chronoEntries, dailyMinutes) {
+  const projectedMins = chronoEntries.reduce((s, e) => s + (Number(e.deltaMinutes) || 0), 0);
+  const realizedMins = chronoEntries
+    .filter((e) => e.status === 'realized')
+    .reduce((s, e) => s + (Number(e.deltaMinutes) || 0), 0);
 
-  const labels = chronoEntries.map((i) => formatDateBR(i.date).slice(0, 5));
-  const dataHours = chronoEntries.map((i) => Number((i.runningMinutes / 60).toFixed(4)));
-  const exactMinutesList = chronoEntries.map((i) => i.runningMinutes);
+  const powerTitle = document.getElementById('analyticsPowerTitle');
+  const powerText = document.getElementById('analyticsPowerText');
+  if (powerTitle && powerText) {
+    if (projectedMins > 0) {
+      powerTitle.textContent = `Você pode folgar ${formatDaysFromMinutes(projectedMins, dailyMinutes)}`;
+      powerText.textContent =
+        `Seu saldo projetado é ${formatHHMM(projectedMins, true)} (já realizados: ${formatHHMM(realizedMins, true)}) considerando jornada de ${formatHHMM(dailyMinutes)}/dia.`;
+    } else if (projectedMins < 0) {
+      powerTitle.textContent = `Saldo negativo de ${formatHHMM(projectedMins)}`;
+      powerText.textContent =
+        `Você está devendo ${formatHHMM(Math.abs(projectedMins))} no banco (${formatDaysFromMinutes(Math.abs(projectedMins), dailyMinutes)}). Horas extras futuras compensam primeiro esse valor.`;
+    } else {
+      powerTitle.textContent = 'Saldo zerado (00:00)';
+      powerText.textContent = 'Suas horas extras e folgas estão em equilíbrio exato no momento.';
+    }
+  }
+
+  const expTitle = document.getElementById('analyticsExpiryTitle');
+  const expText = document.getElementById('analyticsExpiryText');
+  if (expTitle && expText) {
+    if (analytics.expiredMinutes > 0) {
+      expTitle.textContent = `${formatHHMM(analytics.expiredMinutes)} com prazo vencido`;
+      expText.textContent =
+        'Existem créditos que passaram da data limite sem compensação no FIFO. Confira na linha do tempo abaixo.';
+    } else if (analytics.expiringSoonMinutes > 0) {
+      expTitle.textContent = `${formatHHMM(analytics.expiringSoonMinutes)} vencendo em breve`;
+      expText.textContent =
+        'Suas folgas abatem primeiro as horas mais antigas (regra FIFO). Vale planejar uma folga antes do prazo.';
+    } else if (analytics.nextCriticalBucket) {
+      expTitle.textContent = 'Prazos em dia';
+      expText.textContent =
+        `Nenhuma hora perto de vencer. O próximo crédito a vencer é ${formatHHMM(analytics.nextCriticalBucket.remainingMinutes)} em ${formatDateBR(analytics.nextCriticalBucket.expiry)}.`;
+    } else {
+      expTitle.textContent = 'Tudo já compensado';
+      expText.textContent = 'Não há horas antigas pendentes aguardando folga no seu extrato.';
+    }
+  }
+
+  const originTitle = document.getElementById('analyticsOriginTitle');
+  const originText = document.getElementById('analyticsOriginText');
+  if (originTitle && originText) {
+    if (analytics.creditedMinutesTotal === 0) {
+      originTitle.textContent = 'Sem créditos registrados';
+      originText.textContent = 'Quando você trabalhar em feriados ou fizer horas extras, o bônus em HH:MM aparecerá aqui.';
+    } else if (analytics.bonusMinutes > 0) {
+      originTitle.textContent = `+${formatHHMM(analytics.bonusMinutes)} de bônus gerados`;
+      originText.textContent =
+        `Você trabalhou ${formatHHMM(analytics.workedMinutesTotal)} e acumulou ${formatHHMM(analytics.creditedMinutesTotal)} no banco graças aos multiplicadores (ex.: feriado 1.4x).`;
+    } else {
+      originTitle.textContent = `${formatHHMM(analytics.creditedMinutesTotal)} acumulados`;
+      originText.textContent =
+        `Feriados somam ${formatHHMM(analytics.holidayCreditsMinutes)} e horas extras somam ${formatHHMM(analytics.overtimeCreditsMinutes)} no período.`;
+    }
+  }
+}
+
+function renderFifoExpiryTimeline(analytics) {
+  const container = document.getElementById('expiryBreakdownContainer');
+  if (!container) return;
+
+  if (!analytics.openBuckets.length) {
+    container.innerHTML = `
+      <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2.5">
+        <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0"></i>
+        <span>Ótima notícia: não há créditos em aberto com risco de vencimento no momento.</span>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = analytics.openBuckets.map((bucket) => {
+    const barColor = bucket.badge.isExpired
+      ? 'bg-rose-500'
+      : bucket.badge.isAlert
+        ? 'bg-amber-500'
+        : 'bg-indigo-600';
+    const openPct = Math.max(4, 100 - bucket.usedPct);
+
+    return `
+      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(bucket.date)}</span>
+              <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(bucket.title)}</span>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+              Ainda resta compensar <strong class="font-mono text-slate-800 dark:text-slate-200">${formatHHMM(bucket.remainingMinutes)}</strong> de ${formatHHMM(bucket.totalMinutes)}
+              ${bucket.usedMinutes > 0 ? `(${formatHHMM(bucket.usedMinutes)} já abatidos por folgas)` : '(100% disponível)'}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${bucket.badge.badgeClass}">${escapeHtml(bucket.badge.label)}</span>
+            <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold transition">
+              Simular folga
+            </button>
+          </div>
+        </div>
+        <div class="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden" aria-label="Proporção restante deste crédito">
+          <div class="h-full rounded-full ${barColor} transition-all duration-300" style="width: ${openPct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, gridColor, textColor) {
+  const canvas = document.getElementById('balanceChart');
+  const emptyBox = document.getElementById('balanceChartEmpty');
+  const filtered = scope === 'realized'
+    ? chronoEntries.filter((e) => e.status === 'realized')
+    : chronoEntries;
+
+  if (!filtered.length) {
+    if (balanceChartInstance) {
+      balanceChartInstance.destroy();
+      balanceChartInstance = null;
+    }
+    canvas.classList.add('hidden');
+    emptyBox?.classList.remove('hidden');
+    return;
+  }
+
+  canvas.classList.remove('hidden');
+  emptyBox?.classList.add('hidden');
+
+  let acc = 0;
+  const computed = filtered.map((e) => {
+    acc += e.deltaMinutes;
+    return { ...e, curveMinutes: acc };
+  });
+
+  const labels = computed.map((i) => formatDateBR(i.date).slice(0, 5));
+  const dataHours = computed.map((i) => Number((i.curveMinutes / 60).toFixed(4)));
+  const zeroBaseline = computed.map(() => 0);
+  const pointColors = computed.map((i) => (i.type === 'credit' ? '#10b981' : '#f43f5e'));
 
   if (balanceChartInstance) balanceChartInstance.destroy();
-  const ctx1 = document.getElementById('balanceChart').getContext('2d');
-  balanceChartInstance = new window.Chart(ctx1, {
+  balanceChartInstance = new window.Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label: 'Saldo Acumulado (HH:MM)',
-        data: dataHours,
-        borderColor: '#4f46e5',
-        backgroundColor: 'rgba(79, 70, 229, 0.14)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#4f46e5'
-      }]
+      datasets: [
+        {
+          label: 'Saldo Acumulado',
+          data: dataHours,
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79, 70, 229, 0.14)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+          pointBorderWidth: 1.5
+        },
+        {
+          label: 'Linha Zero (00:00)',
+          data: zeroBaseline,
+          borderColor: isDark ? 'rgba(148, 163, 184, 0.4)' : 'rgba(100, 116, 139, 0.4)',
+          borderDash: [5, 5],
+          borderWidth: 1.25,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+        },
         tooltip: {
+          filter: (item) => item.datasetIndex === 0,
           callbacks: {
             title: (items) => {
               const idx = items?.[0]?.dataIndex ?? 0;
-              const entry = chronoEntries[idx];
+              const entry = computed[idx];
               return entry ? `${formatDateBR(entry.date)} — ${entry.title}` : '';
             },
             label: (ctx) => {
-              const mins = exactMinutesList[ctx.dataIndex] ?? Math.round(ctx.parsed.y * 60);
-              return `Saldo acumulado: ${formatHHMM(mins, true)}`;
+              const entry = computed[ctx.dataIndex];
+              if (!entry) return '';
+              const impact = entry.type === 'credit'
+                ? `+${formatHHMM(entry.minutes)} acumulados`
+                : `-${formatHHMM(entry.minutes)} de folga/saída`;
+              return [
+                `Movimento (${entry.status === 'realized' ? 'Realizado' : 'Previsto'}): ${impact}`,
+                `Saldo após este dia: ${formatHHMM(entry.curveMinutes, true)} (≈ ${formatDaysFromMinutes(entry.curveMinutes, dailyMinutes)})`
+              ];
             }
           }
         }
@@ -76,41 +262,195 @@ export function renderCharts(chronoEntries) {
       }
     }
   });
+}
 
-  const totalCreditsMins = chronoEntries
-    .filter((e) => e.type === 'credit')
-    .reduce((s, e) => s + (Number(e.minutes) || 0), 0);
-  const totalDebitsMins = chronoEntries
-    .filter((e) => e.type === 'debit')
-    .reduce((s, e) => s + (Number(e.minutes) || 0), 0);
+function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor) {
+  const canvas = document.getElementById('monthlyChart');
+  const emptyBox = document.getElementById('monthlyChartEmpty');
+  if (!canvas) return;
 
-  if (ratioChartInstance) ratioChartInstance.destroy();
-  const ctx2 = document.getElementById('ratioChart').getContext('2d');
-  ratioChartInstance = new window.Chart(ctx2, {
-    type: 'doughnut',
+  if (!analytics.monthlySeries.length) {
+    if (monthlyChartInstance) {
+      monthlyChartInstance.destroy();
+      monthlyChartInstance = null;
+    }
+    canvas.classList.add('hidden');
+    emptyBox?.classList.remove('hidden');
+    return;
+  }
+
+  canvas.classList.remove('hidden');
+  emptyBox?.classList.add('hidden');
+
+  const labels = analytics.monthlySeries.map((m) => m.label);
+  const creditsHours = analytics.monthlySeries.map((m) => Number((m.creditsMinutes / 60).toFixed(4)));
+  const debitsHours = analytics.monthlySeries.map((m) => Number((m.debitsMinutes / 60).toFixed(4)));
+
+  if (monthlyChartInstance) monthlyChartInstance.destroy();
+  monthlyChartInstance = new window.Chart(canvas.getContext('2d'), {
+    type: 'bar',
     data: {
-      labels: [
-        `Créditos (${formatHHMM(totalCreditsMins)})`,
-        `Folgas/Saídas (${formatHHMM(totalDebitsMins)})`
-      ],
-      datasets: [{
-        data: [totalCreditsMins, totalDebitsMins],
-        backgroundColor: ['#10b981', '#f43f5e'],
-        borderWidth: 0
-      }]
+      labels,
+      datasets: [
+        {
+          label: 'Horas ganhas (+)',
+          data: creditsHours,
+          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.85)' : '#10b981',
+          borderRadius: 6,
+          maxBarThickness: 34
+        },
+        {
+          label: 'Folgas / saídas (-)',
+          data: debitsHours,
+          backgroundColor: isDark ? 'rgba(244, 63, 94, 0.85)' : '#f43f5e',
+          borderRadius: 6,
+          maxBarThickness: 34
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '68%',
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } },
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+        },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.label.split('(')[0].trim()}: ${formatHHMM(ctx.raw)}`
+            label: (ctx) => {
+              const m = analytics.monthlySeries[ctx.dataIndex];
+              const mins = ctx.datasetIndex === 0 ? m.creditsMinutes : m.debitsMinutes;
+              return `${ctx.dataset.label}: ${formatHHMM(mins)}`;
+            },
+            afterBody: (items) => {
+              const idx = items?.[0]?.dataIndex ?? 0;
+              const m = analytics.monthlySeries[idx];
+              return m ? [`Saldo líquido no mês: ${formatHHMM(m.netMinutes, true)}`] : [];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+        y: {
+          beginAtZero: true,
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { size: 11 },
+            callback: (val) => formatHHMM(Math.round(Number(val) * 60), false)
           }
         }
       }
     }
   });
+}
+
+function renderRatioDonutChart(analytics, mode, isDark, textColor) {
+  const canvas = document.getElementById('ratioChart');
+  const emptyBox = document.getElementById('ratioChartEmpty');
+  const legendBox = document.getElementById('ratioLegendDetails');
+
+  const rawItems = mode === 'origin'
+    ? [
+        { label: 'Feriados Trabalhados', mins: analytics.holidayCreditsMinutes, color: '#4f46e5', dot: 'bg-indigo-600' },
+        { label: 'Horas Extras / Plantões', mins: analytics.overtimeCreditsMinutes, color: '#0ea5e9', dot: 'bg-sky-500' },
+        { label: 'Ajustes / Manuais', mins: analytics.otherCreditsMinutes, color: '#8b5cf6', dot: 'bg-violet-500' }
+      ]
+    : [
+        { label: 'Disponível (prazo longo)', mins: analytics.safeOpenMinutes, color: '#10b981', dot: 'bg-emerald-500' },
+        { label: 'Vence em até 60 dias', mins: analytics.expiringSoonMinutes, color: '#f59e0b', dot: 'bg-amber-500' },
+        { label: 'Vencido sem folga', mins: analytics.expiredMinutes, color: '#e11d48', dot: 'bg-rose-600' },
+        { label: 'Já usado em folgas', mins: analytics.compensatedMinutes, color: '#64748b', dot: 'bg-slate-500' }
+      ];
+
+  const items = rawItems.filter((i) => i.mins > 0);
+  const total = items.reduce((s, i) => s + i.mins, 0);
+
+  if (!items.length || total === 0) {
+    if (ratioChartInstance) {
+      ratioChartInstance.destroy();
+      ratioChartInstance = null;
+    }
+    canvas.classList.add('hidden');
+    emptyBox?.classList.remove('hidden');
+    if (legendBox) legendBox.innerHTML = '';
+    return;
+  }
+
+  canvas.classList.remove('hidden');
+  emptyBox?.classList.add('hidden');
+
+  const centerTitle = mode === 'origin' ? 'Total ganho' : 'Saldo aberto';
+  const centerValue = mode === 'origin'
+    ? formatHHMM(analytics.creditedMinutesTotal)
+    : formatHHMM(analytics.openRemainingMinutes);
+
+  if (ratioChartInstance) ratioChartInstance.destroy();
+  ratioChartInstance = new window.Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: items.map((i) => i.label),
+      datasets: [{
+        data: items.map((i) => i.mins),
+        backgroundColor: items.map((i) => i.color),
+        borderWidth: 0
+      }]
+    },
+    plugins: [createCenterTextPlugin(centerTitle, centerValue, isDark)],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const pct = Math.round((Number(ctx.raw) / total) * 100);
+              return `${ctx.label}: ${formatHHMM(ctx.raw)} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (legendBox) {
+    legendBox.innerHTML = items.map((i) => {
+      const pct = Math.round((i.mins / total) * 100);
+      return `
+        <div class="flex items-center justify-between text-xs py-1">
+          <span class="flex items-center gap-2 text-slate-600 dark:text-slate-300 truncate">
+            <span class="w-2.5 h-2.5 rounded-full ${i.dot} shrink-0"></span>
+            <span class="truncate">${escapeHtml(i.label)}</span>
+          </span>
+          <span class="font-mono font-semibold text-slate-900 dark:text-white tabular-nums shrink-0">${formatHHMM(i.mins)} (${pct}%)</span>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+export function renderCharts(chronoEntries, remainingMap = new Map(), settings = {}, options = {}) {
+  const dailyMinutes = Number(settings?.dailyMinutes) || 480;
+  const analytics = computeAnalyticsSummary(chronoEntries, remainingMap, dailyMinutes);
+
+  renderInsightsCards(analytics, chronoEntries, dailyMinutes);
+  renderFifoExpiryTimeline(analytics);
+
+  if (typeof window.Chart !== 'function') return;
+
+  const isDark = document.documentElement.classList.contains('dark');
+  const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const balanceScope = options.balanceScope || 'all';
+  const ratioMode = options.ratioMode || 'composition';
+
+  renderBalanceLineChart(chronoEntries, dailyMinutes, balanceScope, isDark, gridColor, textColor);
+  renderMonthlyBarsChart(analytics, isDark, gridColor, textColor);
+  renderRatioDonutChart(analytics, ratioMode, isDark, textColor);
 }

@@ -139,7 +139,7 @@ export function buildCommunicationTemplates(chronoEntries, settings) {
     : '• Nenhuma folga futura agendada no momento.';
 
   const emailText =
-`Assunto: Alinhamento de Banco de Horas e Folgas Compensatórias — ${senderName}
+    `Assunto: Alinhamento de Banco de Horas e Folgas Compensatórias — ${senderName}
 
 Olá, tudo bem?
 
@@ -158,12 +158,12 @@ Atenciosamente,
 ${senderName}`;
 
   const whatsappText =
-`Olá! Tudo certo? Passando para alinhar meu *Banco de Horas*:\n\n` +
-`✅ *Saldo disponível hoje:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})\n` +
-`📅 *Saldo projetado:* ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})\n` +
-`⏱️ *Jornada base:* ${formatHHMM(settings.dailyMinutes)}/dia\n\n` +
-`*Folgas previstas:*\n${plannedLines}\n\n` +
-`Podemos confirmar essas datas? — _${senderName}_`;
+    `Olá! Tudo certo? Passando para alinhar meu *Banco de Horas*:\n\n` +
+    `✅ *Saldo disponível hoje:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})\n` +
+    `📅 *Saldo projetado:* ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})\n` +
+    `⏱️ *Jornada base:* ${formatHHMM(settings.dailyMinutes)}/dia\n\n` +
+    `*Folgas previstas:*\n${plannedLines}\n\n` +
+    `Podemos confirmar essas datas? — _${senderName}_`;
 
   return { emailText, whatsappText };
 }

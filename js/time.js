@@ -249,6 +249,123 @@ export function computeChronologicalAndFIFO(entries, todayIso = getLocalDateISO(
 }
 
 /**
+ * Calcula estatísticas amigáveis em linguagem simples, série mensal e detalhamento FIFO
+ * dos créditos em aberto para os gráficos explicativos.
+ */
+export function computeAnalyticsSummary(chronoEntries, remainingMap = new Map(), dailyMinutes = 480, todayIso = getLocalDateISO()) {
+  const dailyBase = Math.max(60, Math.round(Number(dailyMinutes) || 480));
+  const monthNamesShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const monthlyMap = new Map();
+
+  let workedMinutesTotal = 0;
+  let creditedMinutesTotal = 0;
+  let debitedMinutesTotal = 0;
+  let holidayCreditsMinutes = 0;
+  let overtimeCreditsMinutes = 0;
+  let otherCreditsMinutes = 0;
+
+  for (const item of chronoEntries) {
+    const mins = Math.max(0, Math.round(Number(item.minutes) || 0));
+    const ym = isValidISODate(item.date) ? item.date.slice(0, 7) : '';
+    if (ym && !monthlyMap.has(ym)) {
+      const [y, m] = ym.split('-').map(Number);
+      monthlyMap.set(ym, {
+        monthKey: ym,
+        label: `${monthNamesShort[(m - 1) % 12]}/${y.toString().slice(-2)}`,
+        creditsMinutes: 0,
+        debitsMinutes: 0,
+        netMinutes: 0
+      });
+    }
+
+    if (item.type === 'credit') {
+      const worked = Math.max(0, Math.round(Number(item.workedMinutes ?? mins)));
+      workedMinutesTotal += worked;
+      creditedMinutesTotal += mins;
+
+      if (isHolidayEntry(item)) holidayCreditsMinutes += mins;
+      else if (item.category === 'overtime') overtimeCreditsMinutes += mins;
+      else otherCreditsMinutes += mins;
+
+      if (ym) {
+        const bucket = monthlyMap.get(ym);
+        bucket.creditsMinutes += mins;
+        bucket.netMinutes += mins;
+      }
+    } else {
+      debitedMinutesTotal += mins;
+      if (ym) {
+        const bucket = monthlyMap.get(ym);
+        bucket.debitsMinutes += mins;
+        bucket.netMinutes -= mins;
+      }
+    }
+  }
+
+  const bonusMinutes = Math.max(0, creditedMinutesTotal - workedMinutesTotal);
+
+  let openRemainingMinutes = 0;
+  let compensatedMinutes = 0;
+  let expiringSoonMinutes = 0;
+  let expiredMinutes = 0;
+  const openBuckets = [];
+
+  for (const item of chronoEntries) {
+    if (item.type !== 'credit') continue;
+    const total = Math.max(0, Math.round(Number(item.minutes) || 0));
+    const rem = Math.max(0, Math.round(Number(remainingMap.get(item.id) ?? total)));
+    const used = Math.max(0, total - rem);
+    compensatedMinutes += used;
+    if (rem <= 0) continue;
+
+    openRemainingMinutes += rem;
+    const badge = getExpiryBadge(item.expiry, rem, todayIso, total);
+    if (badge.isExpired) expiredMinutes += rem;
+    else if (badge.isAlert) expiringSoonMinutes += rem;
+
+    openBuckets.push({
+      id: item.id,
+      date: item.date,
+      title: item.title,
+      expiry: item.expiry,
+      totalMinutes: total,
+      remainingMinutes: rem,
+      usedMinutes: used,
+      usedPct: total > 0 ? Math.round((used / total) * 100) : 0,
+      badge
+    });
+  }
+
+  openBuckets.sort((a, b) => {
+    const expA = a.expiry || '9999-12-31';
+    const expB = b.expiry || '9999-12-31';
+    return expA.localeCompare(expB) || compareEntriesChrono(a, b);
+  });
+
+  const monthlySeries = Array.from(monthlyMap.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  const safeOpenMinutes = Math.max(0, openRemainingMinutes - expiredMinutes - expiringSoonMinutes);
+
+  return {
+    dailyMinutes: dailyBase,
+    workedMinutesTotal,
+    creditedMinutesTotal,
+    debitedMinutesTotal,
+    bonusMinutes,
+    holidayCreditsMinutes,
+    overtimeCreditsMinutes,
+    otherCreditsMinutes,
+    openRemainingMinutes,
+    compensatedMinutes,
+    expiringSoonMinutes,
+    expiredMinutes,
+    safeOpenMinutes,
+    nextCriticalBucket: openBuckets.find((b) => b.expiry) || null,
+    openBuckets,
+    monthlySeries
+  };
+}
+
+/**
  * Identifica se um lançamento deve ser tratado como feriado mesmo em registros legados.
  */
 export function isHolidayEntry(entry) {

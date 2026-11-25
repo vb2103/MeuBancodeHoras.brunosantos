@@ -33,6 +33,8 @@ import {
 let currentUser = null;
 let sortAscending = true;
 let quickFilter = 'all';
+let analyticsBalanceScope = 'all'; // 'all' | 'realized'
+let analyticsRatioMode = 'composition'; // 'composition' | 'origin'
 let settings = createDefaultSettings();
 let entries = [];
 let toastTimer = null;
@@ -102,8 +104,7 @@ function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
   localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
   if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
-    const { chrono } = computeChronologicalAndFIFO(entries);
-    renderCharts(chrono);
+    renderAnalyticsTab();
   }
 }
 
@@ -210,6 +211,15 @@ function formatSimulatedDaysLabel(simDays) {
   return `${String(simDays).replace('.', ',')} dias`;
 }
 
+function renderAnalyticsTab() {
+  const { chrono, remainingMap } = computeChronologicalAndFIFO(entries);
+  renderCharts(chrono, remainingMap, settings, {
+    balanceScope: analyticsBalanceScope,
+    ratioMode: analyticsRatioMode
+  });
+  window.lucide?.createIcons();
+}
+
 function updateSimulator(cachedProjectedMins = null) {
   const projectedMins = cachedProjectedMins !== null
     ? cachedProjectedMins
@@ -228,6 +238,16 @@ function updateSimulator(cachedProjectedMins = null) {
   document.getElementById('simDaysValue').textContent = `${formatSimulatedDaysLabel(simDays)} (${formatHHMM(-simMins)})`;
   document.getElementById('simRemainingResult').textContent =
     `${formatHHMM(remainingMins, true)} (${formatDaysFromMinutes(remainingMins, dailyMins)})`;
+
+  const negWarning = document.getElementById('simNegativeWarning');
+  if (negWarning) {
+    if (remainingMins < 0) {
+      negWarning.textContent = `Atenção: com essa folga você ficaria devendo ${formatHHMM(Math.abs(remainingMins))} no banco de horas.`;
+      negWarning.classList.remove('hidden');
+    } else {
+      negWarning.classList.add('hidden');
+    }
+  }
 }
 
 function getFilteredEntriesState() {
@@ -377,8 +397,8 @@ function renderAll() {
           </td>
           <td class="py-3.5 px-4 whitespace-nowrap">
             ${isCredit && item.expiry
-              ? `<span class="inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${expInfo.badgeClass}">${expInfo.label}</span>`
-              : '<span class="text-xs text-slate-400">—</span>'}
+          ? `<span class="inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${expInfo.badgeClass}">${expInfo.label}</span>`
+          : '<span class="text-xs text-slate-400">—</span>'}
           </td>
           <td class="py-3.5 px-4 text-right whitespace-nowrap">
             <div class="inline-flex items-center gap-1">
@@ -442,7 +462,7 @@ function renderAll() {
   document.getElementById('whatsappTemplate').value = whatsappText;
 
   if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
-    renderCharts(chrono);
+    renderAnalyticsTab();
   }
   window.lucide?.createIcons();
 }
@@ -562,10 +582,49 @@ function switchMainTab(tabName) {
     }
   });
   if (tabName === 'graficos') {
-    const { chrono } = computeChronologicalAndFIFO(entries);
-    renderCharts(chrono);
+    renderAnalyticsTab();
   }
 }
+
+document.querySelectorAll('.balance-scope-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    analyticsBalanceScope = btn.dataset.balanceScope || 'all';
+    document.querySelectorAll('.balance-scope-btn').forEach((b) => {
+      const active = b.dataset.balanceScope === analyticsBalanceScope;
+      b.className = active
+        ? 'balance-scope-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition'
+        : 'balance-scope-btn px-2.5 py-1 rounded-md text-slate-500 dark:text-slate-400 transition';
+    });
+    renderAnalyticsTab();
+  });
+});
+
+document.querySelectorAll('.ratio-mode-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    analyticsRatioMode = btn.dataset.ratioMode || 'composition';
+    document.querySelectorAll('.ratio-mode-btn').forEach((b) => {
+      const active = b.dataset.ratioMode === analyticsRatioMode;
+      b.className = active
+        ? 'ratio-mode-btn px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition'
+        : 'ratio-mode-btn px-2 py-1 rounded-md text-slate-500 dark:text-slate-400 transition';
+    });
+    renderAnalyticsTab();
+  });
+});
+
+document.getElementById('expiryBreakdownContainer')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.sim-from-bucket-btn');
+  if (!btn) return;
+  const remMins = Number(btn.dataset.simMinutes) || 0;
+  const dailyMins = Math.max(60, Number(settings.dailyMinutes) || 480);
+  const suggestedDays = Math.max(0.5, Math.ceil((remMins / dailyMins) * 2) / 2);
+  const slider = document.getElementById('simDaysSlider');
+  if (Number(slider.max) < suggestedDays) slider.max = String(Math.ceil(suggestedDays));
+  slider.value = String(suggestedDays);
+  updateSimulator();
+  slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  showToast(`Simulador ajustado para ${formatSimulatedDaysLabel(suggestedDays)} (${formatHHMM(remMins)} a vencer)`);
+});
 
 function resetAllFilters() {
   document.getElementById('searchInput').value = '';
