@@ -11,8 +11,10 @@ import {
   validateAndNormalizeImportedEntries
 } from './db.js';
 import {
+  buildCalendarEventsFromEntries,
   buildCommunicationTemplates,
   copyElementText,
+  downloadIcsEvents,
   exportCSV,
   exportJSONBackup,
   exportPDF
@@ -301,8 +303,12 @@ function buildActionButtonsHtml(item) {
   const quickConfirm = item.status === 'planned'
     ? `<button type="button" data-confirm-id="${safeId}" aria-label="Confirmar ${safeTitle} como realizado" title="Marcar como realizado" class="confirm-realized-btn p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/50 transition"><i data-lucide="check" class="w-4 h-4"></i></button>`
     : '';
+  const icsBtn = item.status === 'planned'
+    ? `<button type="button" data-ics-id="${safeId}" aria-label="Adicionar ${safeTitle} na agenda (.ics)" title="Baixar evento .ICS" class="ics-entry-btn p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/50 transition"><i data-lucide="calendar-plus" class="w-4 h-4"></i></button>`
+    : '';
   return `
     ${quickConfirm}
+    ${icsBtn}
     <button type="button" data-edit-id="${safeId}" aria-label="Editar lançamento ${safeTitle}" title="Editar" class="edit-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
       <i data-lucide="pencil" class="w-4 h-4"></i>
     </button>
@@ -543,6 +549,16 @@ function handleEntryActionClick(e) {
     handleConfirmRealized(confirmBtn.dataset.confirmId, confirmBtn);
     return;
   }
+  const icsBtn = e.target.closest('.ics-entry-btn');
+  if (icsBtn) {
+    const target = entries.find((item) => item.id === icsBtn.dataset.icsId);
+    if (target) {
+      const evs = buildCalendarEventsFromEntries([target], new Map(), settings);
+      downloadIcsEvents(evs, `saldohoras-${target.date}.ics`);
+      showToast('Evento .ICS baixado para sua agenda!');
+    }
+    return;
+  }
   const editBtn = e.target.closest('.edit-entry-btn');
   if (editBtn) {
     const target = entries.find((item) => item.id === editBtn.dataset.editId);
@@ -682,6 +698,24 @@ document.getElementById('scheduleFromSimBtn').addEventListener('click', () => {
   }, false);
 });
 
+document.getElementById('downloadSimIcsBtn')?.addEventListener('click', () => {
+  const simDays = Math.max(0.5, parseFloat(document.getElementById('simDaysSlider').value) || 1);
+  const dailyMins = Number(settings.dailyMinutes) || 480;
+  const simMins = Math.round(simDays * dailyMins);
+  const targetDate = document.getElementById('simTargetDate')?.value || getLocalDateISO();
+  const label = formatSimulatedDaysLabel(simDays);
+  downloadIcsEvents([
+    {
+      uid: `sim-${targetDate}-${simMins}`,
+      date: targetDate,
+      summary: `Folga Compensatória (${label} • -${formatHHMM(simMins)})`,
+      description: `Folga simulada pelo SaldoHoras usando ${formatHHMM(simMins)} do banco de horas.`,
+      alarmDaysBefore: 1
+    }
+  ], `saldohoras-folga-${targetDate}.ics`);
+  showToast('Lembrete .ICS da folga baixado!');
+});
+
 // Comunicação RH / WhatsApp
 document.querySelectorAll('[data-action="regen-messages"]').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -753,6 +787,20 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
   exportCSV(rows);
   closeExportMenu();
   showToast('Planilha CSV exportada!');
+});
+
+document.getElementById('exportIcsBtn')?.addEventListener('click', () => {
+  try {
+    const { remainingMap } = computeChronologicalAndFIFO(entries);
+    const { rows } = getExportDataset();
+    const events = buildCalendarEventsFromEntries(rows, remainingMap, settings);
+    downloadIcsEvents(events);
+    showToast(`${events.length} lembretes exportados para agenda (.ics)!`);
+  } catch (err) {
+    showToast(err.message || 'Nenhum evento futuro ou vencimento pendente para exportar.');
+  } finally {
+    closeExportMenu();
+  }
 });
 
 document.getElementById('exportJsonBtn').addEventListener('click', () => {

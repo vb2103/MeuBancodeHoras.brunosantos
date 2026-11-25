@@ -10,9 +10,9 @@ import {
   getWeekdayShortBR,
   isWeekendISO
 } from './config.js';
-import { fetchHolidaysForYear, isHolidayAlreadyInEntries } from './holidays.js';
+import { fetchHolidaysForYear, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from './holidays.js';
 import { SECTOR_CATALOG, UNION_CATALOG, findSectorByCode, findUnionByCode } from './rules-catalog.js';
-import { applyMultiplierToMinutes, formatHHMM, parseDurationToMinutes } from './time.js';
+import { applyMultiplierToMinutes, computePunchBalance, formatHHMM, parseDurationToMinutes } from './time.js';
 
 /**
  * Executa operação assíncrona travando apenas o botão acionado.
@@ -248,6 +248,7 @@ export function createModalManager(ctx) {
     }
 
     updateEntryComputedPreview();
+    document.getElementById('punchCalcPanel')?.classList.add('hidden');
     document.getElementById('entryModal').classList.remove('hidden');
     window.lucide?.createIcons();
     document.getElementById('entryTitle').focus();
@@ -332,6 +333,92 @@ export function createModalManager(ctx) {
   });
   document.getElementById('entryRulePreset').addEventListener('change', updateEntryComputedPreview);
   document.getElementById('entryCustomMultiplier').addEventListener('input', updateEntryComputedPreview);
+
+  function getPunchCalcResult() {
+    const dailyMinutes = Number(ctx.getSettings().dailyMinutes) || 480;
+    const compareWithJourney = Boolean(document.getElementById('punchCompareJourney')?.checked);
+    return computePunchBalance({
+      entryTime: document.getElementById('punchIn')?.value || '',
+      breakStart: document.getElementById('punchBreakStart')?.value || '',
+      breakEnd: document.getElementById('punchBreakEnd')?.value || '',
+      exitTime: document.getElementById('punchOut')?.value || '',
+      dailyMinutes,
+      compareWithJourney
+    });
+  }
+
+  function updatePunchCalcPreview() {
+    const hint = document.getElementById('punchJourneyHint');
+    if (hint) hint.textContent = formatHHMM(Number(ctx.getSettings().dailyMinutes) || 480);
+
+    const preview = document.getElementById('punchCalcPreview');
+    if (!preview) return;
+    const res = getPunchCalcResult();
+    if (!res) {
+      preview.textContent = 'Preencha Entrada e Saída válidas.';
+      return;
+    }
+    if (document.getElementById('punchCompareJourney')?.checked) {
+      if (res.diffMinutes === 0) {
+        preview.textContent = `Trabalhado ${formatHHMM(res.workedMinutes)} = jornada exata (00:00 de saldo)`;
+      } else {
+        const tag = res.suggestedType === 'credit' ? 'Crédito' : 'Débito/Saída';
+        preview.textContent = `Trabalhado ${formatHHMM(res.workedMinutes)} -> ${formatHHMM(res.diffMinutes, true)} (${tag})`;
+      }
+    } else {
+      preview.textContent = `Turno completo líquido: ${formatHHMM(res.workedMinutes)} (Crédito)`;
+    }
+  }
+
+  document.getElementById('togglePunchCalcBtn')?.addEventListener('click', () => {
+    const panel = document.getElementById('punchCalcPanel');
+    if (!panel) return;
+    const willOpen = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !willOpen);
+    if (willOpen) {
+      const cat = document.getElementById('entryCategory')?.value;
+      const cmpBox = document.getElementById('punchCompareJourney');
+      if (cmpBox) cmpBox.checked = cat !== 'holiday';
+      updatePunchCalcPreview();
+    }
+  });
+
+  ['punchIn', 'punchBreakStart', 'punchBreakEnd', 'punchOut', 'punchCompareJourney'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', updatePunchCalcPreview);
+    document.getElementById(id)?.addEventListener('change', updatePunchCalcPreview);
+  });
+
+  document.getElementById('applyPunchCalcBtn')?.addEventListener('click', () => {
+    const res = getPunchCalcResult();
+    if (!res) {
+      ctx.showToast('Informe horários válidos no bate-ponto.');
+      return;
+    }
+    if (res.durationMinutes <= 0) {
+      ctx.showToast('Diferença igual a 00:00 em relação à jornada.');
+      return;
+    }
+
+    const radio = document.querySelector(`input[name="entryType"][value="${res.suggestedType}"]`);
+    if (radio) radio.checked = true;
+    document.getElementById('expiryFieldWrapper').classList.toggle('hidden', res.suggestedType !== 'credit');
+    syncCategoryOptionsForType(res.suggestedType);
+
+    if (res.suggestedType === 'credit') {
+      const cat = document.getElementById('entryCategory').value;
+      const presetSel = document.getElementById('entryRulePreset');
+      presetSel.value = cat === 'holiday' ? 'union_holiday' : 'union_overtime';
+      const dateVal = document.getElementById('entryDate').value || getLocalDateISO();
+      if (!document.getElementById('entryExpiry').value) {
+        document.getElementById('entryExpiry').value = addDaysToISO(dateVal, ctx.getSettings().expiryDays);
+      }
+    }
+
+    document.getElementById('entryHoursPart').value = String(Math.floor(res.durationMinutes / 60));
+    document.getElementById('entryMinutesPart').value = String(res.durationMinutes % 60);
+    updateEntryComputedPreview();
+    ctx.showToast(`Ponto calculado: ${formatHHMM(res.diffMinutes, true)} aplicados!`);
+  });
 
   document.getElementById('entryForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -555,9 +642,39 @@ export function createModalManager(ctx) {
 
   function renderHolidaysModalList() {
     const container = document.getElementById('holidaysListContainer');
+    const bridgesBanner = document.getElementById('holidayBridgesBanner');
     const entries = ctx.getEntries();
+    const settings = ctx.getSettings();
     const uf = document.getElementById('holidayUfSelect').value || getActiveHolidayUf();
     document.getElementById('holidayYearDisplay').textContent = String(holidayYear);
+
+    const bridgeSuggestions = currentHolidayList
+      .filter((h) => !h.isPast)
+      .map((h) => getHolidayBridgeOpportunity(h, entries))
+      .filter((b) => b && !b.alreadyScheduled);
+
+    if (bridgesBanner) {
+      if (bridgeSuggestions.length > 0) {
+        const previewBtns = bridgeSuggestions.slice(0, 3).map((b) => `
+          <button type="button" data-bridge-holiday-date="${b.holidayDate}" data-bridge-date="${b.bridgeDate}" data-bridge-holiday-name="${escapeHtml(b.holidayName)}" class="schedule-bridge-btn px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 hover:bg-amber-100/70 dark:hover:bg-amber-900/50 text-[11px] font-semibold text-amber-900 dark:text-amber-200 transition">
+            ${escapeHtml(b.bridgeLabel)} (${formatDateBR(b.bridgeDate).slice(0, 5)}) — ${escapeHtml(b.holidayName)}
+          </button>
+        `).join('');
+        bridgesBanner.innerHTML = `
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="font-bold flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+              ${bridgeSuggestions.length} ${bridgeSuggestions.length === 1 ? 'oportunidade de emendar feriado (ponte)' : 'oportunidades de emendar feriado (ponte)'} • requer ${formatHHMM(settings.dailyMinutes || 480)}/folga:
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">${previewBtns}</div>
+        `;
+        bridgesBanner.classList.remove('hidden');
+      } else {
+        bridgesBanner.classList.add('hidden');
+        bridgesBanner.innerHTML = '';
+      }
+    }
 
     const visibleItems = currentHolidayList.filter((h) => {
       const already = isHolidayAlreadyInEntries(entries, h.date, h.name);
@@ -577,6 +694,7 @@ export function createModalManager(ctx) {
       const checked = !already && selectedHolidayDates.has(h.date);
       const weekend = isWeekendISO(h.date);
       const weekday = getWeekdayShortBR(h.date);
+      const bridge = getHolidayBridgeOpportunity(h, entries);
 
       let timingBadge = '';
       if (h.isToday) {
@@ -586,6 +704,12 @@ export function createModalManager(ctx) {
       } else if (h.isPast) {
         timingBadge = '<span class="text-[10px] text-slate-400">Passado</span>';
       }
+
+      const bridgeTag = bridge
+        ? (bridge.alreadyScheduled
+          ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">${escapeHtml(bridge.bridgeLabel)} agendada</span>`
+          : `<button type="button" data-bridge-holiday-date="${h.date}" data-bridge-date="${bridge.bridgeDate}" data-bridge-holiday-name="${escapeHtml(h.name)}" class="schedule-bridge-btn px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition">${escapeHtml(bridge.bridgeLabel)} (${formatDateBR(bridge.bridgeDate).slice(0, 5)})</button>`)
+        : '';
 
       return `
         <div class="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
@@ -604,6 +728,7 @@ export function createModalManager(ctx) {
                 <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${h.scope === 'Nacional' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'}">${escapeHtml(h.scope)}</span>
                 ${weekend ? '<span class="text-[10px] font-medium text-amber-600 dark:text-amber-400">Fim de semana</span>' : ''}
                 ${timingBadge}
+                ${bridgeTag}
               </div>
               <p class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate mt-0.5">${escapeHtml(h.name)}</p>
             </div>
@@ -621,6 +746,7 @@ export function createModalManager(ctx) {
 
     document.getElementById('holidaySelectedCount').textContent =
       `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
+    window.lucide?.createIcons();
   }
 
   function getHolidayBatchWorkedMinutes() {
@@ -681,6 +807,24 @@ export function createModalManager(ctx) {
   document.getElementById('closeHolidaysModalBtn').addEventListener('click', closeHolidaysModal);
   document.getElementById('cancelHolidaysBtn').addEventListener('click', closeHolidaysModal);
   document.getElementById('holidaysModal').addEventListener('click', (e) => {
+    const bridgeBtn = e.target.closest('.schedule-bridge-btn');
+    if (bridgeBtn) {
+      const bridgeDate = bridgeBtn.dataset.bridgeDate;
+      const holidayDate = bridgeBtn.dataset.bridgeHolidayDate;
+      const holidayName = bridgeBtn.dataset.bridgeHolidayName || 'Feriado';
+      const settings = ctx.getSettings();
+      closeHolidaysModal();
+      openEntryModal({
+        type: 'debit',
+        category: 'time_off',
+        date: bridgeDate,
+        minutes: settings.dailyMinutes || 480,
+        title: `Folga Ponte — ${holidayName}`,
+        status: bridgeDate <= getLocalDateISO() ? 'realized' : 'planned',
+        notes: `Emenda do feriado de ${formatDateBR(holidayDate)}`
+      }, false);
+      return;
+    }
     if (e.target.id === 'holidaysModal') closeHolidaysModal();
   });
 

@@ -366,6 +366,60 @@ export function computeAnalyticsSummary(chronoEntries, remainingMap = new Map(),
 }
 
 /**
+ * Converte horário de relógio "HH:MM" (00:00..23:59) em minutos desde meia-noite.
+ */
+export function parseClockToMinutes(clockStr) {
+  if (typeof clockStr !== 'string') return null;
+  const match = clockStr.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+/**
+ * Calcula duração líquida trabalhada pelo ponto (Entrada, Almoço, Saída) e
+ * compara opcionalmente com a jornada diária para sugerir crédito ou débito em HH:MM.
+ */
+export function computePunchBalance({
+  entryTime,
+  breakStart = '',
+  breakEnd = '',
+  exitTime,
+  dailyMinutes = 480,
+  compareWithJourney = true
+} = {}) {
+  const start = parseClockToMinutes(entryTime);
+  let end = parseClockToMinutes(exitTime);
+  if (start === null || end === null) return null;
+  if (end <= start) end += 24 * 60;
+
+  const totalSpan = end - start;
+  let breakMinutes = 0;
+  if (breakStart && breakEnd) {
+    const bStart = parseClockToMinutes(breakStart);
+    let bEnd = parseClockToMinutes(breakEnd);
+    if (bStart === null || bEnd === null) return null;
+    if (bEnd <= bStart) bEnd += 24 * 60;
+    breakMinutes = bEnd - bStart;
+    if (breakMinutes < 0 || breakMinutes >= totalSpan) return null;
+  }
+
+  const workedMinutes = totalSpan - breakMinutes;
+  if (workedMinutes <= 0) return null;
+
+  const journeyMinutes = Math.max(1, Math.round(Number(dailyMinutes) || 480));
+  const diffMinutes = compareWithJourney ? (workedMinutes - journeyMinutes) : workedMinutes;
+
+  return {
+    workedMinutes,
+    breakMinutes,
+    journeyMinutes,
+    diffMinutes,
+    suggestedType: diffMinutes >= 0 ? 'credit' : 'debit',
+    durationMinutes: Math.abs(diffMinutes)
+  };
+}
+
+/**
  * Identifica se um lançamento deve ser tratado como feriado mesmo em registros legados.
  */
 export function isHolidayEntry(entry) {

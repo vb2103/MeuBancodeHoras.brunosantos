@@ -1,4 +1,4 @@
-import { ENTRY_CATEGORIES, formatDateBR, getLocalDateISO, sanitizeCsvCell, sanitizePdfText } from './config.js';
+import { ENTRY_CATEGORIES, addDaysToISO, formatDateBR, getLocalDateISO, isValidISODate, sanitizeCsvCell, sanitizePdfText } from './config.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
 import { formatDaysFromMinutes, formatHHMM, minutesToDecimalHours } from './time.js';
 
@@ -189,4 +189,113 @@ export async function copyElementText(elementId) {
   } catch {
     return false;
   }
+}
+
+function escapeIcsText(str) {
+  return String(str ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+function toIcsUtcStamp(dateObj = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${dateObj.getUTCFullYear()}${pad(dateObj.getUTCMonth() + 1)}${pad(dateObj.getUTCDate())}` +
+    `T${pad(dateObj.getUTCHours())}${pad(dateObj.getUTCMinutes())}${pad(dateObj.getUTCSeconds())}Z`
+  );
+}
+
+/**
+ * Gera conteúdo RFC 5545 (.ics) compatível com Google Calendar, Outlook e Apple Calendar.
+ */
+export function generateIcsContent(events = [], nowDate = new Date()) {
+  const dtStamp = toIcsUtcStamp(nowDate);
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SaldoHoras//Banco de Horas & Folgas//PT-BR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH'
+  ];
+
+  events.forEach((ev, idx) => {
+    if (!ev || !isValidISODate(ev.date)) return;
+    const endDate = addDaysToISO(ev.date, 1);
+    const startCompact = ev.date.replace(/-/g, '');
+    const endCompact = endDate.replace(/-/g, '');
+    const uid = String(ev.uid || `saldohoras-${startCompact}-${idx}`).replace(/[^a-zA-Z0-9._@-]/g, '');
+
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${uid}@saldohoras.app`);
+    lines.push(`DTSTAMP:${dtStamp}`);
+    lines.push(`DTSTART;VALUE=DATE:${startCompact}`);
+    lines.push(`DTEND;VALUE=DATE:${endCompact}`);
+    lines.push(`SUMMARY:${escapeIcsText(ev.summary || 'SaldoHoras')}`);
+    if (ev.description) {
+      lines.push(`DESCRIPTION:${escapeIcsText(ev.description)}`);
+    }
+    if (Number(ev.alarmDaysBefore) > 0) {
+      lines.push('BEGIN:VALARM');
+      lines.push('ACTION:DISPLAY');
+      lines.push(`DESCRIPTION:${escapeIcsText(ev.summary || 'Lembrete SaldoHoras')}`);
+      lines.push(`TRIGGER:-P${Math.round(Number(ev.alarmDaysBefore))}D`);
+      lines.push('END:VALARM');
+    }
+    lines.push('END:VEVENT');
+  });
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n') + '\r\n';
+}
+
+export function downloadIcsEvents(events, filename = `saldohoras-agenda-${getLocalDateISO()}.ics`) {
+  const valid = (events || []).filter((e) => e && isValidISODate(e.date));
+  if (!valid.length) {
+    throw new Error('Nenhum evento agendado ou vencimento válido para exportar na agenda.');
+  }
+  const ics = generateIcsContent(valid);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Converte lançamentos previstos e vencimentos FIFO em aberto para eventos de agenda (.ics).
+ */
+export function buildCalendarEventsFromEntries(chronoEntries, remainingMap = new Map(), settings = {}) {
+  const events = [];
+  const dailyMins = Number(settings?.dailyMinutes) || 480;
+
+  for (const item of chronoEntries || []) {
+    if (item.status === 'planned' && isValidISODate(item.date)) {
+      const sign = item.type === 'credit' ? '+' : '-';
+      events.push({
+        uid: `planned-${item.id || item.date}`,
+        date: item.date,
+        summary: `SaldoHoras: ${item.title} (${sign}${formatHHMM(item.minutes)})`,
+        description: `${item.type === 'debit' ? 'Folga/saída prevista' : 'Crédito previsto'} • Equivalente a ${formatDaysFromMinutes(item.minutes, dailyMins)}. ${item.notes || ''}`.trim(),
+        alarmDaysBefore: 1
+      });
+    }
+    if (item.type === 'credit' && isValidISODate(item.expiry)) {
+      const rem = remainingMap.get(item.id) ?? item.minutes;
+      if (rem > 0) {
+        events.push({
+          uid: `expiry-${item.id || item.expiry}`,
+          date: item.expiry,
+          summary: `Vencimento SaldoHoras: ${item.title} (${formatHHMM(rem)})`,
+          description: `Prazo limite FIFO para compensar ${formatHHMM(rem)} acumulados em ${formatDateBR(item.date)}.`,
+          alarmDaysBefore: 15
+        });
+      }
+    }
+  }
+
+  return events;
 }

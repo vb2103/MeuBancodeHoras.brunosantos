@@ -190,6 +190,10 @@
               <i data-lucide="table" class="w-4 h-4 text-emerald-500"></i>
               Exportar Planilha CSV
             </button>
+            <button type="button" id="exportIcsBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
+              <i data-lucide="calendar-plus" class="w-4 h-4 text-sky-500"></i>
+              Exportar Agenda (.ICS)
+            </button>
             <div class="my-1 border-t border-slate-100 dark:border-slate-800"></div>
             <button type="button" id="exportJsonMenuBtn" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5">
               <i data-lucide="database-backup" class="w-4 h-4 text-indigo-500"></i>
@@ -475,15 +479,21 @@
               <input type="date" id="simTargetDate" class="px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
             </div>
             <p id="simNegativeWarning" class="hidden px-3 py-1.5 rounded-lg bg-rose-500/30 border border-rose-300/40 text-[11px] font-medium text-white"></p>
-            <div class="flex items-center justify-between pt-2 border-t border-white/15 text-xs gap-3">
+            <div class="flex flex-wrap items-center justify-between pt-2 border-t border-white/15 text-xs gap-2.5">
               <div>
                 <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
                 <strong id="simRemainingResult" class="text-base font-bold font-mono tabular-nums">+00:00 (0,0 dias)</strong>
               </div>
-              <button type="button" id="scheduleFromSimBtn" class="px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5 shrink-0">
-                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
-                Agendar Folga
-              </button>
+              <div class="flex items-center gap-2 shrink-0">
+                <button type="button" id="downloadSimIcsBtn" title="Baixar lembrete desta folga para Google Calendar / Outlook" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white font-semibold text-xs transition flex items-center gap-1.5">
+                  <i data-lucide="calendar-arrow-down" class="w-4 h-4"></i>
+                  <span>.ICS</span>
+                </button>
+                <button type="button" id="scheduleFromSimBtn" class="px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                  <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                  Agendar Folga
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -728,7 +738,13 @@
         </div>
 
         <div>
-          <label for="entryHoursPart" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Duração Trabalhada / Folga (HH:MM)</label>
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <label for="entryHoursPart" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Duração Trabalhada / Folga (HH:MM)</label>
+            <button type="button" id="togglePunchCalcBtn" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+              <span>Calcular pelo ponto</span>
+            </button>
+          </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <input type="number" id="entryHoursPart" inputmode="numeric" min="0" max="300" required value="8" aria-label="Horas" class="no-spinners w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
             <span class="text-xs font-bold text-slate-400">:</span>
@@ -739,6 +755,42 @@
             <button type="button" data-quick-mins="30" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">00:30</button>
             <button type="button" data-quick-mins="60" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">01:00</button>
             <button type="button" data-quick-mins="120" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">02:00</button>
+          </div>
+
+          <!-- Calculadora de Ponto Diário -->
+          <div id="punchCalcPanel" class="hidden mt-2.5 p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-indigo-900 dark:text-indigo-200">Bate-Ponto Rápido</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">Sem intervalo? Limpe o almoço</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <label for="punchIn" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Entrada</label>
+                <input type="time" id="punchIn" value="08:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
+              </div>
+              <div>
+                <label for="punchBreakStart" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Saída Almoço</label>
+                <input type="time" id="punchBreakStart" value="12:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
+              </div>
+              <div>
+                <label for="punchBreakEnd" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Volta Almoço</label>
+                <input type="time" id="punchBreakEnd" value="13:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
+              </div>
+              <div>
+                <label for="punchOut" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Saída</label>
+                <input type="time" id="punchOut" value="18:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
+              </div>
+            </div>
+            <label class="flex items-center gap-2 text-[11px] text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" id="punchCompareJourney" checked class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span>Descontar minha jornada base (<strong id="punchJourneyHint" class="font-mono">08:00</strong>) — desmarque em feriados/folgas inteiras</span>
+            </label>
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <span id="punchCalcPreview" class="text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">—</span>
+              <button type="button" id="applyPunchCalcBtn" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold transition">
+                Aplicar ao lançamento
+              </button>
+            </div>
           </div>
         </div>
 
@@ -858,6 +910,9 @@
           <span id="holidaySelectedCount" class="font-mono text-slate-500 dark:text-slate-400 tabular-nums">0 selecionados</span>
         </div>
       </div>
+
+      <!-- Oportunidades de Ponte ("Emendar Feriado") -->
+      <div id="holidayBridgesBanner" class="hidden p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-1.5"></div>
 
       <!-- Lista de Feriados -->
       <div id="holidaysListContainer" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl"></div>

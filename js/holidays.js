@@ -288,3 +288,36 @@ export function isHolidayAlreadyInEntries(entries, dateStr, nameStr) {
     return baseName && (e.title || '').toLowerCase().includes(baseName);
   });
 }
+
+/**
+ * Detecta oportunidade de "emendar feriado" (Terça -> ponte na Segunda; Quinta -> ponte na Sexta).
+ */
+export function getHolidayBridgeOpportunity(holiday, entries = []) {
+  if (!holiday?.date || !/^\d{4}-\d{2}-\d{2}$/.test(holiday.date)) return null;
+  const [y, m, d] = holiday.date.split('-').map(Number);
+  const weekday = new Date(y, m - 1, d).getDay();
+
+  let bridgeDate = null;
+  let bridgeLabel = '';
+  if (weekday === 2) {
+    bridgeDate = addDaysToISO(holiday.date, -1);
+    bridgeLabel = 'Ponte na Segunda';
+  } else if (weekday === 4) {
+    bridgeDate = addDaysToISO(holiday.date, 1);
+    bridgeLabel = 'Ponte na Sexta';
+  } else {
+    return null;
+  }
+
+  const alreadyScheduled = (entries || []).some(
+    (e) => e.date === bridgeDate && e.type === 'debit'
+  );
+
+  return {
+    holidayDate: holiday.date,
+    holidayName: holiday.name,
+    bridgeDate,
+    bridgeLabel,
+    alreadyScheduled
+  };
+}

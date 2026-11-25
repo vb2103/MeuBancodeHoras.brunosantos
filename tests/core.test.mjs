@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { addDaysToISO, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell } from '../js/config.js';
 import { validateAndNormalizeImportedEntries } from '../js/db.js';
-import { computeEasterISO, computeOfflineHolidays, isHolidayAlreadyInEntries } from '../js/holidays.js';
+import { buildCalendarEventsFromEntries, generateIcsContent } from '../js/export.js';
+import { computeEasterISO, computeOfflineHolidays, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from '../js/holidays.js';
 import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
 import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
 import {
   applyMultiplierToMinutes,
   computeAnalyticsSummary,
   computeChronologicalAndFIFO,
+  computePunchBalance,
   formatDaysFromMinutes,
   formatHHMM,
   getExpiryBadge,
@@ -179,4 +181,66 @@ test('computeAnalyticsSummary resume bônus de multiplicadores, série mensal e 
   assert.equal(summary.monthlySeries[1].label, 'Out/26');
   assert.equal(summary.monthlySeries[1].debitsMinutes, 240);
   assert.equal(summary.openBuckets[0].remainingMinutes, 432); // 672 - 240 FIFO
+});
+
+test('computePunchBalance calcula saldo pelo ponto e turnos sem intervalo', () => {
+  const overtime = computePunchBalance({
+    entryTime: '08:00',
+    breakStart: '12:00',
+    breakEnd: '13:00',
+    exitTime: '18:30',
+    dailyMinutes: 480,
+    compareWithJourney: true
+  });
+  assert.equal(overtime.workedMinutes, 570);
+  assert.equal(overtime.diffMinutes, 90);
+  assert.equal(overtime.suggestedType, 'credit');
+  assert.equal(overtime.durationMinutes, 90);
+
+  const earlyOut = computePunchBalance({
+    entryTime: '08:00',
+    breakStart: '12:00',
+    breakEnd: '13:00',
+    exitTime: '16:00',
+    dailyMinutes: 480,
+    compareWithJourney: true
+  });
+  assert.equal(earlyOut.diffMinutes, -60);
+  assert.equal(earlyOut.suggestedType, 'debit');
+  assert.equal(earlyOut.durationMinutes, 60);
+
+  const holidayStraight = computePunchBalance({
+    entryTime: '09:00',
+    exitTime: '15:00',
+    dailyMinutes: 480,
+    compareWithJourney: false
+  });
+  assert.equal(holidayStraight.workedMinutes, 360);
+  assert.equal(holidayStraight.durationMinutes, 360);
+});
+
+test('getHolidayBridgeOpportunity detecta pontes de terça/quinta e gera eventos ICS válidos', () => {
+  // 2026-04-21 é terça-feira (Tiradentes) -> ponte 2026-04-20 (segunda)
+  const tueBridge = getHolidayBridgeOpportunity({ date: '2026-04-21', name: 'Tiradentes' }, []);
+  assert.equal(tueBridge.bridgeDate, '2026-04-20');
+  assert.equal(tueBridge.bridgeLabel, 'Ponte na Segunda');
+
+  // 2026-06-04 é quinta-feira (Corpus Christi) -> ponte 2026-06-05 (sexta)
+  const thuBridge = getHolidayBridgeOpportunity({ date: '2026-06-04', name: 'Corpus Christi' }, []);
+  assert.equal(thuBridge.bridgeDate, '2026-06-05');
+  assert.equal(thuBridge.bridgeLabel, 'Ponte na Sexta');
+
+  // 2026-09-07 é segunda-feira -> sem ponte
+  assert.equal(getHolidayBridgeOpportunity({ date: '2026-09-07', name: 'Independência' }, []), null);
+
+  const events = buildCalendarEventsFromEntries(
+    [{ id: 'a1', date: '2026-06-05', title: 'Folga Ponte', type: 'debit', minutes: 480, status: 'planned', notes: 'Emenda' }],
+    new Map(),
+    { dailyMinutes: 480 }
+  );
+  const ics = generateIcsContent(events, new Date('2026-11-25T12:00:00Z'));
+  assert.match(ics, /BEGIN:VCALENDAR/);
+  assert.match(ics, /DTSTART;VALUE=DATE:20260605/);
+  assert.match(ics, /DTEND;VALUE=DATE:20260606/);
+  assert.match(ics, /BEGIN:VALARM/);
 });
