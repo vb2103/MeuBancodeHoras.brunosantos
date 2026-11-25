@@ -760,17 +760,17 @@ export function createModalManager(ctx) {
         : '';
 
       return `
-        <div class="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-          <div class="flex items-center gap-3 min-w-0">
+        <div class="p-3.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition min-w-0">
+          <div class="flex items-start sm:items-center gap-3 min-w-0 flex-1">
             <input
               type="checkbox"
               data-holiday-date="${h.date}"
               aria-label="Selecionar ${escapeHtml(h.name)}"
               ${already ? 'disabled' : ''}
               ${checked ? 'checked' : ''}
-              class="holiday-checkbox w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40 cursor-pointer shrink-0"
+              class="holiday-checkbox mt-0.5 sm:mt-0 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40 cursor-pointer shrink-0"
             />
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 tabular-nums">${formatDateBR(h.date)} (${weekday})</span>
                 <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${h.scope === 'Nacional' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'}">${escapeHtml(h.scope)}</span>
@@ -778,11 +778,11 @@ export function createModalManager(ctx) {
                 ${timingBadge}
                 ${bridgeTag}
               </div>
-              <p class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate mt-0.5">${escapeHtml(h.name)}</p>
+              <p class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white break-words mt-0.5">${escapeHtml(h.name)}</p>
             </div>
           </div>
 
-          <div class="shrink-0 flex items-center gap-2">
+          <div class="shrink-0 flex items-center gap-2 ml-7 sm:ml-0">
             ${already
           ? '<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">Já no extrato</span>'
           : `<button type="button" data-quick-holiday-date="${h.date}" class="quick-add-holiday-btn px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-semibold transition">+ Lançar</button>`

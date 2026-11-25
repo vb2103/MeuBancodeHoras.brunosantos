@@ -1,5 +1,17 @@
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+main,
+section {
+  max-width: 100%;
 }
 
 .tabular-nums {
@@ -15,6 +27,44 @@ body {
 .no-spinners {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+.chart-box {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.mobile-modal-panel {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  input[type='date'],
+  input[type='time'] {
+    min-height: 42px;
+    max-width: 100%;
+  }
+
+  .mobile-main-safe {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav-safe {
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+  }
+
+  .mobile-toast-safe {
+    bottom: calc(82px + env(safe-area-inset-bottom));
+  }
 }
 
 ::-webkit-scrollbar {
@@ -62,7 +112,9 @@ body {
     margin: 10mm;
   }
 
+  html,
   body {
+    overflow: visible !important;
     background: #ffffff !important;
     color: #0f172a !important;
   }

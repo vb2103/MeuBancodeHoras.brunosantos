@@ -127,19 +127,19 @@ function renderFifoExpiryTimeline(analytics) {
     const openPct = Math.max(4, 100 - bucket.usedPct);
 
     return `
-      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-2">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="min-w-0">
+      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-2 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+          <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(bucket.date)}</span>
-              <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(bucket.title)}</span>
+              <span class="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums shrink-0">${formatDateBR(bucket.date)}</span>
+              <span class="text-xs font-bold text-slate-900 dark:text-white break-words">${escapeHtml(bucket.title)}</span>
             </div>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums break-words">
               Ainda resta compensar <strong class="font-mono text-slate-800 dark:text-slate-200">${formatHHMM(bucket.remainingMinutes)}</strong> de ${formatHHMM(bucket.totalMinutes)}
               ${bucket.usedMinutes > 0 ? `(${formatHHMM(bucket.usedMinutes)} já abatidos por folgas)` : '(100% disponível)'}
             </p>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
             <span class="px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${bucket.badge.badgeClass}">${escapeHtml(bucket.badge.label)}</span>
             <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold transition">
               Simular folga
@@ -154,7 +154,17 @@ function renderFifoExpiryTimeline(analytics) {
   }).join('');
 }
 
-function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, gridColor, textColor) {
+function formatChartAxisTick(hoursVal, showPlus, isCompact) {
+  const mins = Math.round(Number(hoursVal) * 60);
+  if (isCompact && mins % 60 === 0) {
+    const h = Math.trunc(mins / 60);
+    if (h === 0) return '0h';
+    return `${h > 0 && showPlus ? '+' : ''}${h}h`;
+  }
+  return formatHHMM(mins, showPlus);
+}
+
+function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, gridColor, textColor, isCompact) {
   const canvas = document.getElementById('balanceChart');
   const emptyBox = document.getElementById('balanceChartEmpty');
   const filtered = scope === 'realized'
@@ -219,13 +229,14 @@ function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, grid
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { left: 0, right: isCompact ? 4 : 0, top: 2, bottom: 0 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
           display: true,
           position: 'top',
-          align: 'end',
-          labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+          align: isCompact ? 'start' : 'end',
+          labels: { color: textColor, boxWidth: isCompact ? 10 : 12, font: { size: isCompact ? 10 : 11 } }
         },
         tooltip: {
           filter: (item) => item.datasetIndex === 0,
@@ -250,13 +261,22 @@ function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, grid
         }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            font: { size: isCompact ? 10 : 11 },
+            maxTicksLimit: isCompact ? 6 : 12,
+            maxRotation: isCompact ? 40 : 0
+          }
+        },
         y: {
           grid: { color: gridColor },
           ticks: {
             color: textColor,
-            font: { size: 11 },
-            callback: (val) => formatHHMM(Math.round(Number(val) * 60), true)
+            font: { size: isCompact ? 10 : 11 },
+            maxTicksLimit: isCompact ? 6 : 8,
+            callback: (val) => formatChartAxisTick(val, true, isCompact)
           }
         }
       }
@@ -264,7 +284,7 @@ function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, grid
   });
 }
 
-function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor) {
+function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompact) {
   const canvas = document.getElementById('monthlyChart');
   const emptyBox = document.getElementById('monthlyChartEmpty');
   if (!canvas) return;
@@ -311,12 +331,13 @@ function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { left: 0, right: isCompact ? 4 : 0, top: 2, bottom: 0 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
           position: 'top',
-          align: 'end',
-          labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+          align: isCompact ? 'start' : 'end',
+          labels: { color: textColor, boxWidth: isCompact ? 10 : 12, font: { size: isCompact ? 10 : 11 } }
         },
         tooltip: {
           callbacks: {
@@ -334,14 +355,22 @@ function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor) {
         }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            font: { size: isCompact ? 10 : 11 },
+            maxTicksLimit: isCompact ? 6 : 12
+          }
+        },
         y: {
           beginAtZero: true,
           grid: { color: gridColor },
           ticks: {
             color: textColor,
-            font: { size: 11 },
-            callback: (val) => formatHHMM(Math.round(Number(val) * 60), false)
+            font: { size: isCompact ? 10 : 11 },
+            maxTicksLimit: isCompact ? 6 : 8,
+            callback: (val) => formatChartAxisTick(val, false, isCompact)
           }
         }
       }
@@ -445,12 +474,13 @@ export function renderCharts(chronoEntries, remainingMap = new Map(), settings =
   if (typeof window.Chart !== 'function') return;
 
   const isDark = document.documentElement.classList.contains('dark');
+  const isCompact = typeof window !== 'undefined' && window.innerWidth < 768;
   const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)';
   const textColor = isDark ? '#94a3b8' : '#64748b';
   const balanceScope = options.balanceScope || 'all';
   const ratioMode = options.ratioMode || 'composition';
 
-  renderBalanceLineChart(chronoEntries, dailyMinutes, balanceScope, isDark, gridColor, textColor);
-  renderMonthlyBarsChart(analytics, isDark, gridColor, textColor);
+  renderBalanceLineChart(chronoEntries, dailyMinutes, balanceScope, isDark, gridColor, textColor, isCompact);
+  renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompact);
   renderRatioDonutChart(analytics, ratioMode, isDark, textColor);
 }

@@ -115,20 +115,31 @@ function setSyncStatus(state) {
 
   const cfg = SYNC_STATUS_STYLES[state] || SYNC_STATUS_STYLES.ok;
   text.textContent = cfg.text;
-  badge.className = `inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
+  badge.title = cfg.text;
+  badge.setAttribute('aria-label', `Sincronização: ${cfg.text}`);
+  badge.className = `inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 rounded-full text-[11px] font-medium border shrink-0 ${cfg.badge}`;
   if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
 }
 
 // ==================== TEMA CLARO / ESCURO ====================
+function syncThemeMobileLabel() {
+  const lbl = document.getElementById('profileMobileThemeLabel');
+  if (!lbl) return;
+  const isDark = document.documentElement.classList.contains('dark');
+  lbl.textContent = isDark ? 'Tema Claro' : 'Tema Escuro';
+}
+
 function initTheme() {
   const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.documentElement.classList.toggle('dark', savedTheme === 'dark' || (!savedTheme && prefersDark));
+  syncThemeMobileLabel();
 }
 
 function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
   localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+  syncThemeMobileLabel();
   if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
     renderAnalyticsTab();
   }
@@ -357,22 +368,22 @@ function renderAll() {
   const realizedEl = document.getElementById('kpiRealizedHours');
   realizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
   if (summary.realizedMinutes > 0) {
-    realizedEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400';
+    realizedEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400';
   } else if (summary.realizedMinutes < 0) {
-    realizedEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
+    realizedEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
   } else {
-    realizedEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
+    realizedEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
   }
   document.getElementById('kpiRealizedDays').textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
 
   const projEl = document.getElementById('kpiProjectedHours');
   projEl.textContent = formatHHMM(summary.projectedMinutes, true);
   if (summary.projectedMinutes < 0) {
-    projEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
+    projEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
   } else if (summary.projectedMinutes > 0) {
-    projEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400';
+    projEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400';
   } else {
-    projEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
+    projEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
   }
   document.getElementById('kpiProjectedDays').textContent = formatDaysFromMinutes(summary.projectedMinutes, settings.dailyMinutes);
   document.getElementById('kpiCreditsHours').textContent = formatHHMM(summary.creditsMinutes, true);
@@ -478,9 +489,9 @@ function renderAll() {
         : 'border-l-4 border-l-rose-500 dark:border-l-rose-500';
 
       return `
-        <div class="bg-white dark:bg-slate-900 border-y border-r border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl p-4 shadow-sm space-y-3">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
+        <div class="bg-white dark:bg-slate-900 border-y border-r border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl p-3.5 shadow-sm space-y-2.5 min-w-0 overflow-hidden">
+          <div class="flex items-start justify-between gap-2.5 min-w-0">
+            <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(item.date)}</span>
                 <span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
@@ -488,23 +499,23 @@ function renderAll() {
                 </span>
                 ${catBadge}
               </div>
-              <h4 class="font-bold text-sm text-slate-900 dark:text-white mt-1">${escapeHtml(item.title)}</h4>
-              ${item.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.notes)}</p>` : ''}
+              <h4 class="font-bold text-sm text-slate-900 dark:text-white mt-1 break-words">${escapeHtml(item.title)}</h4>
+              ${item.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">${escapeHtml(item.notes)}</p>` : ''}
             </div>
             <div class="text-right shrink-0">
-              <span class="font-mono text-sm font-extrabold tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+              <div class="font-mono text-sm font-extrabold tabular-nums whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
                 ${formatHHMM(item.deltaMinutes, true)}${multTag}
-              </span>
+              </div>
               ${workedSub}
             </div>
           </div>
 
-          <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs gap-2">
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <span class="text-slate-500 dark:text-slate-400">Saldo: <strong class="font-mono tabular-nums text-slate-800 dark:text-slate-200">${formatHHMM(item.runningMinutes, true)}</strong></span>
-              ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
+          <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs gap-2 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
+              <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">Saldo: <strong class="font-mono tabular-nums text-slate-800 dark:text-slate-200">${formatHHMM(item.runningMinutes, true)}</strong></span>
+              ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums max-w-full ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
             </div>
-            <div class="flex items-center gap-1 shrink-0">
+            <div class="flex items-center gap-1 shrink-0 ml-auto">
               ${buildActionButtonsHtml(item)}
             </div>
           </div>
@@ -642,10 +653,16 @@ function switchMainTab(tabName) {
   ['extrato', 'graficos', 'comunicacao'].forEach((t) => {
     document.getElementById(`tabPanel-${t}`).classList.toggle('hidden', t !== tabName);
     const btn = document.getElementById(`tabBtn-${t}`);
-    if (t === tabName) {
-      btn.className = 'main-tab-btn px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex items-center gap-2 transition';
-    } else {
-      btn.className = 'main-tab-btn px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 whitespace-nowrap flex items-center gap-2 transition';
+    if (btn) {
+      btn.className = t === tabName
+        ? 'main-tab-btn px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex items-center gap-2 transition'
+        : 'main-tab-btn px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 whitespace-nowrap flex items-center gap-2 transition';
+    }
+    const mobBtn = document.getElementById(`mobileNavBtn-${t}`);
+    if (mobBtn) {
+      mobBtn.className = t === tabName
+        ? 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 min-w-0'
+        : 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0';
     }
   });
   if (tabName === 'graficos') {
@@ -726,11 +743,19 @@ document.querySelectorAll('.main-tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchMainTab(btn.dataset.mainTab));
 });
 
+document.querySelectorAll('.mobile-nav-tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    switchMainTab(btn.dataset.mobileNav);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
 // Botões de abertura de modais
 document.getElementById('openNewEntryBtn').addEventListener('click', () => modals.openEntryModal());
-document.getElementById('mobileFabNewEntry')?.addEventListener('click', () => modals.openEntryModal());
+document.getElementById('mobileNavNewEntryBtn')?.addEventListener('click', () => modals.openEntryModal());
 document.getElementById('openSettingsBtn').addEventListener('click', () => modals.openSettingsModal());
 document.getElementById('openHolidaysBtn').addEventListener('click', () => modals.openHolidaysModal());
+document.getElementById('mobileNavHolidaysBtn')?.addEventListener('click', () => modals.openHolidaysModal());
 
 // Simulador
 document.getElementById('simDaysSlider').addEventListener('input', () => updateSimulator());
@@ -1114,6 +1139,11 @@ document.getElementById('openProfileFromSettingsBtn')?.addEventListener('click',
   modals.closeSettingsModal();
   profile.openProfileModal('seguranca');
 });
+document.getElementById('profileMobileSettingsBtn')?.addEventListener('click', () => {
+  profile.closeProfileModal();
+  modals.openSettingsModal();
+});
+document.getElementById('profileMobileThemeBtn')?.addEventListener('click', toggleTheme);
 
 authController = setupAuth({
   onToast: showToast,

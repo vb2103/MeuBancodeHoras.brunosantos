@@ -34,8 +34,8 @@
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white transition-colors duration-200">
 
   <!-- ==================== TELA DE AUTENTICAÇÃO (SUPABASE) ==================== -->
-  <div id="authScreen" role="dialog" aria-modal="true" aria-labelledby="authBrandTitle" class="hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 modal-animate my-auto">
+  <div id="authScreen" role="dialog" aria-modal="true" aria-labelledby="authBrandTitle" class="hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-md max-h-[90dvh] overflow-y-auto mobile-modal-panel p-5 sm:p-8 modal-animate my-auto">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
           <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
@@ -145,29 +145,29 @@
 
   <!-- ==================== CABEÇALHO PRINCIPAL ==================== -->
   <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-14 md:h-16 flex items-center justify-between gap-2 md:gap-3 min-w-0">
       <!-- Marca + Status -->
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-          <i data-lucide="clock-4" class="w-5 h-5"></i>
+      <div class="flex items-center gap-2.5 md:gap-3 min-w-0">
+        <div class="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <i data-lucide="clock-4" class="w-4 h-4 md:w-5 md:h-5"></i>
         </div>
         <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">SaldoHoras</h1>
-            <span id="syncBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
+          <div class="flex items-center gap-1.5 md:gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">SaldoHoras</h1>
+            <span id="syncBadge" aria-label="Sincronização: Nuvem Ativa" title="Nuvem Ativa" class="inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70 shrink-0">
               <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              <span id="syncText">Nuvem Ativa</span>
+              <span id="syncText" class="hidden md:inline">Nuvem Ativa</span>
             </span>
           </div>
-          <p id="headerSubtitle" class="text-xs text-slate-500 dark:text-slate-400 truncate">Controle de Feriados &amp; Compensações</p>
+          <p id="headerSubtitle" class="hidden md:block text-xs text-slate-500 dark:text-slate-400 truncate">Controle de Feriados &amp; Compensações</p>
         </div>
       </div>
 
-      <!-- Ações Rápidas -->
+      <!-- Ações Rápidas (No mobile: apenas Exportar + Avatar; completo no desktop >= 768px) -->
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <button type="button" id="openHolidaysBtn" aria-label="Abrir calendário dinâmico de feriados" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
+        <button type="button" id="openHolidaysBtn" aria-label="Abrir calendário dinâmico de feriados" class="hidden md:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
           <i data-lucide="calendar-days" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">Feriados</span>
+          <span>Feriados</span>
         </button>
 
         <!-- Menu Exportar -->
@@ -177,7 +177,7 @@
             <span class="hidden md:inline">Exportar</span>
             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
           </button>
-          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
+          <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40 modal-animate">
             <div class="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 space-y-1">
               <label class="flex items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer">
                 <input type="checkbox" id="exportFilteredOnly" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
@@ -217,30 +217,30 @@
           </div>
         </div>
 
-        <button type="button" id="openShortcutsBtn" aria-label="Atalhos do Teclado" title="Atalhos de Teclado (?)" class="hidden sm:inline-flex p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="openShortcutsBtn" aria-label="Atalhos do Teclado" title="Atalhos de Teclado (?)" class="hidden md:inline-flex p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="keyboard" class="w-4 h-4"></i>
         </button>
 
-        <button type="button" id="openSettingsBtn" aria-label="Parâmetros, Sindicato e Conta" title="Parâmetros, Sindicato e Conta" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="openSettingsBtn" aria-label="Parâmetros, Sindicato e Conta" title="Parâmetros, Sindicato e Conta" class="hidden md:inline-flex p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
         </button>
 
-        <button type="button" id="themeToggle" aria-label="Alternar tema claro ou escuro" title="Alternar tema claro/escuro" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="themeToggle" aria-label="Alternar tema claro ou escuro" title="Alternar tema claro/escuro" class="hidden md:inline-flex p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
           <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
         </button>
 
-        <button type="button" id="openProfileBtn" aria-label="Abrir Meu Perfil e Segurança" title="Meu Perfil &amp; Segurança" class="inline-flex items-center gap-2 pl-1.5 pr-2 sm:pr-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+        <button type="button" id="openProfileBtn" aria-label="Abrir Meu Perfil, Tema e Parâmetros" title="Meu Perfil &amp; Segurança" class="inline-flex items-center gap-2 pl-1.5 pr-2 md:pr-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
           <span id="headerProfileAvatar" class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0">SH</span>
           <span id="headerProfileLabel" class="hidden lg:inline max-w-[96px] truncate">Perfil</span>
         </button>
 
-        <button type="button" id="logoutBtn" aria-label="Sair da conta" title="Sair da conta" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="logoutBtn" aria-label="Sair da conta" title="Sair da conta" class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="log-out" class="w-4 h-4"></i>
           <span class="hidden lg:inline">Sair</span>
         </button>
 
-        <button type="button" id="openNewEntryBtn" class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition">
+        <button type="button" id="openNewEntryBtn" class="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>Novo Lançamento</span>
         </button>
@@ -249,15 +249,15 @@
   </header>
 
   <!-- ==================== CONTEÚDO PRINCIPAL ==================== -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 sm:pb-8 space-y-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 md:pt-6 mobile-main-safe md:pb-8 space-y-5 md:space-y-6 min-w-0">
 
     <!-- Banner de Instalação PWA (Dispositivos Compatíveis) -->
-    <div id="pwaInstallBanner" class="hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-      <div class="flex items-center gap-3">
+    <div id="pwaInstallBanner" class="hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm min-w-0">
+      <div class="flex items-center gap-3 min-w-0">
         <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
           <i data-lucide="smartphone" class="w-5 h-5"></i>
         </div>
-        <div>
+        <div class="min-w-0">
           <h4 class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Instalar o SaldoHoras no seu dispositivo</h4>
           <p class="text-xs text-slate-500 dark:text-slate-400">Acesse direto da tela inicial com carregamento instantâneo e suporte offline.</p>
         </div>
@@ -273,83 +273,83 @@
     </div>
 
     <!-- Banner de Alerta de Vencimento Real (FIFO) -->
-    <div id="expiryAlertBanner" class="hidden bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div class="flex items-start sm:items-center gap-3">
+    <div id="expiryAlertBanner" class="hidden bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+      <div class="flex items-start sm:items-center gap-3 min-w-0">
         <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
           <i data-lucide="alert-triangle" class="w-4 h-4"></i>
         </div>
-        <p id="expiryAlertText" class="text-xs sm:text-sm text-amber-900 dark:text-amber-200 font-medium"></p>
+        <p id="expiryAlertText" class="text-xs sm:text-sm text-amber-900 dark:text-amber-200 font-medium min-w-0 break-words"></p>
       </div>
       <button type="button" id="viewExpiringBtn" class="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shrink-0">
         Ver itens vencendo
       </button>
     </div>
 
-    <!-- Cards de KPI -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Cards de KPI (2x2 compacto no mobile, 4 colunas no desktop) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4 min-w-0">
       <!-- Saldo Atual (Realizado) -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Saldo Realizado</span>
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-            <i data-lucide="wallet" class="w-4 h-4"></i>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 md:p-5 shadow-sm min-w-0">
+        <div class="flex items-center justify-between gap-1.5 mb-2 md:mb-3 min-w-0">
+          <span class="text-[11px] md:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Saldo Realizado</span>
+          <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="wallet" class="w-3.5 h-3.5 md:w-4 md:h-4"></i>
           </div>
         </div>
-        <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiRealizedHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">+00:00</span>
-          <span id="kpiRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias</span>
+        <div class="flex items-baseline gap-1.5 md:gap-2 flex-wrap">
+          <span id="kpiRealizedHours" class="text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">+00:00</span>
+          <span id="kpiRealizedDays" class="text-[11px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias</span>
         </div>
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Disponível para uso imediato</p>
+        <p class="mt-1.5 md:mt-2 text-[11px] md:text-xs text-slate-500 dark:text-slate-400">Disponível para uso imediato</p>
       </div>
 
       <!-- Saldo Projetado -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Saldo Projetado</span>
-          <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-            <i data-lucide="trending-up" class="w-4 h-4"></i>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 md:p-5 shadow-sm min-w-0">
+        <div class="flex items-center justify-between gap-1.5 mb-2 md:mb-3 min-w-0">
+          <span class="text-[11px] md:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Saldo Projetado</span>
+          <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 md:w-4 md:h-4"></i>
           </div>
         </div>
-        <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiProjectedHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400">+00:00</span>
-          <span id="kpiProjectedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 tabular-nums">0,0 dias</span>
+        <div class="flex items-baseline gap-1.5 md:gap-2 flex-wrap">
+          <span id="kpiProjectedHours" class="text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400">+00:00</span>
+          <span id="kpiProjectedDays" class="text-[11px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 tabular-nums">0,0 dias</span>
         </div>
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Inclui feriados e folgas previstos</p>
+        <p class="mt-1.5 md:mt-2 text-[11px] md:text-xs text-slate-500 dark:text-slate-400">Inclui feriados e folgas previstos</p>
       </div>
 
       <!-- Total Acumulado (Créditos) -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Créditos (Feriados/Extras)</span>
-          <div class="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 md:p-5 shadow-sm min-w-0">
+        <div class="flex items-center justify-between gap-1.5 mb-2 md:mb-3 min-w-0">
+          <span class="text-[11px] md:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Créditos (Feriados/Extras)</span>
+          <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5 md:w-4 md:h-4"></i>
           </div>
         </div>
-        <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiCreditsHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">+00:00</span>
-          <span id="kpiCreditsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 registros</span>
+        <div class="flex items-baseline gap-1.5 md:gap-2 flex-wrap">
+          <span id="kpiCreditsHours" class="text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">+00:00</span>
+          <span id="kpiCreditsCount" class="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 registros</span>
         </div>
-        <p id="kpiUnionSummary" class="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">Jornada: <strong id="kpiJourneyLabel" class="font-mono tabular-nums text-slate-700 dark:text-slate-300">08:00/dia</strong></p>
+        <p id="kpiUnionSummary" class="mt-1.5 md:mt-2 text-[11px] md:text-xs text-slate-500 dark:text-slate-400 truncate">Jornada: <strong id="kpiJourneyLabel" class="font-mono tabular-nums text-slate-700 dark:text-slate-300">08:00/dia</strong></p>
       </div>
 
       <!-- Total Compensado (Débitos) -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Folgas &amp; Saídas</span>
-          <div class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-            <i data-lucide="calendar-minus" class="w-4 h-4"></i>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 md:p-5 shadow-sm min-w-0">
+        <div class="flex items-center justify-between gap-1.5 mb-2 md:mb-3 min-w-0">
+          <span class="text-[11px] md:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">Folgas &amp; Saídas</span>
+          <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+            <i data-lucide="calendar-minus" class="w-3.5 h-3.5 md:w-4 md:h-4"></i>
           </div>
         </div>
-        <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiDebitsHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">-00:00</span>
-          <span id="kpiDebitsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 folgas</span>
+        <div class="flex items-baseline gap-1.5 md:gap-2 flex-wrap">
+          <span id="kpiDebitsHours" class="text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">-00:00</span>
+          <span id="kpiDebitsCount" class="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 folgas</span>
         </div>
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Soma de compensações realizadas e previstas</p>
+        <p class="mt-1.5 md:mt-2 text-[11px] md:text-xs text-slate-500 dark:text-slate-400">Soma de compensações realizadas e previstas</p>
       </div>
     </section>
 
-    <!-- Navegação por Abas -->
-    <div class="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto">
+    <!-- Navegação por Abas (Desktop >= 768px; no mobile usa Barra Inferior fixa) -->
+    <div class="hidden md:flex border-b border-slate-200 dark:border-slate-800 items-center gap-2 overflow-x-auto">
       <button type="button" data-main-tab="extrato" id="tabBtn-extrato" class="main-tab-btn px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex items-center gap-2 transition">
         <i data-lucide="list-ordered" class="w-4 h-4"></i>
         Extrato Cronológico
@@ -365,25 +365,25 @@
     </div>
 
     <!-- ==================== ABA 1: EXTRATO CRONOLÓGICO ==================== -->
-    <section id="tabPanel-extrato" class="space-y-4">
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
-        <div class="flex flex-col md:flex-row gap-3">
-          <div class="relative flex-1">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+    <section id="tabPanel-extrato" class="space-y-4 min-w-0">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 md:p-4 space-y-3 shadow-sm min-w-0">
+        <div class="flex flex-col md:flex-row gap-2.5 md:gap-3 min-w-0">
+          <div class="relative flex-1 min-w-0">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
             <input type="text" id="searchInput" aria-label="Buscar lançamentos" placeholder="Buscar por evento, feriado ou observação... (atalho: /)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
 
-          <select id="yearFilter" aria-label="Filtrar por ano" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="yearFilter" aria-label="Filtrar por ano" class="w-full md:w-auto min-w-0 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="all">Todos os anos</option>
           </select>
 
-          <select id="typeFilter" aria-label="Filtrar por tipo" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="typeFilter" aria-label="Filtrar por tipo" class="w-full md:w-auto min-w-0 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="all">Todos os tipos</option>
             <option value="credit">Créditos (+ Feriados/Extras)</option>
             <option value="debit">Débitos (- Folgas/Saídas)</option>
           </select>
 
-          <select id="statusFilter" aria-label="Filtrar por status" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="statusFilter" aria-label="Filtrar por status" class="w-full md:w-auto min-w-0 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="all">Todos os status</option>
             <option value="realized">Realizados</option>
             <option value="planned">Previstos</option>
@@ -414,7 +414,7 @@
       </div>
 
       <!-- Visão Mobile: Cards Empilhados -->
-      <div id="mobileCardsContainer" class="grid grid-cols-1 gap-3 md:hidden"></div>
+      <div id="mobileCardsContainer" class="grid grid-cols-1 gap-3 md:hidden min-w-0"></div>
 
       <!-- Visão Desktop: Tabela Completa -->
       <div class="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
@@ -499,10 +499,10 @@
     </section>
 
     <!-- ==================== ABA 2: GRÁFICOS & SIMULADOR ==================== -->
-    <section id="tabPanel-graficos" class="hidden space-y-6">
-      <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div class="space-y-2 max-w-xl">
+    <section id="tabPanel-graficos" class="hidden space-y-6 min-w-0">
+      <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-4 sm:p-6 text-white shadow-lg min-w-0">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6 min-w-0">
+          <div class="space-y-2 max-w-xl min-w-0">
             <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
               Simulador Rápido de Folgas
@@ -511,23 +511,23 @@
             <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias (ou meio período de <span class="font-mono font-semibold">0,5 dia</span>) você deseja folgar e veja na hora quanto ainda restará no seu banco.</p>
           </div>
 
-          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 max-w-lg space-y-4">
-            <div class="flex items-center justify-between gap-2">
+          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 w-full max-w-lg space-y-4 min-w-0">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <label for="simDaysSlider" class="text-xs font-semibold uppercase tracking-wider text-indigo-100">Dias de Folga Simulados</label>
               <span id="simDaysValue" class="text-lg sm:text-xl font-extrabold font-mono tabular-nums">2 dias (-16:00)</span>
             </div>
             <input type="range" id="simDaysSlider" min="0.5" max="15" step="0.5" value="2" class="w-full accent-white cursor-pointer" />
-            <div class="flex items-center justify-between gap-3 text-xs text-indigo-100">
+            <div class="flex flex-wrap items-center justify-between gap-2.5 text-xs text-indigo-100 min-w-0">
               <label for="simTargetDate" class="font-medium shrink-0">Data pretendida (opcional):</label>
-              <input type="date" id="simTargetDate" class="px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
+              <input type="date" id="simTargetDate" class="w-full sm:w-auto min-w-0 px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
             </div>
             <p id="simNegativeWarning" class="hidden px-3 py-1.5 rounded-lg bg-rose-500/30 border border-rose-300/40 text-[11px] font-medium text-white"></p>
-            <div class="flex flex-wrap items-center justify-between pt-2 border-t border-white/15 text-xs gap-2.5">
-              <div>
+            <div class="flex flex-wrap items-center justify-between pt-2 border-t border-white/15 text-xs gap-2.5 min-w-0">
+              <div class="min-w-0">
                 <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
                 <strong id="simRemainingResult" class="text-base font-bold font-mono tabular-nums">+00:00 (0,0 dias)</strong>
               </div>
-              <div class="flex items-center gap-2 shrink-0">
+              <div class="flex items-center gap-2 shrink-0 flex-wrap">
                 <button type="button" id="downloadSimIcsBtn" title="Baixar lembrete desta folga para Google Calendar / Outlook" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white font-semibold text-xs transition flex items-center gap-1.5">
                   <i data-lucide="calendar-arrow-down" class="w-4 h-4"></i>
                   <span>.ICS</span>
@@ -602,10 +602,10 @@
       </div>
 
       <!-- Linha 1 de Gráficos: Evolução + Composição -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col">
-          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-            <div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 min-w-0">
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col min-w-0">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-3 min-w-0">
+            <div class="min-w-0">
               <h3 id="balanceChartTitle" class="text-sm font-bold text-slate-900 dark:text-white">Caminho do seu Saldo ao Longo do Tempo</h3>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pontos verdes = horas ganhas • Pontos vermelhos = folgas • Tracejado = zero</p>
             </div>
@@ -614,7 +614,7 @@
               <button type="button" data-balance-scope="realized" class="balance-scope-btn px-2.5 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Realizado</button>
             </div>
           </div>
-          <div class="h-72 relative">
+          <div class="chart-box h-64 md:h-72">
             <canvas id="balanceChart"></canvas>
             <div id="balanceChartEmpty" class="hidden h-full flex items-center justify-center text-xs text-slate-400 text-center px-6">
               Adicione lançamentos no extrato para acompanhar a curva do seu saldo em HH:MM.
@@ -622,9 +622,9 @@
           </div>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col">
-          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-            <div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col min-w-0">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-3 min-w-0">
+            <div class="min-w-0">
               <h3 class="text-sm font-bold text-slate-900 dark:text-white">Resumo Visual das Horas</h3>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Quanto já foi usado ou está em aberto</p>
             </div>
@@ -633,22 +633,22 @@
               <button type="button" data-ratio-mode="origin" class="ratio-mode-btn px-2 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Origem</button>
             </div>
           </div>
-          <div class="h-48 relative flex items-center justify-center">
+          <div class="chart-box h-48 flex items-center justify-center">
             <canvas id="ratioChart"></canvas>
             <div id="ratioChartEmpty" class="hidden text-xs text-slate-400 text-center px-4">
               Sem movimentações suficientes para exibir proporções.
             </div>
           </div>
-          <div id="ratioLegendDetails" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/70"></div>
+          <div id="ratioLegendDetails" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/70 min-w-0"></div>
         </div>
       </div>
 
       <!-- Linha 2: Entradas vs Folgas por Mês + Linha do Tempo FIFO -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 min-w-0">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm min-w-0">
           <h3 class="text-sm font-bold text-slate-900 dark:text-white">Comparativo Mês a Mês (Ganhas × Folgas)</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Compare quanto acumulou vs. quanto descansou em cada mês</p>
-          <div class="h-64 relative">
+          <div class="chart-box h-60 md:h-64">
             <canvas id="monthlyChart"></canvas>
             <div id="monthlyChartEmpty" class="hidden h-full flex items-center justify-center text-xs text-slate-400 text-center px-6">
               Nenhum mês registrado ainda.
@@ -656,33 +656,33 @@
           </div>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
-          <div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0">
+          <div class="min-w-0">
             <h3 class="text-sm font-bold text-slate-900 dark:text-white">Prazos de Vencimento em Aberto (Ordem FIFO)</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lista dos créditos que ainda restam compensar, da validade mais urgente para a mais longa</p>
           </div>
-          <div id="expiryBreakdownContainer" class="space-y-2.5 max-h-64 overflow-y-auto pr-1"></div>
+          <div id="expiryBreakdownContainer" class="space-y-2.5 max-h-64 overflow-y-auto pr-1 min-w-0"></div>
         </div>
       </div>
     </section>
 
     <!-- ==================== ABA 3: COMUNICAÇÃO RH / GESTÃO ==================== -->
-    <section id="tabPanel-comunicacao" class="hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <section id="tabPanel-comunicacao" class="hidden min-w-0">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 min-w-0">
         <!-- Card E-mail -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between space-y-4 min-w-0">
+          <div class="space-y-3 min-w-0">
+            <div class="flex items-center justify-between gap-2 min-w-0">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                   <i data-lucide="mail" class="w-4 h-4"></i>
                 </div>
-                <div>
-                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">E-mail Formal (Gestão / RH)</h3>
+                <div class="min-w-0">
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white truncate">E-mail Formal (Gestão / RH)</h3>
                   <p class="text-xs text-slate-500 dark:text-slate-400">Texto editável com resumo atualizado em HH:MM</p>
                 </div>
               </div>
-              <button type="button" data-action="regen-messages" aria-label="Atualizar texto de e-mail" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              <button type="button" data-action="regen-messages" aria-label="Atualizar texto de e-mail" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
               </button>
             </div>
@@ -690,8 +690,8 @@
             <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 pt-2">
-            <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
+          <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-2">
+            <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="sm:flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
               <i data-lucide="copy" class="w-4 h-4"></i>
               Copiar Texto
             </button>
@@ -703,7 +703,7 @@
               <i data-lucide="calendar-plus" class="w-4 h-4"></i>
               <span>.ICS</span>
             </button>
-            <button type="button" id="openMailClientBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5">
+            <button type="button" id="openMailClientBtn" class="sm:flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5">
               <i data-lucide="external-link" class="w-4 h-4"></i>
               Abrir E-mail
             </button>
@@ -711,19 +711,19 @@
         </div>
 
         <!-- Card WhatsApp -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between space-y-4 min-w-0">
+          <div class="space-y-3 min-w-0">
+            <div class="flex items-center justify-between gap-2 min-w-0">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <i data-lucide="message-circle" class="w-4 h-4"></i>
                 </div>
-                <div>
-                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">Mensagem Rápida (WhatsApp)</h3>
+                <div class="min-w-0">
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white truncate">Mensagem Rápida (WhatsApp)</h3>
                   <p class="text-xs text-slate-500 dark:text-slate-400">Formato direto para alinhar folgas com seu gestor</p>
                 </div>
               </div>
-              <button type="button" data-action="regen-messages" aria-label="Atualizar texto do WhatsApp" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              <button type="button" data-action="regen-messages" aria-label="Atualizar texto do WhatsApp" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
               </button>
             </div>
@@ -747,8 +747,8 @@
   </main>
 
   <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO (HH:MM) ==================== -->
-  <div id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate my-auto">
+  <div id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto mobile-modal-panel p-4 sm:p-6 modal-animate my-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Novo Lançamento</h2>
         <button type="button" id="closeEntryModalBtn" aria-label="Fechar modal de lançamento" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -846,10 +846,10 @@
         </div>
 
         <!-- Regra de Multiplicador (para créditos) -->
-        <div id="multiplierWrapper" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div id="multiplierWrapper" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2 min-w-0">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
             <label for="entryRulePreset" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Multiplicador Aplicado</label>
-            <select id="entryRulePreset" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="entryRulePreset" class="w-full sm:w-auto min-w-0 max-w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="union_holiday">Feriado (Regra Sindicato/Ramo)</option>
               <option value="union_overtime">Hora Extra (Regra Sindicato/Ramo)</option>
               <option value="1.0">Simples 1:1 (1.0x)</option>
@@ -907,8 +907,8 @@
   </div>
 
   <!-- ==================== MODAL: CALENDÁRIO DINÂMICO DE FERIADOS ==================== -->
-  <div id="holidaysModal" role="dialog" aria-modal="true" aria-labelledby="holidaysModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-6 modal-animate my-auto space-y-4">
+  <div id="holidaysModal" role="dialog" aria-modal="true" aria-labelledby="holidaysModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-2xl max-h-[90dvh] overflow-y-auto mobile-modal-panel p-4 sm:p-6 modal-animate my-auto space-y-4">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <div>
           <h2 id="holidaysModalTitle" class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -966,7 +966,7 @@
       <div id="holidayBridgesBanner" class="hidden p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-1.5"></div>
 
       <!-- Lista de Feriados -->
-      <div id="holidaysListContainer" class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl"></div>
+      <div id="holidaysListContainer" class="max-h-72 overflow-y-auto overflow-x-hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl min-w-0"></div>
 
       <!-- Duração padrão p/ importação em lote -->
       <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2.5">
@@ -997,8 +997,8 @@
   </div>
 
   <!-- ==================== MODAL: PARÂMETROS, SINDICATO/RAMO & CONTA ==================== -->
-  <div id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 modal-animate my-auto">
+  <div id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-xl max-h-[90dvh] overflow-y-auto mobile-modal-panel p-4 sm:p-6 modal-animate my-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <h2 id="settingsModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Parâmetros, Sindicato &amp; Conta</h2>
         <button type="button" id="closeSettingsModalBtn" aria-label="Fechar parâmetros" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -1121,17 +1121,30 @@
   </div>
 
   <!-- ==================== MODAL: MEU PERFIL & SEGURANÇA ==================== -->
-  <div id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 modal-animate my-auto space-y-4">
+  <div id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-xl max-h-[90dvh] overflow-y-auto mobile-modal-panel p-4 sm:p-6 modal-animate my-auto space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <i data-lucide="shield-check" class="w-4 h-4"></i>
           </div>
-          <h2 id="profileModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Meu Perfil &amp; Segurança</h2>
+          <h2 id="profileModalTitle" class="text-base font-bold text-slate-900 dark:text-white truncate">Meu Perfil &amp; Segurança</h2>
         </div>
-        <button type="button" id="closeProfileModalBtn" aria-label="Fechar perfil e segurança" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <button type="button" id="closeProfileModalBtn" aria-label="Fechar perfil e segurança" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
           <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Ações Rápidas Mobile (Parâmetros & Tema direto pelo Avatar) -->
+      <div id="profileMobileQuickActions" class="grid grid-cols-2 gap-2 md:hidden">
+        <button type="button" id="profileMobileSettingsBtn" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 shrink-0"></i>
+          <span class="truncate">Parâmetros</span>
+        </button>
+        <button type="button" id="profileMobileThemeBtn" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+          <i data-lucide="moon" class="w-4 h-4 dark:hidden shrink-0"></i>
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400 shrink-0"></i>
+          <span id="profileMobileThemeLabel" class="truncate">Tema Escuro</span>
         </button>
       </div>
 
@@ -1310,8 +1323,8 @@
   </div>
 
   <!-- ==================== MODAL PRÓPRIO DE CONFIRMAÇÃO ==================== -->
-  <div id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" class="hidden fixed inset-0 z-[60] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 modal-animate space-y-4">
+  <div id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" class="hidden fixed inset-0 z-[60] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto mobile-modal-panel p-5 sm:p-6 modal-animate my-auto space-y-4">
       <div class="flex items-start gap-3">
         <div id="confirmIconBox" class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
           <i data-lucide="alert-triangle" class="w-5 h-5"></i>
@@ -1334,8 +1347,8 @@
   </div>
 
   <!-- ==================== MODAL: CENTRAL DE EXPORTAÇÃO & RELATÓRIOS ==================== -->
-  <div id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-6 modal-animate my-auto space-y-4">
+  <div id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-full sm:max-w-2xl max-h-[90dvh] overflow-y-auto mobile-modal-panel p-4 sm:p-6 modal-animate my-auto space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -1502,8 +1515,8 @@
   </div>
 
   <!-- ==================== MODAL DE ATALHOS DE TECLADO ==================== -->
-  <div id="shortcutsModal" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl modal-animate">
+  <div id="shortcutsModal" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-full sm:max-w-md max-h-[90dvh] overflow-y-auto mobile-modal-panel p-4 sm:p-6 space-y-5 shadow-2xl modal-animate my-auto">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
         <div class="flex items-center gap-2.5">
           <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -1569,14 +1582,40 @@
   <!-- ==================== FOLHA DE IMPRESSÃO NATIVA (@media print) ==================== -->
   <section id="printReportSheet" class="hidden print:block" aria-hidden="true"></section>
 
-  <!-- ==================== BOTÃO FLUTUANTE MOBILE (FAB) ==================== -->
-  <button type="button" id="mobileFabNewEntry" aria-label="Novo Lançamento" class="sm:hidden fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 px-4 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-xl shadow-indigo-600/30 transition">
-    <i data-lucide="plus" class="w-4 h-4"></i>
-    <span>Novo Lançamento</span>
-  </button>
+  <!-- ==================== BARRA INFERIOR MOBILE (iOS/PWA) ==================== -->
+  <nav id="mobileBottomNav" aria-label="Navegação principal mobile" class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 mobile-bottom-nav-safe shadow-[0_-6px_24px_rgba(15,23,42,0.08)] print:hidden">
+    <div class="grid grid-cols-5 items-end max-w-md mx-auto px-1 pt-1.5">
+      <button type="button" data-mobile-nav="extrato" id="mobileNavBtn-extrato" class="mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 min-w-0">
+        <i data-lucide="list-ordered" class="w-5 h-5 shrink-0"></i>
+        <span class="truncate">Extrato</span>
+      </button>
+
+      <button type="button" id="mobileNavHolidaysBtn" class="flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0">
+        <i data-lucide="calendar-days" class="w-5 h-5 shrink-0"></i>
+        <span class="truncate">Feriados</span>
+      </button>
+
+      <button type="button" id="mobileNavNewEntryBtn" aria-label="Novo Lançamento" class="flex flex-col items-center justify-center gap-0.5 pb-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 min-w-0">
+        <span class="-mt-4 w-11 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center transition">
+          <i data-lucide="plus" class="w-5 h-5"></i>
+        </span>
+        <span class="truncate">+ Novo</span>
+      </button>
+
+      <button type="button" data-mobile-nav="graficos" id="mobileNavBtn-graficos" class="mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0">
+        <i data-lucide="bar-chart-3" class="w-5 h-5 shrink-0"></i>
+        <span class="truncate">Gráficos</span>
+      </button>
+
+      <button type="button" data-mobile-nav="comunicacao" id="mobileNavBtn-comunicacao" class="mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0">
+        <i data-lucide="send" class="w-5 h-5 shrink-0"></i>
+        <span class="truncate">RH</span>
+      </button>
+    </div>
+  </nav>
 
   <!-- ==================== TOAST DE NOTIFICAÇÃO ==================== -->
-  <div id="toast" role="status" aria-live="polite" class="fixed bottom-20 sm:bottom-5 right-4 sm:right-5 z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
+  <div id="toast" role="status" aria-live="polite" class="fixed mobile-toast-safe md:bottom-5 right-3.5 md:right-5 max-w-[calc(100vw-1.75rem)] z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
     <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0"></i>
     <span id="toastMsg">Ação concluída</span>
     <button type="button" id="toastActionBtn" class="hidden ml-1 px-2.5 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-[11px] font-bold transition shrink-0">Desfazer</button>
