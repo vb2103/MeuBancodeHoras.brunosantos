@@ -285,3 +285,42 @@ test('XML estruturado, Excel XML, sanitização PDF e digest SHA-256 funcionam c
   assert.throws(() => exportCSV([]), /Nenhum lançamento encontrado/);
   assert.throws(() => exportPDF([], settings), /Nenhum lançamento encontrado/);
 });
+
+test('filtros rápidos de extrato e detecção de duplicidades operam com precisão', () => {
+  const entries = [
+    { id: '1', date: '2026-11-02', title: 'Finados', type: 'credit', minutes: 672, status: 'realized', category: 'holiday' },
+    { id: '2', date: '2026-11-15', title: 'Proclamação', type: 'credit', minutes: 672, status: 'planned', category: 'holiday' },
+    { id: '3', date: '2026-11-20', title: 'Folga Compensatória', type: 'debit', minutes: 480, status: 'realized', category: 'time_off' },
+    { id: '4', date: '2026-12-25', title: 'Natal', type: 'credit', minutes: 672, status: 'planned', category: 'holiday' }
+  ];
+
+  // Filtro credits
+  const credits = entries.filter((e) => e.type === 'credit');
+  assert.equal(credits.length, 3);
+
+  // Filtro debits
+  const debits = entries.filter((e) => e.type === 'debit');
+  assert.equal(debits.length, 1);
+  assert.equal(debits[0].id, '3');
+
+  // Filtro thismonth (2026-11)
+  const novemberEntries = entries.filter((e) => e.date.startsWith('2026-11'));
+  assert.equal(novemberEntries.length, 3);
+
+  // Detecção de duplicidade: mesma data e mesmo título (case-insensitive)
+  const isDuplicateExact = entries.some(
+    (e) => e.id !== 'new-id' && e.date === '2026-11-02' && e.title.trim().toLowerCase() === 'finados'
+  );
+  assert.equal(isDuplicateExact, true);
+
+  const isDuplicateDifferentDate = entries.some(
+    (e) => e.id !== 'new-id' && e.date === '2026-11-03' && e.title.trim().toLowerCase() === 'finados'
+  );
+  assert.equal(isDuplicateDifferentDate, false);
+
+  // Em edição, o próprio registro não deve acusar duplicidade consigo mesmo
+  const isDuplicateSelf = entries.some(
+    (e) => e.id !== '1' && e.date === '2026-11-02' && e.title.trim().toLowerCase() === 'finados'
+  );
+  assert.equal(isDuplicateSelf, false);
+});

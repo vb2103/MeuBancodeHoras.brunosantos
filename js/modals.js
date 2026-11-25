@@ -58,7 +58,7 @@ export function createModalManager(ctx) {
   }
 
   function getOpenModalElement() {
-    const ids = ['confirmModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
+    const ids = ['confirmModal', 'shortcutsModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
     return ids.map((id) => document.getElementById(id)).find((el) => el && !el.classList.contains('hidden')) || null;
   }
 
@@ -139,6 +139,32 @@ export function createModalManager(ctx) {
   document.getElementById('confirmOkBtn').addEventListener('click', () => resolveConfirm(true));
   document.getElementById('confirmModal').addEventListener('click', (e) => {
     if (e.target.id === 'confirmModal') resolveConfirm(false);
+  });
+
+  // ==================== MODAL DE ATALHOS DE TECLADO ====================
+  function openShortcutsModal() {
+    lastFocusedEl = document.activeElement;
+    const modal = document.getElementById('shortcutsModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    window.lucide?.createIcons();
+    document.getElementById('confirmShortcutsModalBtn')?.focus();
+  }
+
+  function closeShortcutsModal() {
+    const modal = document.getElementById('shortcutsModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    restoreLastFocus();
+  }
+
+  document.getElementById('openShortcutsBtn')?.addEventListener('click', openShortcutsModal);
+  document.getElementById('closeShortcutsModalBtn')?.addEventListener('click', closeShortcutsModal);
+  document.getElementById('confirmShortcutsModalBtn')?.addEventListener('click', closeShortcutsModal);
+  document.getElementById('shortcutsModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'shortcutsModal') closeShortcutsModal();
   });
 
   // ==================== MODAL DE LANÇAMENTO (HH:MM) ====================
@@ -440,15 +466,33 @@ export function createModalManager(ctx) {
     const multiplier = type === 'credit' ? getActiveMultiplierForForm() : 1.0;
     const finalMinutes = type === 'credit' ? applyMultiplierToMinutes(workedMinutes, multiplier) : workedMinutes;
 
+    const entryDate = document.getElementById('entryDate').value;
+    const entryTitle = document.getElementById('entryTitle').value.trim();
+
+    // Detecção de duplicidade: outro registro com a mesma data e mesmo título
+    const existingSame = ctx.getEntries().find(
+      (x) => x.id !== id && x.date === entryDate && x.title.trim().toLowerCase() === entryTitle.toLowerCase()
+    );
+    if (existingSame) {
+      const proceed = await confirmDialog({
+        title: 'Possível Lançamento Duplicado',
+        message: `Já existe um lançamento registrado em ${formatDateBR(entryDate)} com o título "${entryTitle}" (${formatHHMM(existingSame.minutes)}). Deseja salvar mesmo assim?`,
+        confirmText: 'Salvar mesmo assim',
+        cancelText: 'Voltar e revisar',
+        variant: 'warning'
+      });
+      if (!proceed) return;
+    }
+
     const entryObj = {
       id,
       type,
-      date: document.getElementById('entryDate').value,
+      date: entryDate,
       minutes: finalMinutes,
       workedMinutes,
       multiplier,
       category,
-      title: document.getElementById('entryTitle').value.trim(),
+      title: entryTitle,
       status: document.getElementById('entryStatus').value,
       expiry: type === 'credit' ? document.getElementById('entryExpiry').value : '',
       notes: document.getElementById('entryNotes').value.trim(),
@@ -993,6 +1037,8 @@ export function createModalManager(ctx) {
   return {
     confirmDialog,
     resolveConfirm,
+    openShortcutsModal,
+    closeShortcutsModal,
     openEntryModal,
     closeEntryModal,
     openSettingsModal,
@@ -1009,6 +1055,10 @@ export function createModalManager(ctx) {
     handleEscapeKey() {
       if (!document.getElementById('confirmModal').classList.contains('hidden')) {
         resolveConfirm(false);
+        return true;
+      }
+      if (!document.getElementById('shortcutsModal').classList.contains('hidden')) {
+        closeShortcutsModal();
         return true;
       }
       if (!document.getElementById('entryModal').classList.contains('hidden')) {

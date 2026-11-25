@@ -217,6 +217,10 @@
           </div>
         </div>
 
+        <button type="button" id="openShortcutsBtn" aria-label="Atalhos do Teclado" title="Atalhos de Teclado (?)" class="hidden sm:inline-flex p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+          <i data-lucide="keyboard" class="w-4 h-4"></i>
+        </button>
+
         <button type="button" id="openSettingsBtn" aria-label="Parâmetros, Sindicato e Conta" title="Parâmetros, Sindicato e Conta" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
         </button>
@@ -246,6 +250,27 @@
 
   <!-- ==================== CONTEÚDO PRINCIPAL ==================== -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 sm:pb-8 space-y-6">
+
+    <!-- Banner de Instalação PWA (Dispositivos Compatíveis) -->
+    <div id="pwaInstallBanner" class="hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <i data-lucide="smartphone" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h4 class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Instalar o SaldoHoras no seu dispositivo</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Acesse direto da tela inicial com carregamento instantâneo e suporte offline.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+        <button type="button" id="pwaDismissBtn" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 transition">
+          Agora não
+        </button>
+        <button type="button" id="pwaInstallBtn" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition">
+          Instalar App
+        </button>
+      </div>
+    </div>
 
     <!-- Banner de Alerta de Vencimento Real (FIFO) -->
     <div id="expiryAlertBanner" class="hidden bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -371,12 +396,15 @@
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">Filtros rápidos:</span>
             <button type="button" data-quick-filter="all" id="pill-all" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition">Todos</button>
-            <button type="button" data-quick-filter="planned" id="pill-planned" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Apenas Previstos</button>
-            <button type="button" data-quick-filter="holidays" id="pill-holidays" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Somente Feriados</button>
+            <button type="button" data-quick-filter="credits" id="pill-credits" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Créditos (+)</button>
+            <button type="button" data-quick-filter="debits" id="pill-debits" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Folgas (-)</button>
+            <button type="button" data-quick-filter="planned" id="pill-planned" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Previstos</button>
+            <button type="button" data-quick-filter="holidays" id="pill-holidays" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Feriados</button>
             <button type="button" data-quick-filter="expiring" id="pill-expiring" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Vencendo em breve</button>
+            <button type="button" data-quick-filter="thismonth" id="pill-thismonth" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Este Mês</button>
             <button type="button" id="clearFiltersBtn" class="hidden px-2.5 py-1 rounded-full text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
               Limpar filtros
             </button>
@@ -1468,6 +1496,71 @@
       <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
         <button type="button" id="cancelExportModalBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
           Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE ATALHOS DE TECLADO ==================== -->
+  <div id="shortcutsModal" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl modal-animate">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <i data-lucide="keyboard" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="shortcutsModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Atalhos de Teclado</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Navegue mais rápido pelo SaldoHoras</p>
+          </div>
+        </div>
+        <button type="button" id="closeShortcutsModalBtn" aria-label="Fechar atalhos" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2.5 text-xs">
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Novo Lançamento</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">N</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Central de Exportação (PDF / XML / Excel)</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">E</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Buscar no Extrato</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">/</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Calendário de Feriados</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">F</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Meu Perfil &amp; Segurança</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">P</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Parâmetros &amp; Sindicato</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">S</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Abrir esta ajuda de atalhos</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">?</kbd>
+        </div>
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+          <span class="font-medium text-slate-700 dark:text-slate-200">Fechar modais / Cancelar</span>
+          <kbd class="px-2 py-1 font-mono text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs text-slate-800 dark:text-slate-200">Esc</kbd>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center">
+        Os atalhos de letra única ficam inativos automaticamente enquanto você estiver digitando em campos de formulário.
+      </p>
+
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+        <button type="button" id="confirmShortcutsModalBtn" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+          Entendi
         </button>
       </div>
     </div>

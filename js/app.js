@@ -87,9 +87,13 @@ function showToast(msg, options = {}) {
 function setSyncStatus(state) {
   const badge = document.getElementById('syncBadge');
   const text = document.getElementById('syncText');
+  if (!badge || !text) return;
   if (state === 'saving') {
     text.textContent = 'Salvando...';
     badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70';
+  } else if (state === 'offline') {
+    text.textContent = 'Modo Offline';
+    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/70';
   } else if (state === 'error') {
     text.textContent = 'Erro ao sincronizar';
     badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70';
@@ -269,8 +273,14 @@ function getFilteredEntriesState() {
     if (yearF !== 'all' && !item.date.startsWith(`${yearF}-`)) return false;
     if (typeF !== 'all' && item.type !== typeF) return false;
     if (statusF !== 'all' && item.status !== statusF) return false;
+    if (quickFilter === 'credits' && item.type !== 'credit') return false;
+    if (quickFilter === 'debits' && item.type !== 'debit') return false;
     if (quickFilter === 'planned' && item.status !== 'planned') return false;
     if (quickFilter === 'holidays' && !isHolidayEntry(item)) return false;
+    if (quickFilter === 'thismonth') {
+      const thisMonth = getLocalDateISO().slice(0, 7);
+      if (!item.date.startsWith(thisMonth)) return false;
+    }
     if (quickFilter === 'expiring') {
       const rem = remainingMap.get(item.id) ?? 0;
       const badge = getExpiryBadge(item.expiry, rem, getLocalDateISO(), item.minutes);
@@ -328,9 +338,26 @@ function renderAll() {
   const { chrono, remainingMap, urgentItems, summary, filtered, hasActiveFilters } = getFilteredEntriesState();
   const todayISO = getLocalDateISO();
 
-  document.getElementById('kpiRealizedHours').textContent = formatHHMM(summary.realizedMinutes, true);
+  const realizedEl = document.getElementById('kpiRealizedHours');
+  realizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
+  if (summary.realizedMinutes > 0) {
+    realizedEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400';
+  } else if (summary.realizedMinutes < 0) {
+    realizedEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
+  } else {
+    realizedEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
+  }
   document.getElementById('kpiRealizedDays').textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
-  document.getElementById('kpiProjectedHours').textContent = formatHHMM(summary.projectedMinutes, true);
+
+  const projEl = document.getElementById('kpiProjectedHours');
+  projEl.textContent = formatHHMM(summary.projectedMinutes, true);
+  if (summary.projectedMinutes < 0) {
+    projEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
+  } else if (summary.projectedMinutes > 0) {
+    projEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400';
+  } else {
+    projEl.className = 'text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
+  }
   document.getElementById('kpiProjectedDays').textContent = formatDaysFromMinutes(summary.projectedMinutes, settings.dailyMinutes);
   document.getElementById('kpiCreditsHours').textContent = formatHHMM(summary.creditsMinutes, true);
   document.getElementById('kpiCreditsCount').textContent = `${summary.creditsCount} ${summary.creditsCount === 1 ? 'registro' : 'registros'}`;
@@ -430,8 +457,10 @@ function renderAll() {
       const catBadge = buildCategoryBadgeHtml(item, '');
       const workedSub = buildWorkedSubtextHtml(item);
 
+      const borderAccent = isCredit ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-rose-500';
+
       return `
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl p-4 shadow-sm space-y-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
@@ -1011,10 +1040,27 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (!currentUser) return;
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-  if (e.key === 'n' || e.key === 'N') {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
+
+  const key = e.key.toLowerCase();
+  if (key === 'n') {
     e.preventDefault();
     modals.openEntryModal();
+  } else if (key === 'e') {
+    e.preventDefault();
+    exportModal.openExportModal();
+  } else if (key === 'f') {
+    e.preventDefault();
+    modals.openHolidaysModal();
+  } else if (key === 'p') {
+    e.preventDefault();
+    profile.openProfileModal('perfil');
+  } else if (key === 's') {
+    e.preventDefault();
+    modals.openSettingsModal();
+  } else if (e.key === '?' || (e.shiftKey && e.key === '?')) {
+    e.preventDefault();
+    modals.openShortcutsModal();
   } else if (e.key === '/') {
     e.preventDefault();
     switchMainTab('extrato');
@@ -1086,6 +1132,49 @@ authController = setupAuth({
       document.getElementById('loadingOverlay').classList.add('hidden');
     }
   }
+});
+
+// ==================== INSTALAÇÃO PWA & STATUS DE REDE ====================
+let deferredInstallPrompt = null;
+const pwaBanner = document.getElementById('pwaInstallBanner');
+const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+const pwaDismissBtn = document.getElementById('pwaDismissBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!localStorage.getItem('sh_pwa_dismissed') && pwaBanner) {
+    pwaBanner.classList.remove('hidden');
+    window.lucide?.createIcons();
+  }
+});
+
+pwaInstallBtn?.addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  if (choice.outcome === 'accepted') {
+    showToast('SaldoHoras instalado com sucesso!');
+  }
+  deferredInstallPrompt = null;
+  pwaBanner?.classList.add('hidden');
+});
+
+pwaDismissBtn?.addEventListener('click', () => {
+  pwaBanner?.classList.add('hidden');
+  try {
+    localStorage.setItem('sh_pwa_dismissed', '1');
+  } catch { /* ignore */ }
+});
+
+window.addEventListener('online', () => {
+  setSyncStatus('ok');
+  showToast('Conexão restabelecida — nuvem sincronizada');
+});
+
+window.addEventListener('offline', () => {
+  setSyncStatus('offline');
+  showToast('Você está offline — dados salvos localmente');
 });
 
 // Registro de Service Worker PWA com caminho relativo para GitHub Pages
