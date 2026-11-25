@@ -1,11 +1,11 @@
-const CACHE_NAME = 'saldohoras-shell-v11';
+const CACHE_NAME = 'saldohoras-shell-v12';
 
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './assets/app.css',
-  './assets/tailwind.css',
+  './assets/app.css?v=12',
+  './assets/tailwind.css?v=12',
   './assets/icons/icon.svg',
   './js/config.js',
   './js/time.js',
@@ -24,7 +24,15 @@ const APP_SHELL_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        APP_SHELL_ASSETS.map((asset) =>
+          fetch(new Request(asset, { cache: 'no-cache' }))
+            .then((res) => (res && res.ok ? cache.put(asset, res) : null))
+            .catch(() => null)
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -48,12 +56,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Apenas assets locais da mesma origem usam Network-First com fallback de cache offline
+  // Apenas assets locais da mesma origem usam Network-First (sem cache HTTP stale) com fallback offline
   if (url.origin === self.location.origin) {
     event.respondWith(
-      fetch(request)
+      fetch(request.mode === 'navigate' ? request.url : request, { cache: 'no-cache' })
         .then((response) => {
-          if (response && response.ok) {
+          if (response && resOk(response)) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
@@ -63,3 +71,7 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+function resOk(response) {
+  return Boolean(response && response.ok);
+}

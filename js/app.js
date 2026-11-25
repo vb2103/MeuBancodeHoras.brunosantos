@@ -117,7 +117,7 @@ function setSyncStatus(state) {
   text.textContent = cfg.text;
   badge.title = cfg.text;
   badge.setAttribute('aria-label', `Sincronização: ${cfg.text}`);
-  badge.className = `inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 rounded-full text-[11px] font-medium border shrink-0 ${cfg.badge}`;
+  badge.className = `sh-sync-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
   if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
 }
 
@@ -368,22 +368,22 @@ function renderAll() {
   const realizedEl = document.getElementById('kpiRealizedHours');
   realizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
   if (summary.realizedMinutes > 0) {
-    realizedEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400';
+    realizedEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400';
   } else if (summary.realizedMinutes < 0) {
-    realizedEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
+    realizedEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
   } else {
-    realizedEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
+    realizedEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
   }
   document.getElementById('kpiRealizedDays').textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
 
   const projEl = document.getElementById('kpiProjectedHours');
   projEl.textContent = formatHHMM(summary.projectedMinutes, true);
   if (summary.projectedMinutes < 0) {
-    projEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
+    projEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
   } else if (summary.projectedMinutes > 0) {
-    projEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400';
+    projEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400';
   } else {
-    projEl.className = 'text-xl md:text-2xl lg:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
+    projEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
   }
   document.getElementById('kpiProjectedDays').textContent = formatDaysFromMinutes(summary.projectedMinutes, settings.dailyMinutes);
   document.getElementById('kpiCreditsHours').textContent = formatHHMM(summary.creditsMinutes, true);
@@ -1234,7 +1234,7 @@ if (typeof navigator !== 'undefined' && navigator.onLine === false) {
 // Registro de Service Worker PWA com caminho relativo para GitHub Pages
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {
+    navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).catch(() => {
       // Falha silenciosa caso navegador restrinja SW em ambiente de teste
     });
   });
