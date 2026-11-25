@@ -118,6 +118,15 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Neutraliza prefixos de fórmula em planilhas para prevenir CSV/Formula Injection.
+ */
+export function sanitizeCsvCell(str) {
+  const raw = String(str ?? '').replace(/\r?\n/g, ' ').trim();
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+/**
  * Remove emojis/caracteres fora do suporte WinAnsi da fonte padrão Helvetica do jsPDF.
  */
 export function sanitizePdfText(str) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'saldohoras-shell-v3';
+const CACHE_NAME = 'saldohoras-shell-v4';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -12,10 +12,12 @@ const APP_SHELL_ASSETS = [
   './js/rules-catalog.js',
   './js/holidays.js',
   './js/db.js',
+  './js/security.js',
   './js/auth.js',
   './js/charts.js',
   './js/export.js',
   './js/modals.js',
+  './js/profile.js',
   './js/app.js'
 ];
 

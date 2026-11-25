@@ -1,7 +1,13 @@
 import { escapeHtml } from './config.js';
 import { supabaseClient } from './db.js';
+import {
+  evaluatePasswordPolicy,
+  mapAuthErrorMessage,
+  renderPasswordStrengthUI,
+  wirePasswordVisibilityToggle
+} from './security.js';
 
-export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
+export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast }) {
   let authMode = 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
   let loadedUserId = null;
   let isAuthBusy = false;
@@ -16,12 +22,17 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
   const emailInput = document.getElementById('authEmail');
   const pwdWrap = document.getElementById('authPasswordWrapper');
   const pwdInput = document.getElementById('authPassword');
+  const confirmWrap = document.getElementById('authConfirmPasswordWrapper');
+  const confirmInput = document.getElementById('authConfirmPassword');
+  const strengthWrap = document.getElementById('authPwdStrengthWrapper');
   const forgotBtn = document.getElementById('forgotPwdBtn');
   const submitBtn = document.getElementById('authSubmitBtn');
   const backBtn = document.getElementById('backToLoginBtn');
   const authTabs = document.getElementById('authTabs');
   const loadingOverlay = document.getElementById('loadingOverlay');
-  const togglePwdBtn = document.getElementById('toggleAuthPwdBtn');
+
+  const resetPwdToggle = wirePasswordVisibilityToggle(document.getElementById('toggleAuthPwdBtn'), pwdInput);
+  const resetConfirmToggle = wirePasswordVisibilityToggle(document.getElementById('toggleAuthConfirmPwdBtn'), confirmInput);
 
   function getSubmitHtmlForMode(mode) {
     if (mode === 'signup') {
@@ -53,6 +64,20 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
     authAlert.innerHTML = message;
   }
 
+  function updateAuthStrengthFeedback() {
+    if (authMode !== 'signup' && authMode !== 'update_password') return;
+    const evaluation = evaluatePasswordPolicy(pwdInput.value, { email: emailInput.value });
+    renderPasswordStrengthUI(
+      {
+        barEl: document.getElementById('authPwdStrengthBar'),
+        labelEl: document.getElementById('authPwdStrengthLabel'),
+        listEl: document.getElementById('authPwdRequirementsList')
+      },
+      evaluation,
+      pwdInput.value.length > 0
+    );
+  }
+
   function switchAuthMode(mode) {
     authMode = mode;
     authAlert.classList.add('hidden');
@@ -68,8 +93,12 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       nameWrap.classList.add('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
+      pwdInput.minLength = 6;
       pwdInput.autocomplete = 'current-password';
-      pwdInput.placeholder = 'Mínimo 6 caracteres';
+      pwdInput.placeholder = 'Sua senha de acesso';
+      confirmWrap?.classList.add('hidden');
+      if (confirmInput) confirmInput.required = false;
+      strengthWrap?.classList.add('hidden');
       backBtn.classList.add('hidden');
     } else if (mode === 'signup') {
       authTabs.classList.remove('hidden');
@@ -78,14 +107,21 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       nameWrap.classList.remove('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
+      pwdInput.minLength = 8;
       pwdInput.autocomplete = 'new-password';
-      pwdInput.placeholder = 'Mínimo 6 caracteres';
+      pwdInput.placeholder = 'Mínimo 8 caracteres fortes';
+      confirmWrap?.classList.remove('hidden');
+      if (confirmInput) confirmInput.required = true;
+      strengthWrap?.classList.remove('hidden');
       backBtn.classList.add('hidden');
     } else if (mode === 'reset') {
       authTabs.classList.add('hidden');
       nameWrap.classList.add('hidden');
       pwdWrap.classList.add('hidden');
       pwdInput.required = false;
+      confirmWrap?.classList.add('hidden');
+      if (confirmInput) confirmInput.required = false;
+      strengthWrap?.classList.add('hidden');
       backBtn.classList.remove('hidden');
     } else if (mode === 'update_password') {
       authTabs.classList.add('hidden');
@@ -95,33 +131,29 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       forgotBtn.classList.add('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
+      pwdInput.minLength = 8;
       pwdInput.autocomplete = 'new-password';
       pwdInput.value = '';
-      pwdInput.placeholder = 'Digite sua nova senha (mín. 6 caracteres)';
+      pwdInput.placeholder = 'Nova senha (mín. 8 caracteres)';
+      confirmWrap?.classList.remove('hidden');
+      if (confirmInput) {
+        confirmInput.required = true;
+        confirmInput.value = '';
+      }
+      strengthWrap?.classList.remove('hidden');
       backBtn.classList.add('hidden');
     }
 
-    pwdInput.type = 'password';
-    if (togglePwdBtn) {
-      togglePwdBtn.setAttribute('aria-label', 'Mostrar senha');
-      togglePwdBtn.setAttribute('aria-pressed', 'false');
-      togglePwdBtn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
-    }
+    if (confirmInput && mode !== 'login') confirmInput.value = '';
+    resetPwdToggle?.();
+    resetConfirmToggle?.();
+    updateAuthStrengthFeedback();
     submitBtn.innerHTML = getSubmitHtmlForMode(mode);
     window.lucide?.createIcons();
   }
 
-  togglePwdBtn?.addEventListener('click', () => {
-    const showing = pwdInput.type === 'text';
-    pwdInput.type = showing ? 'password' : 'text';
-    togglePwdBtn.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
-    togglePwdBtn.setAttribute('aria-pressed', String(!showing));
-    togglePwdBtn.innerHTML = showing
-      ? '<i data-lucide="eye" class="w-4 h-4"></i>'
-      : '<i data-lucide="eye-off" class="w-4 h-4"></i>';
-    window.lucide?.createIcons();
-  });
-
+  pwdInput.addEventListener('input', updateAuthStrengthFeedback);
+  emailInput.addEventListener('input', updateAuthStrengthFeedback);
   tabLogin.addEventListener('click', () => switchAuthMode('login'));
   tabSignup.addEventListener('click', () => switchAuthMode('signup'));
   forgotBtn.addEventListener('click', () => switchAuthMode('reset'));
@@ -134,6 +166,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
 
     const email = emailInput.value.trim();
     const password = pwdInput.value;
+    const confirmPwd = confirmInput?.value || '';
     const fullName = document.getElementById('authName').value.trim();
     resendBtn.classList.add('hidden');
 
@@ -153,7 +186,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
           } else if (msg.includes('invalid login credentials')) {
             showAuthAlert('E-mail ou senha incorretos. Verifique seus dados e tente novamente.', 'error');
           } else {
-            showAuthAlert(escapeHtml(error.message), 'error');
+            showAuthAlert(mapAuthErrorMessage(error), 'error');
           }
         }
       } else if (authMode === 'signup') {
@@ -161,6 +194,18 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
           showAuthAlert('Informe seu nome completo para criar a conta.', 'error');
           return;
         }
+        const policy = evaluatePasswordPolicy(password, { email });
+        if (!policy.valid) {
+          showAuthAlert(escapeHtml(policy.reason), 'error');
+          pwdInput.focus();
+          return;
+        }
+        if (password !== confirmPwd) {
+          showAuthAlert('A confirmação de senha não coincide.', 'error');
+          confirmInput?.focus();
+          return;
+        }
+
         const { error } = await supabaseClient.auth.signUp({
           email,
           password,
@@ -170,8 +215,10 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
           }
         });
         if (error) {
-          showAuthAlert(escapeHtml(error.message), 'error');
+          showAuthAlert(mapAuthErrorMessage(error), 'error');
         } else {
+          pwdInput.value = '';
+          if (confirmInput) confirmInput.value = '';
           switchAuthMode('login');
           showAuthAlert(
             `<strong>Conta criada com sucesso!</strong> Enviamos um link de confirmação para <strong>${escapeHtml(email)}</strong> (verifique também a caixa de spam) e depois faça login abaixo.`,
@@ -181,15 +228,32 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       } else if (authMode === 'reset') {
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
         if (error) {
-          showAuthAlert(escapeHtml(error.message), 'error');
+          showAuthAlert(mapAuthErrorMessage(error), 'error');
         } else {
-          showAuthAlert(`Enviamos um link de redefinição de senha para <strong>${escapeHtml(email)}</strong>.`, 'success');
+          showAuthAlert(`Se existir uma conta para <strong>${escapeHtml(email)}</strong>, enviaremos um link seguro de redefinição.`, 'success');
         }
       } else if (authMode === 'update_password') {
+        const policy = evaluatePasswordPolicy(password, { email });
+        if (!policy.valid) {
+          showAuthAlert(escapeHtml(policy.reason), 'error');
+          pwdInput.focus();
+          return;
+        }
+        if (password !== confirmPwd) {
+          showAuthAlert('A confirmação de senha não coincide.', 'error');
+          confirmInput?.focus();
+          return;
+        }
+
         const { data, error } = await supabaseClient.auth.updateUser({ password });
         if (error) {
-          showAuthAlert('Erro ao atualizar senha: ' + escapeHtml(error.message), 'error');
+          showAuthAlert('Erro ao atualizar senha: ' + mapAuthErrorMessage(error), 'error');
         } else {
+          pwdInput.value = '';
+          if (confirmInput) confirmInput.value = '';
+          if (window.location.hash || window.location.search.includes('code=')) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
           onToast('Senha atualizada com sucesso!');
           switchAuthMode('login');
           authScreen.classList.add('hidden');
@@ -199,12 +263,11 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
           }
         }
       }
-    } catch (err) {
+    } catch {
       showAuthAlert('Falha de conexão ao autenticar. Verifique sua internet e tente novamente.', 'error');
     } finally {
       isAuthBusy = false;
       submitBtn.disabled = false;
-      // Garante que o botão sempre exiba o rótulo correspondente ao modo ATUAL (corrige bug pós-signup)
       submitBtn.innerHTML = getSubmitHtmlForMode(authMode);
       window.lucide?.createIcons();
     }
@@ -221,7 +284,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
         options: { emailRedirectTo: redirectTo }
       });
       if (error) {
-        showAuthAlert('Erro ao reenviar: ' + escapeHtml(error.message), 'error');
+        showAuthAlert('Erro ao reenviar: ' + mapAuthErrorMessage(error), 'error');
       } else {
         showAuthAlert(`Novo e-mail de confirmação enviado para <strong>${escapeHtml(email)}</strong>.`, 'success');
         resendBtn.classList.add('hidden');
@@ -231,22 +294,24 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
     }
   });
 
-  async function performLogout() {
+  async function performLogout(scope = 'local') {
     try {
-      await supabaseClient.auth.signOut();
+      await supabaseClient.auth.signOut({ scope });
     } finally {
       loadedUserId = null;
+      pwdInput.value = '';
+      if (confirmInput) confirmInput.value = '';
       switchAuthMode('login');
       authScreen.classList.remove('hidden');
       onSignedOut();
-      onToast('Sessão encerrada');
+      onToast(scope === 'global' ? 'Todas as sessões foram encerradas' : 'Sessão encerrada');
     }
   }
 
-  document.getElementById('logoutBtn').addEventListener('click', performLogout);
+  document.getElementById('logoutBtn').addEventListener('click', () => performLogout('local'));
   document.getElementById('settingsLogoutBtn')?.addEventListener('click', () => {
     document.getElementById('settingsModal')?.classList.add('hidden');
-    performLogout();
+    performLogout('local');
   });
 
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
@@ -254,7 +319,7 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       loadingOverlay.classList.add('hidden');
       authScreen.classList.remove('hidden');
       switchAuthMode('update_password');
-      showAuthAlert('Defina sua nova senha abaixo para acessar o <strong>SaldoHoras</strong>.', 'warning');
+      showAuthAlert('Defina sua nova senha forte abaixo para acessar o <strong>SaldoHoras</strong>.', 'warning');
       return;
     }
 
@@ -266,12 +331,15 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
       return;
     }
 
-    // Evita recarregar todo o painel em renovações silenciosas de token
+    if (event === 'USER_UPDATED' && loadedUserId === session.user.id) {
+      onUserUpdated?.(session.user);
+      return;
+    }
+
     if (event === 'TOKEN_REFRESHED' && loadedUserId === session.user.id) {
       return;
     }
 
-    // Evita recarregar duas vezes no mesmo usuário já ativo durante o boot
     if (loadedUserId === session.user.id && event === 'SIGNED_IN') {
       authScreen.classList.add('hidden');
       return;
@@ -282,5 +350,5 @@ export function setupAuth({ onSessionReady, onSignedOut, onToast }) {
     await onSessionReady(session.user);
   });
 
-  return { switchAuthMode };
+  return { switchAuthMode, performLogout };
 }

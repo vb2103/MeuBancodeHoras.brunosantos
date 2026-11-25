@@ -18,7 +18,9 @@ import {
   exportPDF
 } from './export.js';
 import { createModalManager } from './modals.js';
+import { createProfileManager } from './profile.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
+import { getUserInitials } from './security.js';
 import {
   computeChronologicalAndFIFO,
   formatDaysFromMinutes,
@@ -108,6 +110,26 @@ function toggleTheme() {
 document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 document.getElementById('authThemeToggle').addEventListener('click', toggleTheme);
 
+async function persistSettings(nextSettings, { silentToast = false } = {}) {
+  if (!currentUser) return false;
+  const prevSettings = { ...settings };
+  settings = nextSettings;
+
+  try {
+    await saveSettingsToCloud(currentUser.id, settings, setSyncStatus);
+    updateHeaderUserInfo();
+    renderAll();
+    if (!silentToast) showToast('Parâmetros salvos na nuvem!');
+    return true;
+  } catch {
+    settings = prevSettings;
+    updateHeaderUserInfo();
+    renderAll();
+    showToast('Erro ao salvar parâmetros — revertido');
+    return false;
+  }
+}
+
 // ==================== MODAIS PRÓPRIOS & TRANSAÇÕES ====================
 const modals = createModalManager({
   getSettings: () => settings,
@@ -148,34 +170,21 @@ const modals = createModalManager({
       return false;
     }
   },
-  async saveSettings(nextSettings, { silentToast = false } = {}) {
-    if (!currentUser) return false;
-    const prevSettings = { ...settings };
-    settings = nextSettings;
-
-    try {
-      await saveSettingsToCloud(currentUser.id, settings, setSyncStatus);
-      updateHeaderUserInfo();
-      renderAll();
-      if (!silentToast) showToast('Parâmetros salvos na nuvem!');
-      return true;
-    } catch {
-      settings = prevSettings;
-      updateHeaderUserInfo();
-      renderAll();
-      showToast('Erro ao salvar parâmetros — revertido');
-      return false;
-    }
-  }
+  saveSettings: persistSettings
 });
 
 // ==================== CABEÇALHO & FILTROS ====================
 function updateHeaderUserInfo() {
-  const displayName = settings.userName || currentUser?.email || 'Usuário';
+  const displayName = settings.userName || currentUser?.user_metadata?.full_name || currentUser?.email || 'Usuário';
   const ruleLabel = getActiveRuleSummary(settings);
   document.getElementById('headerSubtitle').textContent =
     `${displayName} • ${ruleLabel} (${settings.stateUf || 'SP'}) • Jornada ${formatHHMM(settings.dailyMinutes)}`;
   document.getElementById('settingsUserEmail').textContent = currentUser?.email || '—';
+
+  const avatarEl = document.getElementById('headerProfileAvatar');
+  const labelEl = document.getElementById('headerProfileLabel');
+  if (avatarEl) avatarEl.textContent = getUserInitials(displayName, currentUser?.email || '');
+  if (labelEl) labelEl.textContent = String(displayName).split(/\s+/)[0] || 'Perfil';
 }
 
 function populateYearFilterOptions() {
@@ -795,13 +804,48 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ==================== AUTENTICAÇÃO & INICIALIZAÇÃO ====================
-setupAuth({
+// ==================== AUTENTICAÇÃO, PERFIL & INICIALIZAÇÃO ====================
+let authController = null;
+
+const profile = createProfileManager({
+  getUser: () => currentUser,
+  setUser(user) {
+    currentUser = user;
+    updateHeaderUserInfo();
+  },
+  getSettings: () => settings,
+  getEntries: () => entries,
+  saveSettings: persistSettings,
+  openSettingsModal: () => modals.openSettingsModal(),
+  confirmDialog: (opts) => modals.confirmDialog(opts),
+  showToast,
+  onLogout: (scope) => authController?.performLogout(scope),
+  registerExternalModal: modals.registerExternalModal,
+  captureLastFocus: modals.captureLastFocus,
+  restoreLastFocus: modals.restoreLastFocus
+});
+
+document.getElementById('openProfileBtn')?.addEventListener('click', () => profile.openProfileModal('perfil'));
+document.getElementById('openProfileFromSettingsBtn')?.addEventListener('click', () => {
+  modals.closeSettingsModal();
+  profile.openProfileModal('seguranca');
+});
+
+authController = setupAuth({
   onToast: showToast,
+  onUserUpdated(user) {
+    currentUser = user;
+    updateHeaderUserInfo();
+    profile.syncProfileHeaderSummary();
+  },
   onSignedOut() {
     currentUser = null;
     entries = [];
     destroyCharts();
+    const avatarEl = document.getElementById('headerProfileAvatar');
+    const labelEl = document.getElementById('headerProfileLabel');
+    if (avatarEl) avatarEl.textContent = 'SH';
+    if (labelEl) labelEl.textContent = 'Perfil';
   },
   async onSessionReady(user) {
     currentUser = user;

@@ -1,4 +1,4 @@
-import { ENTRY_CATEGORIES, formatDateBR, getLocalDateISO, sanitizePdfText } from './config.js';
+import { ENTRY_CATEGORIES, formatDateBR, getLocalDateISO, sanitizeCsvCell, sanitizePdfText } from './config.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
 import { formatDaysFromMinutes, formatHHMM, minutesToDecimalHours } from './time.js';
 
@@ -20,7 +20,7 @@ export function exportCSV(chronoEntries) {
 
   const rows = chronoEntries.map((i) => [
     formatDateBR(i.date),
-    `"${(i.title || '').replace(/"/g, '""')}"`,
+    sanitizeCsvCell(i.title || ''),
     ENTRY_CATEGORIES[i.category]?.label || 'Manual',
     i.type === 'credit' ? 'Credito' : 'Debito',
     i.status === 'realized' ? 'Realizado' : 'Previsto',
@@ -30,7 +30,7 @@ export function exportCSV(chronoEntries) {
     String(i.type === 'credit' ? minutesToDecimalHours(i.minutes) : -minutesToDecimalHours(i.minutes)).replace('.', ','),
     formatHHMM(i.runningMinutes, true),
     i.expiry ? formatDateBR(i.expiry) : '',
-    `"${(i.notes || '').replace(/"/g, '""')}"`
+    sanitizeCsvCell(i.notes || '')
   ]);
 
   const csv = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');

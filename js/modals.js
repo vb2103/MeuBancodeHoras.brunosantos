@@ -41,6 +41,11 @@ export function createModalManager(ctx) {
   let holidayFilter = 'all'; // 'all' | 'upcoming' | 'available'
   let currentHolidayList = [];
   const selectedHolidayDates = new Set();
+  const externalModals = [];
+
+  function captureLastFocus() {
+    lastFocusedEl = document.activeElement;
+  }
 
   function restoreLastFocus() {
     if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
@@ -53,7 +58,7 @@ export function createModalManager(ctx) {
   }
 
   function getOpenModalElement() {
-    const ids = ['confirmModal', 'entryModal', 'holidaysModal', 'settingsModal'];
+    const ids = ['confirmModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
     return ids.map((id) => document.getElementById(id)).find((el) => el && !el.classList.contains('hidden')) || null;
   }
 
@@ -850,6 +855,13 @@ export function createModalManager(ctx) {
     closeSettingsModal,
     openHolidaysModal,
     closeHolidaysModal,
+    captureLastFocus,
+    restoreLastFocus,
+    registerExternalModal(id, closeFn) {
+      if (id && typeof closeFn === 'function') {
+        externalModals.push({ id, closeFn });
+      }
+    },
     handleEscapeKey() {
       if (!document.getElementById('confirmModal').classList.contains('hidden')) {
         resolveConfirm(false);
@@ -866,6 +878,13 @@ export function createModalManager(ctx) {
       if (!document.getElementById('settingsModal').classList.contains('hidden')) {
         closeSettingsModal();
         return true;
+      }
+      for (const ext of externalModals) {
+        const el = document.getElementById(ext.id);
+        if (el && !el.classList.contains('hidden')) {
+          ext.closeFn();
+          return true;
+        }
       }
       return false;
     }

@@ -85,8 +85,29 @@
             </button>
           </div>
           <div class="relative">
-            <input type="password" id="authPassword" minlength="6" autocomplete="current-password" placeholder="Mínimo 6 caracteres" class="w-full pl-3.5 pr-11 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+            <input type="password" id="authPassword" minlength="6" autocomplete="current-password" placeholder="Sua senha de acesso" class="w-full pl-3.5 pr-11 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
             <button type="button" id="toggleAuthPwdBtn" aria-label="Mostrar ou ocultar senha" aria-pressed="false" title="Mostrar senha" class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="authPwdStrengthWrapper" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between text-[11px] font-semibold">
+            <span class="text-slate-600 dark:text-slate-300">Política de Senha Segura</span>
+            <span id="authPwdStrengthLabel" class="text-slate-500 dark:text-slate-400">Força: —</span>
+          </div>
+          <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+            <div id="authPwdStrengthBar" class="h-full rounded-full bg-slate-300 transition-all duration-200" style="width: 0%"></div>
+          </div>
+          <ul id="authPwdRequirementsList" class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]"></ul>
+        </div>
+
+        <div id="authConfirmPasswordWrapper" class="hidden">
+          <label for="authConfirmPassword" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Confirmar Senha</label>
+          <div class="relative">
+            <input type="password" id="authConfirmPassword" minlength="8" autocomplete="new-password" placeholder="Repita a senha forte" class="w-full pl-3.5 pr-11 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+            <button type="button" id="toggleAuthConfirmPwdBtn" aria-label="Mostrar ou ocultar confirmação" aria-pressed="false" title="Mostrar confirmação" class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition">
               <i data-lucide="eye" class="w-4 h-4"></i>
             </button>
           </div>
@@ -184,6 +205,11 @@
         <button type="button" id="themeToggle" aria-label="Alternar tema claro ou escuro" title="Alternar tema claro/escuro" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
           <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
+        </button>
+
+        <button type="button" id="openProfileBtn" aria-label="Abrir Meu Perfil e Segurança" title="Meu Perfil &amp; Segurança" class="inline-flex items-center gap-2 pl-1.5 pr-2 sm:pr-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+          <span id="headerProfileAvatar" class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0">SH</span>
+          <span id="headerProfileLabel" class="hidden lg:inline max-w-[96px] truncate">Perfil</span>
         </button>
 
         <button type="button" id="logoutBtn" aria-label="Sair da conta" title="Sair da conta" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
@@ -769,12 +795,17 @@
       </div>
 
       <form id="settingsForm" class="mt-4 space-y-4">
-        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div class="min-w-0">
             <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Conta Conectada</span>
             <p id="settingsUserEmail" class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">—</p>
           </div>
-          <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 shrink-0">Verificada</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Verificada</span>
+            <button type="button" id="openProfileFromSettingsBtn" class="px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-[11px] font-semibold transition">
+              Perfil &amp; Senha
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -874,6 +905,195 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: MEU PERFIL & SEGURANÇA ==================== -->
+  <div id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 modal-animate my-auto space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+          </div>
+          <h2 id="profileModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Meu Perfil &amp; Segurança</h2>
+        </div>
+        <button type="button" id="closeProfileModalBtn" aria-label="Fechar perfil e segurança" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Resumo da Conta -->
+      <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="profileModalAvatar" class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">SH</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 id="profileModalDisplayName" class="text-sm font-bold text-slate-900 dark:text-white truncate">Usuário</h3>
+              <span id="profileEmailStatusBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">E-mail verificado</span>
+            </div>
+            <p id="profileModalEmail" class="text-xs text-slate-500 dark:text-slate-400 truncate">—</p>
+          </div>
+        </div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 sm:text-right">
+          <div>Conta criada: <strong id="profileCreatedAt" class="font-mono text-slate-700 dark:text-slate-300">—</strong></div>
+          <div>Último acesso: <strong id="profileLastLoginAt" class="font-mono text-slate-700 dark:text-slate-300">—</strong></div>
+        </div>
+      </div>
+
+      <!-- Abas do Perfil -->
+      <div class="grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
+        <button type="button" id="profileTabBtn-perfil" data-profile-tab="perfil" class="profile-tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">
+          Dados do Perfil
+        </button>
+        <button type="button" id="profileTabBtn-seguranca" data-profile-tab="seguranca" class="profile-tab-btn px-3.5 py-2 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+          Senha &amp; Segurança
+        </button>
+      </div>
+
+      <!-- Feedback Inline -->
+      <div id="profileAlert" role="alert" class="hidden p-3.5 rounded-xl text-xs leading-relaxed border"></div>
+
+      <!-- ABA 1: PERFIL -->
+      <div id="profilePanel-perfil" class="space-y-4">
+        <form id="profileIdentityForm" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <div>
+            <label for="profileNameInput" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo</label>
+            <input type="text" id="profileNameInput" required autocomplete="name" placeholder="Seu nome completo" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 pt-1">
+            <span id="profileRuleSummary" class="truncate">—</span>
+            <button type="button" id="profileOpenSettingsBtn" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline shrink-0">
+              Editar jornada / sindicato →
+            </button>
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" id="profileSaveNameBtn" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+              Salvar Nome
+            </button>
+          </div>
+        </form>
+
+        <form id="profileEmailForm" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <div>
+            <h4 class="text-xs font-bold text-slate-900 dark:text-white">Alterar E-mail de Acesso</h4>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Exige senha atual e confirmação via link enviado ao novo endereço.</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="profileNewEmail" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Novo E-mail</label>
+              <input type="email" id="profileNewEmail" autocomplete="email" placeholder="novo@empresa.com.br" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label for="profileEmailPassword" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Senha Atual</label>
+              <div class="relative">
+                <input type="password" id="profileEmailPassword" autocomplete="current-password" placeholder="Confirme sua senha" class="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button type="button" id="toggleProfileEmailPwdBtn" aria-label="Mostrar senha" aria-pressed="false" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" id="profileSaveEmailBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+              Solicitar Troca de E-mail
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ABA 2: SENHA & SEGURANÇA -->
+      <div id="profilePanel-seguranca" class="hidden space-y-4">
+        <form id="profilePasswordForm" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <input type="email" id="profileUsernameHidden" autocomplete="username" readonly tabindex="-1" aria-hidden="true" class="hidden" />
+          <div class="flex items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-slate-900 dark:text-white">Alterar Senha de Acesso</h4>
+            <button type="button" id="profileForgotCurrentPwdBtn" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+              Esqueci a senha atual
+            </button>
+          </div>
+
+          <div>
+            <label for="profileCurrentPassword" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Senha Atual</label>
+            <div class="relative">
+              <input type="password" id="profileCurrentPassword" required autocomplete="current-password" placeholder="Digite sua senha atual" class="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              <button type="button" id="toggleProfileCurrentPwdBtn" aria-label="Mostrar senha atual" aria-pressed="false" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="profileNewPassword" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nova Senha</label>
+              <div class="relative">
+                <input type="password" id="profileNewPassword" required minlength="8" autocomplete="new-password" placeholder="Mín. 8 caracteres fortes" class="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button type="button" id="toggleProfileNewPwdBtn" aria-label="Mostrar nova senha" aria-pressed="false" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label for="profileConfirmPassword" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Confirmar Nova Senha</label>
+              <div class="relative">
+                <input type="password" id="profileConfirmPassword" required minlength="8" autocomplete="new-password" placeholder="Repita a nova senha" class="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button type="button" id="toggleProfileConfirmPwdBtn" aria-label="Mostrar confirmação de senha" aria-pressed="false" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2">
+            <div class="flex items-center justify-between text-[11px] font-semibold">
+              <span class="text-slate-600 dark:text-slate-300">Força da Nova Senha</span>
+              <span id="profilePwdStrengthLabel" class="text-slate-500 dark:text-slate-400">Força: —</span>
+            </div>
+            <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+              <div id="profilePwdStrengthBar" class="h-full rounded-full bg-slate-300 transition-all duration-200" style="width: 0%"></div>
+            </div>
+            <ul id="profilePwdRequirementsList" class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]"></ul>
+            <p id="profilePwdMatchHint" class="text-[11px] min-h-[1rem]"></p>
+          </div>
+
+          <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" id="profileRevokeOthersCheckbox" checked class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Desconectar outros navegadores/celulares após alterar a senha</span>
+          </label>
+
+          <div class="flex justify-end">
+            <button type="submit" id="profileSavePasswordBtn" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+              Atualizar Senha
+            </button>
+          </div>
+        </form>
+
+        <!-- Controle de Sessões & Backup LGPD -->
+        <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+          <h4 class="text-xs font-bold text-slate-900 dark:text-white">Sessões Ativas &amp; Privacidade (LGPD)</h4>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="profileRevokeOthersBtn" class="px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-xs font-semibold transition">
+              Desconectar outros dispositivos
+            </button>
+            <button type="button" id="profileLogoutGlobalBtn" class="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/70 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition">
+              Sair de todos os dispositivos
+            </button>
+            <button type="button" id="profileExportJsonBtn" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium transition">
+              Baixar meus dados (JSON)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2.5">
+        <button type="button" id="profileLogoutLocalBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/70 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          Sair deste navegador
+        </button>
+        <button type="button" id="closeProfileFooterBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+          Fechar
+        </button>
+      </div>
     </div>
   </div>
 

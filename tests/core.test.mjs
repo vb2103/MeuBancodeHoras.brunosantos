@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { addDaysToISO, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID } from '../js/config.js';
+import { addDaysToISO, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell } from '../js/config.js';
 import { validateAndNormalizeImportedEntries } from '../js/db.js';
 import { computeEasterISO, computeOfflineHolidays, isHolidayAlreadyInEntries } from '../js/holidays.js';
 import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
+import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
 import {
   applyMultiplierToMinutes,
   computeChronologicalAndFIFO,
@@ -119,4 +120,40 @@ test('validateAndNormalizeImportedEntries valida campos e corrige IDs não-UUID'
   assert.equal(isValidUUID(validEntries[0].id), true);
   assert.equal(validEntries[0].minutes, 480);
   assert.equal(validEntries[1].minutes, 90);
+});
+
+test('política de senha segura e helpers de perfil/segurança validam corretamente', () => {
+  const shortPwd = evaluatePasswordPolicy('Ab1!');
+  assert.equal(shortPwd.valid, false);
+  assert.equal(shortPwd.checks.minLength, false);
+
+  const commonPwd = evaluatePasswordPolicy('Password123', { email: 'alice@empresa.com' });
+  const containsEmail = evaluatePasswordPolicy('Alice2026!', { email: 'alice@empresa.com' });
+  assert.equal(commonPwd.valid, false);
+  assert.equal(containsEmail.valid, false);
+  assert.equal(containsEmail.checks.notTrivial, false);
+
+  const sameAsCurrent = evaluatePasswordPolicy('Forte#2026', {
+    email: 'bruno@empresa.com',
+    currentPassword: 'Forte#2026'
+  });
+  assert.equal(sameAsCurrent.valid, false);
+  assert.equal(sameAsCurrent.checks.differsFromCurrent, false);
+
+  const strongPwd = evaluatePasswordPolicy('Banco#2026!Hora', {
+    email: 'bruno@empresa.com',
+    currentPassword: 'Antiga#2025'
+  });
+  assert.equal(strongPwd.valid, true);
+  assert.ok(strongPwd.score >= 3);
+
+  assert.equal(getUserInitials('Vítor Bruno Santos', 'v@b.com'), 'VS');
+  assert.equal(getUserInitials('', 'bruno@empresa.com'), 'BR');
+  assert.notEqual(formatAuthTimestampBR('2026-11-25T03:00:00Z'), '—');
+});
+
+test('sanitizeCsvCell neutraliza CSV formula injection', () => {
+  assert.equal(sanitizeCsvCell('=CMD()'), '"\'=CMD()"');
+  assert.equal(sanitizeCsvCell('+SUM(A1:A2)'), '"\'+SUM(A1:A2)"');
+  assert.equal(sanitizeCsvCell('Tiradentes "SP"'), '"Tiradentes ""SP"""');
 });
