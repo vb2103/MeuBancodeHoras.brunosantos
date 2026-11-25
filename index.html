@@ -2,12 +2,14 @@
 <html lang="pt-BR" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#4f46e5" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="SaldoHoras" />
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./assets/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="./assets/icons/icon-192.png" />
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS -->
@@ -31,37 +33,20 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Lucide Icons -->
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="./assets/app.css" />
+
+  <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- jsPDF + AutoTable -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-
-  <!-- Supabase JS v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .tabular-nums { font-variant-numeric: tabular-nums; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.55); }
-    @keyframes fadeSlideUp {
-      from { opacity: 0; transform: translateY(10px) scale(0.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    .modal-animate { animation: fadeSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-  </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white transition-colors duration-200">
 
   <!-- ==================== TELA DE AUTENTICAÇÃO (SUPABASE) ==================== -->
-  <div id="authScreen" class="hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+  <div id="authScreen" role="dialog" aria-modal="true" aria-labelledby="authBrandTitle" class="hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 modal-animate my-auto">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
@@ -69,11 +54,11 @@
             <i data-lucide="clock-4" class="w-6 h-6"></i>
           </div>
           <div>
-            <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">SaldoHoras</h1>
+            <h1 id="authBrandTitle" class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">SaldoHoras</h1>
             <p id="authSubtitle" class="text-xs text-slate-500 dark:text-slate-400">Banco de Horas &amp; Folgas</p>
           </div>
         </div>
-        <button id="authThemeToggle" type="button" title="Alternar tema" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
+        <button id="authThemeToggle" type="button" aria-label="Alternar tema claro ou escuro" title="Alternar tema" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition">
           <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
           <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
         </button>
@@ -90,23 +75,23 @@
       </div>
 
       <!-- Alertas de Autenticação -->
-      <div id="authAlert" class="hidden mb-4 p-3.5 rounded-xl text-xs leading-relaxed border"></div>
+      <div id="authAlert" role="alert" class="hidden mb-4 p-3.5 rounded-xl text-xs leading-relaxed border"></div>
 
       <!-- Formulário -->
       <form id="authForm" class="space-y-4">
         <div id="authNameWrapper" class="hidden">
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Seu Nome Completo</label>
+          <label for="authName" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Seu Nome Completo</label>
           <input type="text" id="authName" placeholder="Ex.: Vítor Santos" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
         </div>
 
         <div id="authEmailWrapper">
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail corporativo ou pessoal</label>
+          <label for="authEmail" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail corporativo ou pessoal</label>
           <input type="email" id="authEmail" required placeholder="voce@empresa.com.br" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
         </div>
 
         <div id="authPasswordWrapper">
           <div class="flex items-center justify-between mb-1.5">
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Senha</label>
+            <label for="authPassword" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Senha</label>
             <button type="button" id="forgotPwdBtn" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
               Esqueci a senha
             </button>
@@ -128,7 +113,7 @@
         </button>
       </form>
 
-      <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+      <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
         <span class="flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
           Nuvem Supabase Ativa
@@ -166,15 +151,14 @@
 
       <!-- Ações Rápidas -->
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <!-- Botão Feriados Dinâmicos -->
-        <button type="button" id="openHolidaysBtn" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
+        <button type="button" id="openHolidaysBtn" aria-label="Abrir calendário dinâmico de feriados" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
           <i data-lucide="calendar-days" class="w-4 h-4"></i>
           <span class="hidden sm:inline">Feriados</span>
         </button>
 
         <!-- Menu Exportar -->
         <div class="relative" id="exportMenuWrapper">
-          <button type="button" id="exportMenuBtn" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-200 transition">
+          <button type="button" id="exportMenuBtn" aria-label="Opções de exportação" aria-haspopup="true" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-200 transition">
             <i data-lucide="download" class="w-4 h-4 text-slate-500 dark:text-slate-400"></i>
             <span class="hidden md:inline">Exportar</span>
             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
@@ -196,24 +180,20 @@
           </div>
         </div>
 
-        <!-- Parâmetros -->
-        <button type="button" id="openSettingsBtn" title="Parâmetros, Sindicato e Conta" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="openSettingsBtn" aria-label="Parâmetros, Sindicato e Conta" title="Parâmetros, Sindicato e Conta" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
         </button>
 
-        <!-- Dark Mode -->
-        <button type="button" id="themeToggle" title="Alternar tema claro/escuro" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="themeToggle" aria-label="Alternar tema claro ou escuro" title="Alternar tema claro/escuro" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
           <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
         </button>
 
-        <!-- Sair / Conta -->
-        <button type="button" id="logoutBtn" title="Sair da conta" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
+        <button type="button" id="logoutBtn" aria-label="Sair da conta" title="Sair da conta" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800 text-xs font-medium text-slate-600 dark:text-slate-300 transition">
           <i data-lucide="log-out" class="w-4 h-4"></i>
           <span class="hidden lg:inline">Sair</span>
         </button>
 
-        <!-- Novo Lançamento -->
         <button type="button" id="openNewEntryBtn" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>Novo <span class="hidden sm:inline">Lançamento</span></span>
@@ -249,7 +229,7 @@
           </div>
         </div>
         <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiRealizedHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">+00:00</span>
+          <span id="kpiRealizedHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">+00:00</span>
           <span id="kpiRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias</span>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Disponível para uso imediato</p>
@@ -264,7 +244,7 @@
           </div>
         </div>
         <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiProjectedHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">+00:00</span>
+          <span id="kpiProjectedHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-indigo-600 dark:text-indigo-400">+00:00</span>
           <span id="kpiProjectedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 tabular-nums">0,0 dias</span>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Inclui feriados e folgas previstos</p>
@@ -279,10 +259,10 @@
           </div>
         </div>
         <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiCreditsHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">+00:00</span>
+          <span id="kpiCreditsHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">+00:00</span>
           <span id="kpiCreditsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 registros</span>
         </div>
-        <p id="kpiUnionSummary" class="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">Jornada: <strong id="kpiJourneyLabel" class="text-slate-700 dark:text-slate-300">08:00/dia</strong></p>
+        <p id="kpiUnionSummary" class="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">Jornada: <strong id="kpiJourneyLabel" class="font-mono tabular-nums text-slate-700 dark:text-slate-300">08:00/dia</strong></p>
       </div>
 
       <!-- Total Compensado (Débitos) -->
@@ -294,7 +274,7 @@
           </div>
         </div>
         <div class="flex items-baseline gap-2 flex-wrap">
-          <span id="kpiDebitsHours" class="text-2xl sm:text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">-00:00</span>
+          <span id="kpiDebitsHours" class="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">-00:00</span>
           <span id="kpiDebitsCount" class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 folgas</span>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Soma de compensações realizadas e previstas</p>
@@ -319,45 +299,38 @@
 
     <!-- ==================== ABA 1: EXTRATO CRONOLÓGICO ==================== -->
     <section id="tabPanel-extrato" class="space-y-4">
-      <!-- Barra de Filtros e Busca -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
         <div class="flex flex-col md:flex-row gap-3">
-          <!-- Busca -->
           <div class="relative flex-1">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-            <input type="text" id="searchInput" placeholder="Buscar por evento, feriado ou observação... (atalho: /)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
+            <input type="text" id="searchInput" aria-label="Buscar lançamentos" placeholder="Buscar por evento, feriado ou observação... (atalho: /)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
 
-          <!-- Filtro Ano -->
-          <select id="yearFilter" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="yearFilter" aria-label="Filtrar por ano" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="all">Todos os anos</option>
           </select>
 
-          <!-- Select Tipo -->
-          <select id="typeFilter" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="typeFilter" aria-label="Filtrar por tipo" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="all">Todos os tipos</option>
             <option value="credit">Créditos (+ Feriados/Extras)</option>
             <option value="debit">Débitos (- Folgas/Saídas)</option>
           </select>
 
-          <!-- Select Status -->
-          <select id="statusFilter" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="statusFilter" aria-label="Filtrar por status" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="all">Todos os status</option>
             <option value="realized">Realizados</option>
             <option value="planned">Previstos</option>
           </select>
 
-          <!-- Botão Ordenação -->
           <button type="button" id="sortOrderBtn" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 transition shrink-0">
             <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-indigo-500"></i>
             <span id="sortOrderLabel">Mais antigos</span>
           </button>
         </div>
 
-        <!-- Pílulas de Filtro Rápido + Contador -->
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-[11px] font-medium text-slate-400 mr-1">Filtros rápidos:</span>
+            <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">Filtros rápidos:</span>
             <button type="button" data-quick-filter="all" id="pill-all" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition">Todos</button>
             <button type="button" data-quick-filter="planned" id="pill-planned" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Apenas Previstos</button>
             <button type="button" data-quick-filter="holidays" id="pill-holidays" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Somente Feriados</button>
@@ -405,7 +378,6 @@
 
     <!-- ==================== ABA 2: GRÁFICOS & SIMULADOR ==================== -->
     <section id="tabPanel-graficos" class="hidden space-y-6">
-      <!-- Simulador Interativo de Folgas -->
       <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div class="space-y-2 max-w-xl">
@@ -414,19 +386,19 @@
               Simulador Rápido de Folgas
             </div>
             <h3 class="text-lg sm:text-xl font-bold">Planeje seus próximos dias de descanso</h3>
-            <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias de folga você deseja tirar com base na sua jornada de trabalho e veja o impacto no saldo projetado.</p>
+            <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias de folga você deseja tirar com base na sua jornada de trabalho e veja o impacto no saldo projetado em HH:MM.</p>
           </div>
 
           <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 max-w-lg space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <label for="simDaysSlider" class="text-xs font-semibold uppercase tracking-wider text-indigo-100">Dias de Folga Simulados</label>
-              <span id="simDaysValue" class="text-lg sm:text-xl font-extrabold tabular-nums">2 dias (-16:00)</span>
+              <span id="simDaysValue" class="text-lg sm:text-xl font-extrabold font-mono tabular-nums">2 dias (-16:00)</span>
             </div>
             <input type="range" id="simDaysSlider" min="1" max="15" value="2" class="w-full accent-white cursor-pointer" />
             <div class="flex items-center justify-between pt-2 border-t border-white/15 text-xs gap-3">
               <div>
                 <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
-                <strong id="simRemainingResult" class="text-base font-bold tabular-nums">+00:00 (0,0 dias)</strong>
+                <strong id="simRemainingResult" class="text-base font-bold font-mono tabular-nums">+00:00 (0,0 dias)</strong>
               </div>
               <button type="button" id="scheduleFromSimBtn" class="px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5 shrink-0">
                 <i data-lucide="calendar-plus" class="w-4 h-4"></i>
@@ -437,7 +409,6 @@
         </div>
       </div>
 
-      <!-- Grade de Gráficos -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
           <h3 id="balanceChartTitle" class="text-sm font-bold text-slate-900 dark:text-white mb-1">Evolução do Saldo Acumulado (HH:MM)</h3>
@@ -458,81 +429,83 @@
     </section>
 
     <!-- ==================== ABA 3: COMUNICAÇÃO RH / GESTÃO ==================== -->
-    <section id="tabPanel-comunicacao" class="hidden grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Card E-mail -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                <i data-lucide="mail" class="w-4 h-4"></i>
+    <section id="tabPanel-comunicacao" class="hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Card E-mail -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <i data-lucide="mail" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">E-mail Formal (Gestão / RH)</h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">Texto editável com resumo atualizado em HH:MM</p>
+                </div>
               </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">E-mail Formal (Gestão / RH)</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Texto editável com resumo atualizado do saldo</p>
-              </div>
+              <button type="button" data-action="regen-messages" aria-label="Atualizar texto de e-mail" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              </button>
             </div>
-            <button type="button" data-action="regen-messages" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-            </button>
+
+            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
-          <textarea id="emailTemplate" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2.5 pt-2">
-          <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
-            <i data-lucide="copy" class="w-4 h-4"></i>
-            Copiar Texto
-          </button>
-          <button type="button" id="openMailClientBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
-            <i data-lucide="external-link" class="w-4 h-4"></i>
-            Abrir no E-mail
-          </button>
-        </div>
-      </div>
-
-      <!-- Card WhatsApp -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <i data-lucide="message-circle" class="w-4 h-4"></i>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Mensagem Rápida (WhatsApp)</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Formato direto para alinhar folgas com seu gestor</p>
-              </div>
-            </div>
-            <button type="button" data-action="regen-messages" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <div class="flex flex-wrap items-center gap-2.5 pt-2">
+            <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+              Copiar Texto
+            </button>
+            <button type="button" id="openMailClientBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              Abrir no E-mail
             </button>
           </div>
-
-          <textarea id="whatsappTemplate" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2.5 pt-2">
-          <button type="button" data-copy-target="whatsappTemplate" data-copy-toast="Mensagem copiada!" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
-            <i data-lucide="copy" class="w-4 h-4"></i>
-            Copiar Mensagem
-          </button>
-          <button type="button" id="openWhatsAppBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
-            <i data-lucide="send" class="w-4 h-4"></i>
-            Enviar WhatsApp
-          </button>
+        <!-- Card WhatsApp -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="message-circle" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">Mensagem Rápida (WhatsApp)</h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">Formato direto para alinhar folgas com seu gestor</p>
+                </div>
+              </div>
+              <button type="button" data-action="regen-messages" aria-label="Atualizar texto do WhatsApp" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="11" class="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5 pt-2">
+            <button type="button" data-copy-target="whatsappTemplate" data-copy-toast="Mensagem copiada!" class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+              Copiar Mensagem
+            </button>
+            <button type="button" id="openWhatsAppBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              Enviar WhatsApp
+            </button>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
   <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO (HH:MM) ==================== -->
-  <div id="entryModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+  <div id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate my-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Novo Lançamento</h2>
-        <button type="button" id="closeEntryModalBtn" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <button type="button" id="closeEntryModalBtn" aria-label="Fechar modal de lançamento" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
@@ -560,67 +533,75 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data do Evento</label>
+            <label for="entryDate" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data do Evento</label>
             <input type="date" id="entryDate" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Duração (Horas e Minutos)</label>
-            <div class="flex items-center gap-1.5">
-              <input type="number" id="entryHoursPart" min="0" max="300" required value="8" aria-label="Horas" class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono text-center outline-none focus:ring-2 focus:ring-indigo-500" />
-              <span class="text-xs font-bold text-slate-400">:</span>
-              <input type="number" id="entryMinutesPart" min="0" max="59" step="1" required value="0" aria-label="Minutos" class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono text-center outline-none focus:ring-2 focus:ring-indigo-500" />
-              <button type="button" id="fillJourneyBtn" title="Preencher com a jornada do sindicato/ramo" class="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
-                Jornada
-              </button>
-            </div>
+            <label for="entryCategory" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Categoria</label>
+            <select id="entryCategory" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
+          </div>
+        </div>
+
+        <div>
+          <label for="entryHoursPart" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Duração Trabalhada / Folga (HH:MM)</label>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <input type="number" id="entryHoursPart" min="0" max="300" required value="8" aria-label="Horas" class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
+            <span class="text-xs font-bold text-slate-400">:</span>
+            <input type="number" id="entryMinutesPart" min="0" max="59" step="1" required value="0" aria-label="Minutos" class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
+            <button type="button" id="fillJourneyBtn" title="Preencher com a jornada configurada" class="px-2.5 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 shrink-0">
+              1 dia
+            </button>
+            <button type="button" data-quick-mins="30" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">00:30</button>
+            <button type="button" data-quick-mins="60" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">01:00</button>
+            <button type="button" data-quick-mins="120" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">02:00</button>
           </div>
         </div>
 
         <!-- Regra de Multiplicador (para créditos) -->
         <div id="multiplierWrapper" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <label for="entryRulePreset" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Regra do Sindicato / Multiplicador</label>
+            <label for="entryRulePreset" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Multiplicador Aplicado</label>
             <select id="entryRulePreset" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="union_holiday">Feriado / Folga (Regra Sindicato)</option>
-              <option value="union_overtime">Hora Extra Comum (Regra Sindicato)</option>
+              <option value="union_holiday">Feriado (Regra Sindicato/Ramo)</option>
+              <option value="union_overtime">Hora Extra (Regra Sindicato/Ramo)</option>
               <option value="1.0">Simples 1:1 (1.0x)</option>
               <option value="1.5">Adicional 50% (1.5x)</option>
               <option value="2.0">Adicional 100% (2.0x)</option>
-              <option value="custom">Multiplicador Personalizado</option>
+              <option value="custom">Personalizado</option>
             </select>
           </div>
-          <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center justify-between text-xs gap-2">
             <div id="customMultiplierBox" class="hidden items-center gap-1.5">
-              <span class="text-slate-500">Fator:</span>
-              <input type="number" id="entryCustomMultiplier" step="0.05" min="0.1" max="5" value="1.5" class="w-20 px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono text-xs" />
+              <label for="entryCustomMultiplier" class="text-slate-500 dark:text-slate-400">Fator:</label>
+              <input type="number" id="entryCustomMultiplier" step="0.05" min="0.1" max="5" value="1.5" class="w-20 px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono text-xs tabular-nums" />
             </div>
-            <p id="entryComputedPreview" class="text-indigo-700 dark:text-indigo-300 font-mono font-semibold ml-auto">
-              Crédito no banco: +08:00 (1.0x)
+            <p id="entryComputedPreview" class="text-indigo-700 dark:text-indigo-300 font-mono font-semibold tabular-nums ml-auto">
+              Trabalhado 08:00 × 1x = +08:00
             </p>
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Descrição / Feriado</label>
+          <label for="entryTitle" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Descrição / Feriado</label>
           <input type="text" id="entryTitle" required placeholder="Ex.: Feriado Tiradentes (Plantão) ou Folga Compensatória" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Status</label>
+            <label for="entryStatus" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Status</label>
             <select id="entryStatus" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="realized">Realizado (Confirmado)</option>
               <option value="planned">Previsto (Agendado)</option>
             </select>
           </div>
           <div id="expiryFieldWrapper">
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data Limite / Vencimento</label>
+            <label for="entryExpiry" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data Limite / Vencimento</label>
             <input type="date" id="entryExpiry" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Observações (opcional)</label>
+          <label for="entryNotes" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Observações (opcional)</label>
           <input type="text" id="entryNotes" placeholder="Ex.: Acordo coletivo, alinhado com gestor..." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
 
@@ -637,17 +618,17 @@
   </div>
 
   <!-- ==================== MODAL: CALENDÁRIO DINÂMICO DE FERIADOS ==================== -->
-  <div id="holidaysModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+  <div id="holidaysModal" role="dialog" aria-modal="true" aria-labelledby="holidaysModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-6 modal-animate my-auto space-y-4">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <div>
-          <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <h2 id="holidaysModalTitle" class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <i data-lucide="calendar-days" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i>
             Calendário Oficial de Feriados
           </h2>
           <p id="holidaysMetaText" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Atualizado automaticamente • Nunca apaga seus dados</p>
         </div>
-        <button type="button" id="closeHolidaysModalBtn" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <button type="button" id="closeHolidaysModalBtn" aria-label="Fechar calendário de feriados" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
@@ -655,11 +636,11 @@
       <!-- Barra de Ano, UF e Atualização -->
       <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/70 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
         <div class="flex items-center gap-2">
-          <button type="button" id="prevHolidayYearBtn" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Ano anterior">
+          <button type="button" id="prevHolidayYearBtn" aria-label="Ano anterior" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Ano anterior">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
           </button>
           <span id="holidayYearDisplay" class="font-mono text-sm font-extrabold px-2 tabular-nums">2026</span>
-          <button type="button" id="nextHolidayYearBtn" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Próximo ano">
+          <button type="button" id="nextHolidayYearBtn" aria-label="Próximo ano" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Próximo ano">
             <i data-lucide="chevron-right" class="w-4 h-4"></i>
           </button>
           <button type="button" id="currentYearHolidayBtn" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 hover:bg-indigo-200/70 transition">
@@ -667,18 +648,9 @@
           </button>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <label for="holidayUfSelect" class="text-xs font-medium text-slate-500 dark:text-slate-400">UF:</label>
-          <select id="holidayUfSelect" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold outline-none">
-            <option value="NONE">Apenas Nacionais</option>
-            <option value="SP">SP (São Paulo)</option>
-            <option value="RJ">RJ (Rio de Janeiro)</option>
-            <option value="MG">MG (Minas Gerais)</option>
-            <option value="RS">RS (Rio Grande do Sul)</option>
-            <option value="PR">PR (Paraná)</option>
-            <option value="SC">SC (Santa Catarina)</option>
-            <option value="BA">BA (Bahia)</option>
-          </select>
+          <select id="holidayUfSelect" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold outline-none"></select>
 
           <button type="button" id="refreshHolidaysBtn" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1 transition" title="Forçar sincronização agora">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
@@ -687,13 +659,18 @@
         </div>
       </div>
 
-      <!-- Seleção Rápida -->
-      <div class="flex items-center justify-between text-xs px-1">
+      <!-- Filtros de Visualização & Seleção Rápida -->
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs px-1">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button type="button" data-holiday-filter="all" class="holiday-view-pill px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">Todos</button>
+          <button type="button" data-holiday-filter="upcoming" class="holiday-view-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Hoje e Futuros</button>
+          <button type="button" data-holiday-filter="available" class="holiday-view-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Não Lançados</button>
+        </div>
         <div class="flex items-center gap-3">
           <button type="button" id="selectAllHolidaysBtn" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Selecionar disponíveis</button>
-          <button type="button" id="clearSelectionHolidaysBtn" class="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline">Limpar seleção</button>
+          <button type="button" id="clearSelectionHolidaysBtn" class="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline">Limpar</button>
+          <span id="holidaySelectedCount" class="font-mono text-slate-500 dark:text-slate-400 tabular-nums">0 selecionados</span>
         </div>
-        <span id="holidaySelectedCount" class="font-mono text-slate-500 dark:text-slate-400">0 selecionados</span>
       </div>
 
       <!-- Lista de Feriados -->
@@ -701,7 +678,7 @@
 
       <!-- Rodapé -->
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
-        <span class="text-[11px] text-slate-400">Apenas consulta não altera nada. Importar adiciona sem apagar lançamentos existentes.</span>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400">Apenas visualizar não altera seu extrato. Importar adiciona somente os marcados.</span>
         <div class="flex items-center gap-2">
           <button type="button" id="cancelHolidaysBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
             Fechar
@@ -716,17 +693,16 @@
   </div>
 
   <!-- ==================== MODAL: PARÂMETROS, SINDICATO/RAMO & CONTA ==================== -->
-  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+  <div id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 modal-animate my-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-        <h2 class="text-base font-bold text-slate-900 dark:text-white">Parâmetros, Sindicato &amp; Conta</h2>
-        <button type="button" id="closeSettingsModalBtn" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <h2 id="settingsModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Parâmetros, Sindicato &amp; Conta</h2>
+        <button type="button" id="closeSettingsModalBtn" aria-label="Fechar parâmetros" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <form id="settingsForm" class="mt-4 space-y-4">
-        <!-- Info Usuário Logado -->
         <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
           <div class="min-w-0">
             <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Conta Conectada</span>
@@ -735,18 +711,25 @@
           <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 shrink-0">Verificada</span>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Seu Nome (para relatórios e e-mails)</label>
-          <input type="text" id="settingUserName" required placeholder="Seu nome completo" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label for="settingUserName" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Seu Nome (para relatórios e e-mails)</label>
+            <input type="text" id="settingUserName" required placeholder="Seu nome completo" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label for="settingStateUf" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Estado (UF)</label>
+            <select id="settingStateUf" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
+          </div>
         </div>
 
         <!-- Seção Sindicato ou Ramo da Empresa -->
         <div class="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/25 border border-indigo-200/80 dark:border-indigo-800/60 space-y-3">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-bold text-indigo-950 dark:text-indigo-200">Você sabe qual é o seu sindicato?</span>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-bold text-indigo-950 dark:text-indigo-200">Regra de Jornada &amp; Multiplicadores</span>
             <div class="inline-flex rounded-lg bg-white dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
-              <button type="button" id="unionModeBtn" class="px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 transition">Sei o sindicato</button>
-              <button type="button" id="sectorModeBtn" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white transition">Não sei (por ramo)</button>
+              <button type="button" id="unionModeBtn" class="px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 transition">Sindicato</button>
+              <button type="button" id="sectorModeBtn" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white transition">Não sei (Ramo)</button>
+              <button type="button" id="customModeBtn" class="px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 transition">Manual</button>
             </div>
           </div>
 
@@ -760,29 +743,29 @@
             <select id="settingCompanySector" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
           </div>
 
-          <p id="unionRuleHint" class="text-[11px] text-indigo-800 dark:text-indigo-300 leading-relaxed"></p>
+          <p id="unionRuleHint" class="text-[11px] text-indigo-900 dark:text-indigo-300 leading-relaxed"></p>
         </div>
 
         <!-- Jornada HH:MM e Multiplicadores -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label for="settingDailyHHMM" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Jornada Diária (HH:MM)</label>
-            <input type="text" id="settingDailyHHMM" pattern="^\d{1,2}:[0-5]\d$" required placeholder="08:00" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="text" id="settingDailyHHMM" required placeholder="08:00" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
             <label for="settingOvertimeMult" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Mult. Hora Extra</label>
-            <input type="number" id="settingOvertimeMult" step="0.05" min="0.5" max="5" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="number" id="settingOvertimeMult" step="0.05" min="0.5" max="5" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label for="settingHolidayMult" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Mult. Feriado/Folga</label>
-            <input type="number" id="settingHolidayMult" step="0.05" min="0.5" max="5" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label for="settingHolidayMult" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Mult. Feriado</label>
+            <input type="number" id="settingHolidayMult" step="0.05" min="0.5" max="5" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label for="settingExpiryDays" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Validade (dias)</label>
-            <input type="number" id="settingExpiryDays" min="15" max="730" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="number" id="settingExpiryDays" min="15" max="730" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
             <label for="settingManagerEmail" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">E-mail Gestor / RH</label>
@@ -823,7 +806,7 @@
   </div>
 
   <!-- ==================== MODAL PRÓPRIO DE CONFIRMAÇÃO ==================== -->
-  <div id="confirmModal" class="hidden fixed inset-0 z-[60] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" class="hidden fixed inset-0 z-[60] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 modal-animate space-y-4">
       <div class="flex items-start gap-3">
         <div id="confirmIconBox" class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
@@ -847,2126 +830,11 @@
   </div>
 
   <!-- ==================== TOAST DE NOTIFICAÇÃO ==================== -->
-  <div id="toast" class="fixed bottom-5 right-5 z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
+  <div id="toast" role="status" aria-live="polite" class="fixed bottom-5 right-5 z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
     <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0"></i>
     <span id="toastMsg">Ação concluída</span>
   </div>
 
-  <script>
-    // =========================================================================
-    // CONFIGURAÇÃO SUPABASE & CONSTANTES
-    // =========================================================================
-    const SUPABASE_URL = 'https://opctsxkugbljvghcgnvj.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_nClSbvyd31jCHu1qpz4t-w_tUJ0RzUh';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const UNIONS_CATALOG = [
-      { code: 'sindpd_sp', name: 'SINDPD-SP — Tecnologia da Informação (TI)', sector: 'tecnologia', dailyMinutes: 480, overtimeMult: 1.5, holidayMult: 1.0, expiryDays: 180, note: 'Referência TI/SP: jornada comum 08:00/dia (40h/sem), extra 1.5x, feriado/folga 1.0x.' },
-      { code: 'bancarios', name: 'Contraf / Bancários — Categoria Bancária', sector: 'financeiro', dailyMinutes: 360, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, note: 'Referência Bancários: jornada padrão 06:00/dia (30h/sem), extra 1.5x, feriado 2.0x.' },
-      { code: 'comerciarios', name: 'Fecomerciários / Comércio & Varejo', sector: 'comercio', dailyMinutes: 440, overtimeMult: 1.5, holidayMult: 1.0, expiryDays: 180, note: 'Referência Comércio: jornada 07:20/dia (44h/sem), folga compensatória de feriado 1.0x.' },
-      { code: 'metalurgicos', name: 'CNTM / Metalúrgicos & Indústria', sector: 'industria', dailyMinutes: 528, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, note: 'Referência Indústria (seg–sex 44h): ~08:48/dia, extra 1.5x, feriado 2.0x.' },
-      { code: 'saude', name: 'Sindicatos da Saúde / Hospitais', sector: 'saude', dailyMinutes: 360, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, note: 'Referência Saúde: jornada de 06:00/dia (36h/sem), ajuste livre para escalas 12x36.' },
-      { code: 'callcenter', name: 'Sintratel / Telemarketing & Atendimento', sector: 'servicos', dailyMinutes: 372, overtimeMult: 1.5, holidayMult: 1.0, expiryDays: 180, note: 'Referência Atendimento: 06:12/dia (37h12/sem), extra 1.5x, compensação 1.0x.' },
-      { code: 'logistica', name: 'Fetrolog / Transportes & Logística', sector: 'logistica', dailyMinutes: 528, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, note: 'Referência Logística (seg–sex 44h): ~08:48/dia, extra 1.5x, feriado 2.0x.' },
-      { code: 'outro', name: 'Outro Sindicato / Acordo Personalizado', sector: 'outro', dailyMinutes: 480, overtimeMult: 1.0, holidayMult: 1.0, expiryDays: 180, note: 'Ajuste manualmente a jornada (HH:MM), multiplicadores e prazo de validade.' }
-    ];
-
-    const SECTORS_CATALOG = [
-      { code: 'tecnologia', label: 'Tecnologia, Software & TI', unionCode: 'sindpd_sp', dailyMinutes: 480, overtimeMult: 1.5, holidayMult: 1.0, expiryDays: 180, desc: 'Ramo de TI: sugerimos jornada de 08:00/dia (40h/sem) e compensação 1.0x em feriados.' },
-      { code: 'comercio', label: 'Comércio, Varejo & Lojas', unionCode: 'comerciarios', dailyMinutes: 440, overtimeMult: 1.5, holidayMult: 1.0, expiryDays: 180, desc: 'Ramo do Comércio: sugerimos 07:20/dia (44h/sem) com compensação de feriados em folga.' },
-      { code: 'industria', label: 'Indústria & Manufatura', unionCode: 'metalurgicos', dailyMinutes: 528, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, desc: 'Ramo Industrial: sugerimos 08:48/dia (44h seg–sex), extra 1.5x e feriado 2.0x.' },
-      { code: 'saude', label: 'Saúde, Clínicas & Hospitais', unionCode: 'saude', dailyMinutes: 360, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, desc: 'Ramo da Saúde: sugerimos 06:00/dia (ou edite para 12:00 em escala 12x36).' },
-      { code: 'financeiro', label: 'Bancos, Fintechs & Financeiro', unionCode: 'bancarios', dailyMinutes: 360, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, desc: 'Ramo Financeiro: sugerimos jornada padrão de 06:00/dia (30h/sem).' },
-      { code: 'logistica', label: 'Logística, Armazenagem & Transportes', unionCode: 'logistica', dailyMinutes: 528, overtimeMult: 1.5, holidayMult: 2.0, expiryDays: 180, desc: 'Ramo de Logística: sugerimos 08:48/dia (44h seg–sex), extra 1.5x e feriado 2.0x.' },
-      { code: 'servicos', label: 'Serviços, Escritório & Administrativo', unionCode: 'callcenter', dailyMinutes: 480, overtimeMult: 1.5, holidayMult: 1.0, expiryDays: 180, desc: 'Ramo de Serviços/Escritório: sugerimos 08:00/dia (40h/sem), editável conforme sua CCT.' },
-      { code: 'outro', label: 'Outro Ramo de Atividade', unionCode: 'outro', dailyMinutes: 480, overtimeMult: 1.0, holidayMult: 1.0, expiryDays: 180, desc: 'Ramo personalizado: defina sua jornada diária em HH:MM e os multiplicadores desejados.' }
-    ];
-
-    const STATE_HOLIDAYS = {
-      SP: [
-        { mmdd: '07-09', name: 'Revolução Constitucionalista de 1932 (SP)' },
-        { mmdd: '01-25', name: 'Aniversário de São Paulo (Capital/SP)' }
-      ],
-      RJ: [
-        { mmdd: '04-23', name: 'Dia de São Jorge (RJ)' },
-        { mmdd: '11-20', name: 'Dia da Consciência Negra (RJ)' }
-      ],
-      MG: [
-        { mmdd: '04-21', name: 'Data Magna de Minas Gerais' }
-      ],
-      RS: [
-        { mmdd: '09-20', name: 'Dia do Gaúcho — Revolução Farroupilha (RS)' }
-      ],
-      PR: [
-        { mmdd: '12-19', name: 'Emancipação Política do Paraná' }
-      ],
-      SC: [
-        { mmdd: '08-11', name: 'Dia de Santa Catarina' }
-      ],
-      BA: [
-        { mmdd: '07-02', name: 'Independência da Bahia' }
-      ]
-    };
-
-    // =========================================================================
-    // ESTADO DA APLICAÇÃO
-    // =========================================================================
-    let currentUser = null;
-    let authMode = 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
-    let sortAscending = true;
-    let quickFilter = 'all';
-    let balanceChartInstance = null;
-    let ratioChartInstance = null;
-    let confirmResolver = null;
-
-    let holidayYear = new Date().getFullYear();
-    let holidayUf = localStorage.getItem('saldohoras_holiday_uf') || 'SP';
-    let currentHolidayList = [];
-    let selectedHolidayDates = new Set();
-
-    let settings = {
-      userName: '',
-      dailyMinutes: 480,
-      expiryDays: 180,
-      managerEmail: '',
-      managerPhone: '',
-      unionMode: 'sector',
-      unionCode: 'sindpd_sp',
-      companySector: 'tecnologia',
-      overtimeMultiplier: 1.5,
-      holidayMultiplier: 1.0
-    };
-
-    let entries = [];
-
-    // =========================================================================
-    // UTILITÁRIOS DE DATA LOCAL & TEMPO (HH:MM EM MINUTOS INTEIROS)
-    // =========================================================================
-    function getLocalISODate(dateObj = new Date()) {
-      const y = dateObj.getFullYear();
-      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const d = String(dateObj.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-
-    function addDaysToLocalISO(isoDate, daysToAdd) {
-      const [y, m, d] = isoDate.split('-').map(Number);
-      const dt = new Date(y, m - 1, d + Number(daysToAdd || 0));
-      return getLocalISODate(dt);
-    }
-
-    function formatDateBR(isoDate) {
-      if (!isoDate) return '—';
-      const [y, m, d] = isoDate.split('-');
-      return `${d}/${m}/${y}`;
-    }
-
-    function getWeekdayShortBR(isoDate) {
-      const [y, m, d] = isoDate.split('-').map(Number);
-      const dt = new Date(y, m - 1, d);
-      const names = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      return names[dt.getDay()];
-    }
-
-    function isWeekendISO(isoDate) {
-      const [y, m, d] = isoDate.split('-').map(Number);
-      const day = new Date(y, m - 1, d).getDay();
-      return day === 0 || day === 6;
-    }
-
-    function formatHHMM(totalMinutes, forceSign = false) {
-      const mins = Math.round(Number(totalMinutes) || 0);
-      const absMins = Math.abs(mins);
-      const hh = String(Math.floor(absMins / 60)).padStart(2, '0');
-      const mm = String(absMins % 60).padStart(2, '0');
-      let prefix = '';
-      if (mins < 0) prefix = '-';
-      else if (forceSign && mins > 0) prefix = '+';
-      return `${prefix}${hh}:${mm}`;
-    }
-
-    function parseHHMMToMinutes(hhmmStr) {
-      if (!hhmmStr) return null;
-      const match = String(hhmmStr).trim().match(/^(\d{1,3}):([0-5]\d)$/);
-      if (!match) return null;
-      return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-    }
-
-    function formatDaysFromMinutes(mins) {
-      const daily = Math.max(1, Number(settings.dailyMinutes) || 480);
-      const days = (Number(mins) || 0) / daily;
-      return `${days.toFixed(1).replace('.', ',')} dias`;
-    }
-
-    function escapeHtml(str) {
-      return String(str || '').replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[m]));
-    }
-
-    function normalizeEntryRow(row) {
-      const hasMinutes = row.minutes !== null && row.minutes !== undefined;
-      const minutes = hasMinutes
-        ? Math.round(Number(row.minutes))
-        : Math.round((Number(row.hours) || 0) * 60);
-      const workedMinutes = (row.worked_minutes !== null && row.worked_minutes !== undefined)
-        ? Math.round(Number(row.worked_minutes))
-        : minutes;
-
-      return {
-        id: row.id,
-        date: row.date,
-        title: row.title,
-        type: row.type,
-        minutes,
-        workedMinutes,
-        multiplier: Number(row.multiplier) || 1.0,
-        category: row.category || 'manual',
-        status: row.status,
-        expiry: row.expiry || '',
-        notes: row.notes || '',
-        createdAt: row.created_at || ''
-      };
-    }
-
-    // =========================================================================
-    // MODAL PRÓPRIO DE CONFIRMAÇÃO & TOAST
-    // =========================================================================
-    function confirmDialog({
-      title = 'Confirmar ação',
-      message = 'Deseja continuar?',
-      confirmText = 'Confirmar',
-      cancelText = 'Cancelar',
-      variant = 'danger'
-    } = {}) {
-      return new Promise((resolve) => {
-        confirmResolver = resolve;
-        const modal = document.getElementById('confirmModal');
-        const okBtn = document.getElementById('confirmOkBtn');
-        const iconBox = document.getElementById('confirmIconBox');
-
-        document.getElementById('confirmTitle').textContent = title;
-        document.getElementById('confirmMessage').textContent = message;
-        okBtn.textContent = confirmText;
-        document.getElementById('confirmCancelBtn').textContent = cancelText;
-
-        if (variant === 'danger') {
-          okBtn.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition';
-          iconBox.className = 'w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0';
-        } else if (variant === 'warning') {
-          okBtn.className = 'px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition';
-          iconBox.className = 'w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0';
-        } else {
-          okBtn.className = 'px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition';
-          iconBox.className = 'w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0';
-        }
-
-        modal.classList.remove('hidden');
-        lucide.createIcons();
-      });
-    }
-
-    function resolveConfirm(result) {
-      const modal = document.getElementById('confirmModal');
-      modal.classList.add('hidden');
-      if (confirmResolver) {
-        const fn = confirmResolver;
-        confirmResolver = null;
-        fn(result);
-      }
-    }
-
-    document.getElementById('confirmCancelBtn').addEventListener('click', () => resolveConfirm(false));
-    document.getElementById('confirmOkBtn').addEventListener('click', () => resolveConfirm(true));
-    document.getElementById('confirmModal').addEventListener('click', (e) => {
-      if (e.target.id === 'confirmModal') resolveConfirm(false);
-    });
-
-    let toastTimer = null;
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      document.getElementById('toastMsg').textContent = msg;
-      toast.classList.remove('hidden');
-      toast.classList.add('flex');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        toast.classList.add('hidden');
-        toast.classList.remove('flex');
-      }, 3000);
-    }
-
-    async function runWithButtonLoading(btn, loadingLabel, fn) {
-      if (!btn || btn.dataset.busy === '1') return;
-      btn.dataset.busy = '1';
-      btn.disabled = true;
-      const originalHtml = btn.innerHTML;
-      if (loadingLabel) btn.innerHTML = loadingLabel;
-      try {
-        return await fn();
-      } finally {
-        btn.disabled = false;
-        btn.dataset.busy = '0';
-        btn.innerHTML = originalHtml;
-        lucide.createIcons();
-      }
-    }
-
-    // =========================================================================
-    // TEMA & ATALHOS GLOBAIS
-    // =========================================================================
-    function initTheme() {
-      const savedTheme = localStorage.getItem('saldohoras_theme');
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-
-    function toggleTheme() {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('saldohoras_theme', isDark ? 'dark' : 'light');
-      if (balanceChartInstance || ratioChartInstance) renderCharts();
-    }
-
-    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-    document.getElementById('authThemeToggle').addEventListener('click', toggleTheme);
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (!document.getElementById('confirmModal').classList.contains('hidden')) {
-          resolveConfirm(false);
-          return;
-        }
-        if (!document.getElementById('entryModal').classList.contains('hidden')) {
-          closeEntryModal();
-          return;
-        }
-        if (!document.getElementById('holidaysModal').classList.contains('hidden')) {
-          closeHolidaysModal();
-          return;
-        }
-        if (!document.getElementById('settingsModal').classList.contains('hidden')) {
-          closeSettingsModal();
-          return;
-        }
-        closeExportMenu();
-        return;
-      }
-
-      if (!currentUser) return;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-      if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        openEntryModal();
-      } else if (e.key === '/') {
-        e.preventDefault();
-        switchMainTab('extrato');
-        document.getElementById('searchInput').focus();
-      }
-    });
-
-    // =========================================================================
-    // AUTENTICAÇÃO SUPABASE
-    // =========================================================================
-    function switchAuthMode(mode) {
-      authMode = mode;
-      document.getElementById('authAlert').classList.add('hidden');
-      document.getElementById('resendConfirmBtn').classList.add('hidden');
-
-      const tabLogin = document.getElementById('tabAuthLogin');
-      const tabSignup = document.getElementById('tabAuthSignup');
-      const nameWrap = document.getElementById('authNameWrapper');
-      const emailWrap = document.getElementById('authEmailWrapper');
-      const emailInput = document.getElementById('authEmail');
-      const pwdWrap = document.getElementById('authPasswordWrapper');
-      const pwdInput = document.getElementById('authPassword');
-      const forgotBtn = document.getElementById('forgotPwdBtn');
-      const submitBtn = document.getElementById('authSubmitBtn');
-      const backBtn = document.getElementById('backToLoginBtn');
-      const authTabs = document.getElementById('authTabs');
-
-      emailWrap.classList.remove('hidden');
-      emailInput.required = true;
-      forgotBtn.classList.remove('hidden');
-
-      if (mode === 'login') {
-        authTabs.classList.remove('hidden');
-        tabLogin.className = 'py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
-        tabSignup.className = 'py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
-        nameWrap.classList.add('hidden');
-        pwdWrap.classList.remove('hidden');
-        pwdInput.required = true;
-        backBtn.classList.add('hidden');
-        submitBtn.innerHTML = '<span>Entrar no Painel</span><i data-lucide="arrow-right" class="w-4 h-4"></i>';
-      } else if (mode === 'signup') {
-        authTabs.classList.remove('hidden');
-        tabSignup.className = 'py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
-        tabLogin.className = 'py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
-        nameWrap.classList.remove('hidden');
-        pwdWrap.classList.remove('hidden');
-        pwdInput.required = true;
-        backBtn.classList.add('hidden');
-        submitBtn.innerHTML = '<span>Criar Conta e Enviar Confirmação</span><i data-lucide="user-plus" class="w-4 h-4"></i>';
-      } else if (mode === 'reset') {
-        authTabs.classList.add('hidden');
-        nameWrap.classList.add('hidden');
-        pwdWrap.classList.add('hidden');
-        pwdInput.required = false;
-        backBtn.classList.remove('hidden');
-        submitBtn.innerHTML = '<span>Enviar Link de Recuperação</span><i data-lucide="mail" class="w-4 h-4"></i>';
-      } else if (mode === 'update_password') {
-        authTabs.classList.add('hidden');
-        nameWrap.classList.add('hidden');
-        emailWrap.classList.add('hidden');
-        emailInput.required = false;
-        forgotBtn.classList.add('hidden');
-        pwdWrap.classList.remove('hidden');
-        pwdInput.required = true;
-        pwdInput.value = '';
-        pwdInput.placeholder = 'Digite sua nova senha (mín. 6 caracteres)';
-        backBtn.classList.add('hidden');
-        submitBtn.innerHTML = '<span>Salvar Nova Senha</span><i data-lucide="key-round" class="w-4 h-4"></i>';
-      }
-      lucide.createIcons();
-    }
-
-    function showAuthAlert(message, type = 'error') {
-      const box = document.getElementById('authAlert');
-      box.classList.remove(
-        'hidden',
-        'bg-rose-50', 'text-rose-800', 'border-rose-200', 'dark:bg-rose-950/60', 'dark:text-rose-200', 'dark:border-rose-800',
-        'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/60', 'dark:text-emerald-200', 'dark:border-emerald-800',
-        'bg-amber-50', 'text-amber-800', 'border-amber-200', 'dark:bg-amber-950/60', 'dark:text-amber-200', 'dark:border-amber-800'
-      );
-      if (type === 'success') {
-        box.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/60', 'dark:text-emerald-200', 'dark:border-emerald-800');
-      } else if (type === 'warning') {
-        box.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200', 'dark:bg-amber-950/60', 'dark:text-amber-200', 'dark:border-amber-800');
-      } else {
-        box.classList.add('bg-rose-50', 'text-rose-800', 'border-rose-200', 'dark:bg-rose-950/60', 'dark:text-rose-200', 'dark:border-rose-800');
-      }
-      box.innerHTML = message;
-    }
-
-    document.getElementById('tabAuthLogin').addEventListener('click', () => switchAuthMode('login'));
-    document.getElementById('tabAuthSignup').addEventListener('click', () => switchAuthMode('signup'));
-    document.getElementById('forgotPwdBtn').addEventListener('click', () => switchAuthMode('reset'));
-    document.getElementById('backToLoginBtn').addEventListener('click', () => switchAuthMode('login'));
-
-    document.getElementById('authForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('authSubmitBtn');
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value;
-      const fullName = document.getElementById('authName').value.trim();
-      document.getElementById('resendConfirmBtn').classList.add('hidden');
-
-      await runWithButtonLoading(
-        btn,
-        '<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Processando...',
-        async () => {
-          if (authMode === 'login') {
-            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if (error) {
-              if (error.message.toLowerCase().includes('email not confirmed')) {
-                showAuthAlert('<strong>E-mail ainda não confirmado.</strong> Verifique sua caixa de entrada (ou spam) e clique no link enviado antes de entrar.', 'warning');
-                document.getElementById('resendConfirmBtn').classList.remove('hidden');
-              } else if (error.message.toLowerCase().includes('invalid login credentials')) {
-                showAuthAlert('E-mail ou senha incorretos. Verifique seus dados e tente novamente.', 'error');
-              } else {
-                showAuthAlert(error.message, 'error');
-              }
-            }
-          } else if (authMode === 'signup') {
-            if (!fullName) {
-              showAuthAlert('Informe seu nome completo para criar a conta.', 'error');
-              return;
-            }
-            const redirectTo = window.location.origin + window.location.pathname;
-            const { error } = await supabaseClient.auth.signUp({
-              email,
-              password,
-              options: {
-                emailRedirectTo: redirectTo,
-                data: { full_name: fullName }
-              }
-            });
-            if (error) {
-              showAuthAlert(error.message, 'error');
-            } else {
-              switchAuthMode('login');
-              showAuthAlert(
-                `<strong>Conta criada com sucesso!</strong> Enviamos um link de confirmação para <strong>${escapeHtml(email)}</strong> (verifique também a caixa de spam) e depois faça login abaixo.`,
-                'success'
-              );
-            }
-          } else if (authMode === 'reset') {
-            const redirectTo = window.location.origin + window.location.pathname;
-            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
-            if (error) {
-              showAuthAlert(error.message, 'error');
-            } else {
-              showAuthAlert(`Enviamos um link de redefinição de senha para <strong>${escapeHtml(email)}</strong>.`, 'success');
-            }
-          } else if (authMode === 'update_password') {
-            const { error } = await supabaseClient.auth.updateUser({ password });
-            if (error) {
-              showAuthAlert('Erro ao atualizar senha: ' + error.message, 'error');
-            } else {
-              showToast('Senha atualizada com sucesso!');
-              switchAuthMode('login');
-              document.getElementById('authScreen').classList.add('hidden');
-              if (currentUser) await loadUserData();
-            }
-          }
-        }
-      );
-    });
-
-    document.getElementById('resendConfirmBtn').addEventListener('click', async () => {
-      const email = document.getElementById('authEmail').value.trim();
-      if (!email) return;
-      const redirectTo = window.location.origin + window.location.pathname;
-      const { error } = await supabaseClient.auth.resend({
-        type: 'signup',
-        email,
-        options: { emailRedirectTo: redirectTo }
-      });
-      if (error) {
-        showAuthAlert('Erro ao reenviar: ' + error.message, 'error');
-      } else {
-        showAuthAlert(`Novo e-mail de confirmação enviado para <strong>${escapeHtml(email)}</strong>.`, 'success');
-        document.getElementById('resendConfirmBtn').classList.add('hidden');
-      }
-    });
-
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await supabaseClient.auth.signOut();
-      currentUser = null;
-      entries = [];
-      switchAuthMode('login');
-      document.getElementById('authScreen').classList.remove('hidden');
-      showToast('Sessão encerrada');
-    });
-
-    // =========================================================================
-    // SINCRONIZAÇÃO SUPABASE (bh_params & bh_entries) COM ROLLBACK
-    // =========================================================================
-    function setSyncStatus(state) {
-      const badge = document.getElementById('syncBadge');
-      const text = document.getElementById('syncText');
-      if (state === 'saving') {
-        text.textContent = 'Salvando...';
-        badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70';
-      } else if (state === 'error') {
-        text.textContent = 'Erro ao sincronizar';
-        badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70';
-      } else {
-        text.textContent = 'Nuvem Ativa';
-        badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70';
-      }
-    }
-
-    async function loadUserData() {
-      if (!currentUser) return;
-      setSyncStatus('saving');
-
-      try {
-        const metaName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
-
-        const { data: paramsData, error: paramsErr } = await supabaseClient
-          .from('bh_params')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .maybeSingle();
-
-        if (paramsErr) throw paramsErr;
-
-        if (paramsData) {
-          const mins = (paramsData.daily_minutes !== null && paramsData.daily_minutes !== undefined)
-            ? Number(paramsData.daily_minutes)
-            : Math.round((Number(paramsData.daily_hours) || 8) * 60);
-
-          settings = {
-            userName: paramsData.user_name || metaName,
-            dailyMinutes: mins || 480,
-            expiryDays: Number(paramsData.expiry_days) || 180,
-            managerEmail: paramsData.manager_email || '',
-            managerPhone: paramsData.manager_phone || '',
-            unionMode: paramsData.union_mode || 'sector',
-            unionCode: paramsData.union_code || 'sindpd_sp',
-            companySector: paramsData.company_sector || 'tecnologia',
-            overtimeMultiplier: Number(paramsData.overtime_multiplier) || 1.5,
-            holidayMultiplier: Number(paramsData.holiday_multiplier) || 1.0
-          };
-        } else {
-          settings = {
-            userName: metaName,
-            dailyMinutes: 480,
-            expiryDays: 180,
-            managerEmail: '',
-            managerPhone: '',
-            unionMode: 'sector',
-            unionCode: 'sindpd_sp',
-            companySector: 'tecnologia',
-            overtimeMultiplier: 1.5,
-            holidayMultiplier: 1.0
-          };
-          await saveSettingsToCloud();
-        }
-
-        const { data: entriesData, error: entriesErr } = await supabaseClient
-          .from('bh_entries')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('date', { ascending: true });
-
-        if (entriesErr) throw entriesErr;
-
-        entries = (entriesData || []).map(normalizeEntryRow);
-        updateHeaderUserInfo();
-        setSyncStatus('ok');
-        renderAll();
-      } catch (err) {
-        console.error('Erro ao carregar dados do Supabase:', err);
-        setSyncStatus('error');
-        showToast('Erro ao sincronizar com o Supabase');
-      } finally {
-        document.getElementById('loadingOverlay').classList.add('hidden');
-      }
-    }
-
-    async function saveSettingsToCloud() {
-      if (!currentUser) return;
-      setSyncStatus('saving');
-      const payload = {
-        user_id: currentUser.id,
-        user_name: settings.userName,
-        daily_hours: Number((settings.dailyMinutes / 60).toFixed(4)),
-        daily_minutes: settings.dailyMinutes,
-        expiry_days: settings.expiryDays,
-        manager_email: settings.managerEmail,
-        manager_phone: settings.managerPhone,
-        union_mode: settings.unionMode,
-        union_code: settings.unionCode,
-        company_sector: settings.companySector,
-        overtime_multiplier: settings.overtimeMultiplier,
-        holiday_multiplier: settings.holidayMultiplier
-      };
-
-      const { error } = await supabaseClient.from('bh_params').upsert(payload);
-      if (error) {
-        console.error('Erro ao salvar bh_params:', error);
-        setSyncStatus('error');
-        throw error;
-      }
-      setSyncStatus('ok');
-    }
-
-    async function upsertEntryToCloud(entry) {
-      if (!currentUser) return;
-      setSyncStatus('saving');
-      const payload = {
-        id: entry.id,
-        user_id: currentUser.id,
-        date: entry.date,
-        title: entry.title,
-        type: entry.type,
-        hours: Number((entry.minutes / 60).toFixed(4)),
-        minutes: entry.minutes,
-        worked_minutes: entry.workedMinutes,
-        multiplier: entry.multiplier,
-        category: entry.category,
-        status: entry.status,
-        expiry: entry.expiry || null,
-        notes: entry.notes || ''
-      };
-
-      const { error } = await supabaseClient.from('bh_entries').upsert(payload);
-      if (error) {
-        console.error('Erro ao salvar bh_entries:', error);
-        setSyncStatus('error');
-        throw error;
-      }
-      setSyncStatus('ok');
-    }
-
-    async function deleteEntryFromCloud(id) {
-      if (!currentUser) return;
-      setSyncStatus('saving');
-      const { error } = await supabaseClient
-        .from('bh_entries')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('id', id);
-      if (error) {
-        console.error('Erro ao excluir em bh_entries:', error);
-        setSyncStatus('error');
-        throw error;
-      }
-      setSyncStatus('ok');
-    }
-
-    function updateHeaderUserInfo() {
-      const displayName = settings.userName || currentUser?.email || 'Usuário';
-      const unionObj = UNIONS_CATALOG.find(u => u.code === settings.unionCode);
-      const sectorObj = SECTORS_CATALOG.find(s => s.code === settings.companySector);
-      const categoryLabel = settings.unionMode === 'union'
-        ? (unionObj ? unionObj.name.split('—')[0].trim() : 'Sindicato')
-        : (sectorObj ? sectorObj.label.split(',')[0].trim() : 'Ramo');
-
-      document.getElementById('headerSubtitle').textContent =
-        `${displayName} • ${categoryLabel} • Jornada ${formatHHMM(settings.dailyMinutes)}`;
-      document.getElementById('settingsUserEmail').textContent = currentUser?.email || '—';
-    }
-
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY' && session?.user) {
-        currentUser = session.user;
-        document.getElementById('loadingOverlay').classList.add('hidden');
-        document.getElementById('authScreen').classList.remove('hidden');
-        switchAuthMode('update_password');
-        showAuthAlert('Defina sua nova senha abaixo para acessar o <strong>SaldoHoras</strong>.', 'warning');
-        return;
-      }
-
-      if (session && session.user) {
-        currentUser = session.user;
-        document.getElementById('authScreen').classList.add('hidden');
-        await loadUserData();
-      } else {
-        currentUser = null;
-        document.getElementById('loadingOverlay').classList.add('hidden');
-        document.getElementById('authScreen').classList.remove('hidden');
-      }
-    });
-
-    // =========================================================================
-    // MOTOR CRONOLÓGICO & FIFO DE VENCIMENTO REAL
-    // =========================================================================
-    function getChronologicalEntries() {
-      const sorted = [...entries].sort((a, b) => {
-        const dateCmp = a.date.localeCompare(b.date);
-        if (dateCmp !== 0) return dateCmp;
-        if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
-          return a.createdAt.localeCompare(b.createdAt);
-        }
-        return String(a.id).localeCompare(String(b.id));
-      });
-
-      let runningMinutes = 0;
-      return sorted.map(item => {
-        const deltaMinutes = item.type === 'credit' ? Number(item.minutes) : -Number(item.minutes);
-        runningMinutes += deltaMinutes;
-        return { ...item, deltaMinutes, runningMinutes };
-      });
-    }
-
-    function computeFIFOExpiringCredits(chronoEntries) {
-      // Créditos com vencimento ordenados do vencimento mais próximo para o mais distante
-      const creditBuckets = chronoEntries
-        .filter(e => e.type === 'credit' && e.expiry)
-        .map(e => ({
-          ...e,
-          remainingMinutes: Number(e.minutes) || 0
-        }))
-        .sort((a, b) => a.expiry.localeCompare(b.expiry) || a.date.localeCompare(b.date));
-
-      const totalDebitsMinutes = chronoEntries
-        .filter(e => e.type === 'debit')
-        .reduce((acc, e) => acc + (Number(e.minutes) || 0), 0);
-
-      // Abate o total de débitos (folgas) dos créditos mais antigos que vencem primeiro
-      let debitPool = totalDebitsMinutes;
-      for (const bucket of creditBuckets) {
-        if (debitPool <= 0) break;
-        const consumed = Math.min(bucket.remainingMinutes, debitPool);
-        bucket.remainingMinutes -= consumed;
-        debitPool -= consumed;
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const remainingMap = new Map();
-      const urgentItems = [];
-
-      for (const bucket of creditBuckets) {
-        remainingMap.set(bucket.id, bucket.remainingMinutes);
-        if (bucket.remainingMinutes <= 0) continue;
-
-        const exp = new Date(bucket.expiry + 'T00:00:00');
-        const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-        if (diffDays <= 60) {
-          urgentItems.push({ ...bucket, diffDays });
-        }
-      }
-
-      return { remainingMap, urgentItems };
-    }
-
-    function getExpiryBadge(expiryIso, remainingMinutes) {
-      if (!expiryIso) return { label: 'Sem vencimento', badgeClass: 'text-slate-400', isAlert: false };
-      if (remainingMinutes !== undefined && remainingMinutes <= 0) {
-        return {
-          label: `${formatDateBR(expiryIso)} (Compensado)`,
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/70',
-          isAlert: false
-        };
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const exp = new Date(expiryIso + 'T00:00:00');
-      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-
-      if (diffDays < 0) {
-        return {
-          label: `${formatDateBR(expiryIso)} (Vencido)`,
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
-          isAlert: true
-        };
-      }
-      if (diffDays <= 60) {
-        return {
-          label: `${formatDateBR(expiryIso)} (${diffDays}d)`,
-          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
-          isAlert: true
-        };
-      }
-      return {
-        label: formatDateBR(expiryIso),
-        badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-        isAlert: false
-      };
-    }
-
-    function populateYearFilterOptions() {
-      const yearSelect = document.getElementById('yearFilter');
-      const prevValue = yearSelect.value || 'all';
-      const yearsSet = new Set([String(new Date().getFullYear())]);
-      entries.forEach(e => {
-        if (e.date && e.date.length >= 4) yearsSet.add(e.date.slice(0, 4));
-      });
-      const sortedYears = Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
-
-      yearSelect.innerHTML = '<option value="all">Todos os anos</option>' +
-        sortedYears.map(y => `<option value="${y}">${y}</option>`).join('');
-
-      if (Array.from(yearSelect.options).some(opt => opt.value === prevValue)) {
-        yearSelect.value = prevValue;
-      } else {
-        yearSelect.value = 'all';
-      }
-    }
-
-    // =========================================================================
-    // RENDERIZAÇÃO PRINCIPAL
-    // =========================================================================
-    function renderAll() {
-      populateYearFilterOptions();
-      const chrono = getChronologicalEntries();
-      const fifo = computeFIFOExpiringCredits(chrono);
-
-      let realizedMinutes = 0;
-      let projectedMinutes = 0;
-      let creditsMinutes = 0;
-      let creditsCount = 0;
-      let debitsMinutes = 0;
-      let debitsCount = 0;
-
-      chrono.forEach(item => {
-        projectedMinutes += item.deltaMinutes;
-        if (item.status === 'realized') realizedMinutes += item.deltaMinutes;
-        if (item.type === 'credit') {
-          creditsMinutes += Number(item.minutes) || 0;
-          creditsCount++;
-        } else {
-          debitsMinutes += Number(item.minutes) || 0;
-          debitsCount++;
-        }
-      });
-
-      document.getElementById('kpiRealizedHours').textContent = formatHHMM(realizedMinutes, true);
-      document.getElementById('kpiRealizedDays').textContent = formatDaysFromMinutes(realizedMinutes);
-      document.getElementById('kpiProjectedHours').textContent = formatHHMM(projectedMinutes, true);
-      document.getElementById('kpiProjectedDays').textContent = formatDaysFromMinutes(projectedMinutes);
-      document.getElementById('kpiCreditsHours').textContent = formatHHMM(creditsMinutes, true);
-      document.getElementById('kpiCreditsCount').textContent = `${creditsCount} ${creditsCount === 1 ? 'registro' : 'registros'}`;
-      document.getElementById('kpiDebitsHours').textContent = formatHHMM(-debitsMinutes, false);
-      document.getElementById('kpiDebitsCount').textContent = `${debitsCount} ${debitsCount === 1 ? 'folga' : 'folgas'}`;
-      document.getElementById('kpiJourneyLabel').textContent = `${formatHHMM(settings.dailyMinutes)}/dia`;
-
-      const alertBanner = document.getElementById('expiryAlertBanner');
-      if (fifo.urgentItems.length > 0 && projectedMinutes > 0) {
-        alertBanner.classList.remove('hidden');
-        const totalUrgentMins = fifo.urgentItems.reduce((s, i) => s + i.remainingMinutes, 0);
-        document.getElementById('expiryAlertText').textContent =
-          `Atenção: Você possui ${fifo.urgentItems.length} ${fifo.urgentItems.length === 1 ? 'crédito não compensado' : 'créditos não compensados'} (${formatHHMM(totalUrgentMins)}) com vencimento próximo ou expirado.`;
-      } else {
-        alertBanner.classList.add('hidden');
-      }
-
-      const query = document.getElementById('searchInput').value.trim().toLowerCase();
-      const yearF = document.getElementById('yearFilter').value;
-      const typeF = document.getElementById('typeFilter').value;
-      const statusF = document.getElementById('statusFilter').value;
-
-      const hasActiveFilters = Boolean(query) || yearF !== 'all' || typeF !== 'all' || statusF !== 'all' || quickFilter !== 'all';
-      document.getElementById('clearFiltersBtn').classList.toggle('hidden', !hasActiveFilters);
-
-      let filtered = chrono.filter(item => {
-        if (yearF !== 'all' && !item.date.startsWith(`${yearF}-`)) return false;
-        if (typeF !== 'all' && item.type !== typeF) return false;
-        if (statusF !== 'all' && item.status !== statusF) return false;
-        if (quickFilter === 'planned' && item.status !== 'planned') return false;
-        if (quickFilter === 'holidays' && item.type !== 'credit' && item.category !== 'holiday') return false;
-        if (quickFilter === 'expiring') {
-          const rem = fifo.remainingMap.get(item.id) ?? 0;
-          const badge = getExpiryBadge(item.expiry, rem);
-          if (item.type !== 'credit' || !badge.isAlert) return false;
-        }
-        if (query) {
-          const hay = `${item.title} ${item.notes || ''} ${formatDateBR(item.date)}`.toLowerCase();
-          if (!hay.includes(query)) return false;
-        }
-        return true;
-      });
-
-      if (!sortAscending) filtered.reverse();
-
-      document.getElementById('filterCounter').textContent =
-        `${filtered.length} de ${chrono.length} ${chrono.length === 1 ? 'registro' : 'registros'}`;
-
-      const tbody = document.getElementById('entriesTableBody');
-      const mobileContainer = document.getElementById('mobileCardsContainer');
-      const emptyState = document.getElementById('emptyState');
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = '';
-        mobileContainer.innerHTML = '';
-        emptyState.classList.remove('hidden');
-      } else {
-        emptyState.classList.add('hidden');
-
-        tbody.innerHTML = filtered.map(item => {
-          const isCredit = item.type === 'credit';
-          const isRealized = item.status === 'realized';
-          const remMins = fifo.remainingMap.get(item.id) ?? item.minutes;
-          const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins) : { label: '—', badgeClass: 'text-slate-400' };
-          const multTag = isCredit && item.multiplier && Number(item.multiplier) !== 1
-            ? `<span class="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 ml-1">(${item.multiplier}x)</span>`
-            : '';
-
-          return `
-            <tr class="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition group">
-              <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">${formatDateBR(item.date)}</td>
-              <td class="py-3.5 px-4">
-                <div class="font-semibold text-slate-900 dark:text-white">${escapeHtml(item.title)}</div>
-                ${item.notes ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.notes)}</div>` : ''}
-              </td>
-              <td class="py-3.5 px-4 whitespace-nowrap">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
-                  <span class="w-1.5 h-1.5 rounded-full ${isRealized ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
-                  ${isRealized ? 'Realizado' : 'Previsto'}
-                </span>
-              </td>
-              <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-                ${formatHHMM(item.deltaMinutes, true)}${multTag}
-              </td>
-              <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap text-slate-800 dark:text-slate-200">
-                ${formatHHMM(item.runningMinutes, true)}
-              </td>
-              <td class="py-3.5 px-4 whitespace-nowrap">
-                ${isCredit && item.expiry
-                  ? `<span class="inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium ${expInfo.badgeClass}">${expInfo.label}</span>`
-                  : `<span class="text-xs text-slate-400">—</span>`}
-              </td>
-              <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                <div class="inline-flex items-center gap-1">
-                  <button type="button" data-edit-id="${escapeHtml(item.id)}" title="Editar" class="edit-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
-                    <i data-lucide="pencil" class="w-4 h-4"></i>
-                  </button>
-                  <button type="button" data-delete-id="${escapeHtml(item.id)}" title="Excluir" class="delete-entry-btn p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        mobileContainer.innerHTML = filtered.map(item => {
-          const isCredit = item.type === 'credit';
-          const isRealized = item.status === 'realized';
-          const remMins = fifo.remainingMap.get(item.id) ?? item.minutes;
-          const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins) : null;
-
-          return `
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">${formatDateBR(item.date)}</span>
-                    <span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
-                      ${isRealized ? 'Realizado' : 'Previsto'}
-                    </span>
-                  </div>
-                  <h4 class="font-bold text-sm text-slate-900 dark:text-white mt-1">${escapeHtml(item.title)}</h4>
-                  ${item.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.notes)}</p>` : ''}
-                </div>
-                <span class="font-mono text-sm font-extrabold tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-                  ${formatHHMM(item.deltaMinutes, true)}
-                </span>
-              </div>
-
-              <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs gap-2">
-                <div class="flex items-center gap-2.5 flex-wrap">
-                  <span class="text-slate-500 dark:text-slate-400">Saldo: <strong class="font-mono text-slate-800 dark:text-slate-200">${formatHHMM(item.runningMinutes, true)}</strong></span>
-                  ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
-                </div>
-                <div class="flex items-center gap-1 shrink-0">
-                  <button type="button" data-edit-id="${escapeHtml(item.id)}" class="edit-entry-btn p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <i data-lucide="pencil" class="w-4 h-4"></i>
-                  </button>
-                  <button type="button" data-delete-id="${escapeHtml(item.id)}" class="delete-entry-btn p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-
-      updateSimulator(projectedMinutes);
-      regenerateMessages();
-      if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
-        renderCharts();
-      }
-      lucide.createIcons();
-    }
-
-    // Delegação de eventos para editar / excluir em tabela e cards
-    function handleEntryActionClick(e) {
-      const editBtn = e.target.closest('.edit-entry-btn');
-      if (editBtn) {
-        openEntryModal(entries.find(item => item.id === editBtn.dataset.editId) || null, true);
-        return;
-      }
-      const delBtn = e.target.closest('.delete-entry-btn');
-      if (delBtn) {
-        deleteEntry(delBtn.dataset.deleteId, delBtn);
-      }
-    }
-    document.getElementById('entriesTableBody').addEventListener('click', handleEntryActionClick);
-    document.getElementById('mobileCardsContainer').addEventListener('click', handleEntryActionClick);
-
-    // =========================================================================
-    // FILTROS & ABAS
-    // =========================================================================
-    function applyQuickFilter(filterName) {
-      quickFilter = filterName;
-      document.querySelectorAll('.quick-pill').forEach(btn => {
-        btn.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
-      });
-      const activePill = document.getElementById(`pill-${filterName}`);
-      if (activePill) {
-        activePill.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition';
-      }
-      renderAll();
-    }
-
-    document.querySelectorAll('.quick-pill').forEach(btn => {
-      btn.addEventListener('click', () => applyQuickFilter(btn.dataset.quickFilter));
-    });
-
-    document.getElementById('viewExpiringBtn').addEventListener('click', () => applyQuickFilter('expiring'));
-
-    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
-      document.getElementById('searchInput').value = '';
-      document.getElementById('yearFilter').value = 'all';
-      document.getElementById('typeFilter').value = 'all';
-      document.getElementById('statusFilter').value = 'all';
-      applyQuickFilter('all');
-    });
-
-    document.getElementById('searchInput').addEventListener('input', renderAll);
-    document.getElementById('yearFilter').addEventListener('change', renderAll);
-    document.getElementById('typeFilter').addEventListener('change', renderAll);
-    document.getElementById('statusFilter').addEventListener('change', renderAll);
-
-    document.getElementById('sortOrderBtn').addEventListener('click', () => {
-      sortAscending = !sortAscending;
-      document.getElementById('sortOrderLabel').textContent = sortAscending ? 'Mais antigos' : 'Mais recentes';
-      renderAll();
-    });
-
-    function switchMainTab(tabName) {
-      ['extrato', 'graficos', 'comunicacao'].forEach(t => {
-        document.getElementById(`tabPanel-${t}`).classList.toggle('hidden', t !== tabName);
-        const btn = document.getElementById(`tabBtn-${t}`);
-        if (t === tabName) {
-          btn.className = 'main-tab-btn px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap flex items-center gap-2 transition';
-        } else {
-          btn.className = 'main-tab-btn px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 whitespace-nowrap flex items-center gap-2 transition';
-        }
-      });
-      if (tabName === 'graficos') renderCharts();
-    }
-
-    document.querySelectorAll('.main-tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => switchMainTab(btn.dataset.mainTab));
-    });
-
-    // =========================================================================
-    // CRUD LANÇAMENTOS (COM HH:MM E MULTIPLICADOR)
-    // =========================================================================
-    function getActiveMultiplierForForm() {
-      const type = document.querySelector('input[name="entryType"]:checked').value;
-      if (type !== 'credit') return 1.0;
-
-      const preset = document.getElementById('entryRulePreset').value;
-      if (preset === 'union_holiday') return Number(settings.holidayMultiplier) || 1.0;
-      if (preset === 'union_overtime') return Number(settings.overtimeMultiplier) || 1.0;
-      if (preset === 'custom') {
-        const val = parseFloat(document.getElementById('entryCustomMultiplier').value);
-        return Number.isFinite(val) && val > 0 ? val : 1.0;
-      }
-      return parseFloat(preset) || 1.0;
-    }
-
-    function updateEntryComputedPreview() {
-      const type = document.querySelector('input[name="entryType"]:checked').value;
-      const multWrapper = document.getElementById('multiplierWrapper');
-      const customBox = document.getElementById('customMultiplierBox');
-      const preset = document.getElementById('entryRulePreset').value;
-
-      multWrapper.classList.toggle('hidden', type !== 'credit');
-      customBox.classList.toggle('hidden', type !== 'credit' || preset !== 'custom');
-      customBox.classList.toggle('flex', type === 'credit' && preset === 'custom');
-
-      const hh = Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0);
-      const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('entryMinutesPart').value, 10) || 0));
-      const baseMins = hh * 60 + mm;
-
-      if (type === 'credit') {
-        const mult = getActiveMultiplierForForm();
-        const creditedMins = Math.round(baseMins * mult);
-        document.getElementById('entryComputedPreview').textContent =
-          `Crédito no banco: ${formatHHMM(creditedMins, true)} (${mult}x)`;
-      }
-    }
-
-    function openEntryModal(data = null, isEditing = false) {
-      document.getElementById('entryForm').reset();
-      document.getElementById('entryId').value = isEditing && data?.id ? data.id : '';
-      document.getElementById('entryModalTitle').textContent = isEditing ? 'Editar Lançamento' : 'Novo Lançamento';
-
-      const today = getLocalISODate();
-      document.getElementById('entryDate').value = data?.date || today;
-      document.getElementById('entryTitle').value = data?.title || '';
-      document.getElementById('entryStatus').value = data?.status || 'realized';
-      document.getElementById('entryNotes').value = data?.notes || '';
-
-      const typeVal = data?.type || 'credit';
-      document.querySelector(`input[name="entryType"][value="${typeVal}"]`).checked = true;
-      document.getElementById('expiryFieldWrapper').classList.toggle('hidden', typeVal !== 'credit');
-
-      const totalMins = isEditing
-        ? (Number(data?.workedMinutes) || Number(data?.minutes) || settings.dailyMinutes)
-        : (Number(data?.minutes) || Number(settings.dailyMinutes) || 480);
-
-      document.getElementById('entryHoursPart').value = Math.floor(totalMins / 60);
-      document.getElementById('entryMinutesPart').value = totalMins % 60;
-
-      if (isEditing && data?.multiplier) {
-        const mult = Number(data.multiplier);
-        const presetSel = document.getElementById('entryRulePreset');
-        if (data.category === 'holiday' && mult === Number(settings.holidayMultiplier)) {
-          presetSel.value = 'union_holiday';
-        } else if (data.category === 'overtime' && mult === Number(settings.overtimeMultiplier)) {
-          presetSel.value = 'union_overtime';
-        } else if ([1, 1.5, 2].includes(mult)) {
-          presetSel.value = String(mult);
-        } else {
-          presetSel.value = 'custom';
-          document.getElementById('entryCustomMultiplier').value = mult;
-        }
-      } else {
-        document.getElementById('entryRulePreset').value =
-          data?.category === 'overtime' ? 'union_overtime' : 'union_holiday';
-      }
-
-      if (typeVal === 'credit') {
-        document.getElementById('entryExpiry').value =
-          data?.expiry || addDaysToLocalISO(document.getElementById('entryDate').value, settings.expiryDays);
-      } else {
-        document.getElementById('entryExpiry').value = '';
-      }
-
-      updateEntryComputedPreview();
-      document.getElementById('entryModal').classList.remove('hidden');
-      lucide.createIcons();
-    }
-
-    function closeEntryModal() {
-      document.getElementById('entryModal').classList.add('hidden');
-    }
-
-    document.getElementById('openNewEntryBtn').addEventListener('click', () => openEntryModal());
-    document.getElementById('closeEntryModalBtn').addEventListener('click', closeEntryModal);
-    document.getElementById('cancelEntryModalBtn').addEventListener('click', closeEntryModal);
-    document.getElementById('entryModal').addEventListener('click', (e) => {
-      if (e.target.id === 'entryModal') closeEntryModal();
-    });
-
-    document.querySelectorAll('input[name="entryType"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const type = document.querySelector('input[name="entryType"]:checked').value;
-        document.getElementById('expiryFieldWrapper').classList.toggle('hidden', type !== 'credit');
-        if (type === 'credit' && !document.getElementById('entryExpiry').value) {
-          const baseDate = document.getElementById('entryDate').value || getLocalISODate();
-          document.getElementById('entryExpiry').value = addDaysToLocalISO(baseDate, settings.expiryDays);
-        }
-        updateEntryComputedPreview();
-      });
-    });
-
-    document.getElementById('entryDate').addEventListener('change', () => {
-      const type = document.querySelector('input[name="entryType"]:checked').value;
-      const isNew = !document.getElementById('entryId').value;
-      if (type === 'credit' && isNew && document.getElementById('entryDate').value) {
-        document.getElementById('entryExpiry').value =
-          addDaysToLocalISO(document.getElementById('entryDate').value, settings.expiryDays);
-      }
-    });
-
-    document.getElementById('fillJourneyBtn').addEventListener('click', () => {
-      const dMins = Number(settings.dailyMinutes) || 480;
-      document.getElementById('entryHoursPart').value = Math.floor(dMins / 60);
-      document.getElementById('entryMinutesPart').value = dMins % 60;
-      updateEntryComputedPreview();
-    });
-
-    document.getElementById('entryHoursPart').addEventListener('input', updateEntryComputedPreview);
-    document.getElementById('entryMinutesPart').addEventListener('input', updateEntryComputedPreview);
-    document.getElementById('entryRulePreset').addEventListener('change', updateEntryComputedPreview);
-    document.getElementById('entryCustomMultiplier').addEventListener('input', updateEntryComputedPreview);
-
-    async function deleteEntry(id, btnEl = null) {
-      const item = entries.find(e => e.id === id);
-      if (!item) return;
-
-      const confirmed = await confirmDialog({
-        title: 'Excluir lançamento?',
-        message: `Deseja realmente excluir "${item.title}" (${formatDateBR(item.date)} • ${formatHHMM(item.minutes)}) da nuvem?`,
-        confirmText: 'Sim, excluir',
-        cancelText: 'Cancelar',
-        variant: 'danger'
-      });
-      if (!confirmed) return;
-
-      const snapshot = [...entries];
-      entries = entries.filter(e => e.id !== id);
-      renderAll();
-
-      try {
-        await deleteEntryFromCloud(id);
-        showToast('Lançamento excluído');
-      } catch (err) {
-        entries = snapshot;
-        renderAll();
-        showToast('Erro ao excluir — dados restaurados');
-      }
-    }
-
-    document.getElementById('entryForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('entrySubmitBtn');
-      const hh = Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0);
-      const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('entryMinutesPart').value, 10) || 0));
-      const workedMinutes = hh * 60 + mm;
-
-      if (workedMinutes <= 0) {
-        showToast('Informe uma duração maior que 00:00');
-        return;
-      }
-
-      const existingId = document.getElementById('entryId').value;
-      const existingItem = existingId ? entries.find(x => x.id === existingId) : null;
-      const id = existingId || crypto.randomUUID();
-      const type = document.querySelector('input[name="entryType"]:checked').value;
-      const preset = document.getElementById('entryRulePreset').value;
-      const multiplier = type === 'credit' ? getActiveMultiplierForForm() : 1.0;
-      const finalMinutes = type === 'credit' ? Math.round(workedMinutes * multiplier) : workedMinutes;
-
-      let category = existingItem?.category || 'manual';
-      if (type === 'debit') category = 'time_off';
-      else if (preset === 'union_holiday') category = 'holiday';
-      else if (preset === 'union_overtime') category = 'overtime';
-
-      const entryObj = {
-        id,
-        type,
-        date: document.getElementById('entryDate').value,
-        minutes: finalMinutes,
-        workedMinutes,
-        multiplier,
-        category,
-        title: document.getElementById('entryTitle').value.trim(),
-        status: document.getElementById('entryStatus').value,
-        expiry: type === 'credit' ? document.getElementById('entryExpiry').value : '',
-        notes: document.getElementById('entryNotes').value.trim(),
-        createdAt: existingItem?.createdAt || new Date().toISOString()
-      };
-
-      const snapshot = [...entries];
-      const idx = entries.findIndex(item => item.id === id);
-      if (idx >= 0) entries[idx] = entryObj;
-      else entries.push(entryObj);
-
-      await runWithButtonLoading(btn, 'Salvando...', async () => {
-        try {
-          await upsertEntryToCloud(entryObj);
-          closeEntryModal();
-          renderAll();
-          showToast('Lançamento salvo na nuvem!');
-        } catch (err) {
-          entries = snapshot;
-          renderAll();
-          showToast('Falha ao salvar na nuvem — alteração revertida');
-        }
-      });
-    });
-
-    // =========================================================================
-    // PARÂMETROS, SINDICATO / RAMO & BACKUP JSON
-    // =========================================================================
-    function initUnionAndSectorSelects() {
-      const unionSel = document.getElementById('settingUnionCode');
-      unionSel.innerHTML = UNIONS_CATALOG.map(u =>
-        `<option value="${u.code}">${escapeHtml(u.name)}</option>`
-      ).join('');
-
-      const sectorSel = document.getElementById('settingCompanySector');
-      sectorSel.innerHTML = SECTORS_CATALOG.map(s =>
-        `<option value="${s.code}">${escapeHtml(s.label)}</option>`
-      ).join('');
-    }
-
-    function setSettingsUnionModeUI(mode) {
-      const unionBtn = document.getElementById('unionModeBtn');
-      const sectorBtn = document.getElementById('sectorModeBtn');
-      const unionBox = document.getElementById('unionSelectBox');
-      const sectorBox = document.getElementById('sectorSelectBox');
-
-      if (mode === 'union') {
-        unionBtn.className = 'px-2.5 py-1 rounded-md bg-indigo-600 text-white transition';
-        sectorBtn.className = 'px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 transition';
-        unionBox.classList.remove('hidden');
-        sectorBox.classList.add('hidden');
-      } else {
-        sectorBtn.className = 'px-2.5 py-1 rounded-md bg-indigo-600 text-white transition';
-        unionBtn.className = 'px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 transition';
-        sectorBox.classList.remove('hidden');
-        unionBox.classList.add('hidden');
-      }
-    }
-
-    function applyPresetFromSelection(mode) {
-      if (mode === 'union') {
-        const code = document.getElementById('settingUnionCode').value;
-        const union = UNIONS_CATALOG.find(u => u.code === code) || UNIONS_CATALOG[0];
-        document.getElementById('settingDailyHHMM').value = formatHHMM(union.dailyMinutes);
-        document.getElementById('settingOvertimeMult').value = union.overtimeMult;
-        document.getElementById('settingHolidayMult').value = union.holidayMult;
-        document.getElementById('settingExpiryDays').value = union.expiryDays;
-        document.getElementById('unionRuleHint').textContent = union.note;
-      } else {
-        const code = document.getElementById('settingCompanySector').value;
-        const sector = SECTORS_CATALOG.find(s => s.code === code) || SECTORS_CATALOG[0];
-        document.getElementById('settingUnionCode').value = sector.unionCode;
-        document.getElementById('settingDailyHHMM').value = formatHHMM(sector.dailyMinutes);
-        document.getElementById('settingOvertimeMult').value = sector.overtimeMult;
-        document.getElementById('settingHolidayMult').value = sector.holidayMult;
-        document.getElementById('settingExpiryDays').value = sector.expiryDays;
-        document.getElementById('unionRuleHint').textContent = sector.desc;
-      }
-    }
-
-    function openSettingsModal() {
-      initUnionAndSectorSelects();
-      document.getElementById('settingUserName').value = settings.userName || '';
-      document.getElementById('settingUnionCode').value = settings.unionCode || 'sindpd_sp';
-      document.getElementById('settingCompanySector').value = settings.companySector || 'tecnologia';
-      setSettingsUnionModeUI(settings.unionMode || 'sector');
-
-      document.getElementById('settingDailyHHMM').value = formatHHMM(settings.dailyMinutes || 480);
-      document.getElementById('settingOvertimeMult').value = settings.overtimeMultiplier ?? 1.5;
-      document.getElementById('settingHolidayMult').value = settings.holidayMultiplier ?? 1.0;
-      document.getElementById('settingExpiryDays').value = settings.expiryDays || 180;
-      document.getElementById('settingManagerEmail').value = settings.managerEmail || '';
-      document.getElementById('settingManagerPhone').value = settings.managerPhone || '';
-
-      const unionObj = UNIONS_CATALOG.find(u => u.code === settings.unionCode);
-      const sectorObj = SECTORS_CATALOG.find(s => s.code === settings.companySector);
-      document.getElementById('unionRuleHint').textContent = settings.unionMode === 'union'
-        ? (unionObj?.note || '')
-        : (sectorObj?.desc || '');
-
-      document.getElementById('settingsModal').classList.remove('hidden');
-      lucide.createIcons();
-    }
-
-    function closeSettingsModal() {
-      document.getElementById('settingsModal').classList.add('hidden');
-    }
-
-    document.getElementById('openSettingsBtn').addEventListener('click', openSettingsModal);
-    document.getElementById('closeSettingsModalBtn').addEventListener('click', closeSettingsModal);
-    document.getElementById('cancelSettingsModalBtn').addEventListener('click', closeSettingsModal);
-    document.getElementById('settingsModal').addEventListener('click', (e) => {
-      if (e.target.id === 'settingsModal') closeSettingsModal();
-    });
-
-    document.getElementById('unionModeBtn').addEventListener('click', () => {
-      setSettingsUnionModeUI('union');
-      applyPresetFromSelection('union');
-    });
-    document.getElementById('sectorModeBtn').addEventListener('click', () => {
-      setSettingsUnionModeUI('sector');
-      applyPresetFromSelection('sector');
-    });
-    document.getElementById('settingUnionCode').addEventListener('change', () => applyPresetFromSelection('union'));
-    document.getElementById('settingCompanySector').addEventListener('change', () => applyPresetFromSelection('sector'));
-
-    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const parsedMins = parseHHMMToMinutes(document.getElementById('settingDailyHHMM').value);
-      if (parsedMins === null || parsedMins <= 0 || parsedMins > 1440) {
-        showToast('Jornada inválida. Use o formato HH:MM (ex.: 08:00 ou 08:48)');
-        return;
-      }
-
-      const btn = document.getElementById('settingsSubmitBtn');
-      const prevSettings = { ...settings };
-      const isUnionMode = !document.getElementById('unionSelectBox').classList.contains('hidden');
-
-      settings = {
-        ...settings,
-        userName: document.getElementById('settingUserName').value.trim(),
-        unionMode: isUnionMode ? 'union' : 'sector',
-        unionCode: document.getElementById('settingUnionCode').value,
-        companySector: document.getElementById('settingCompanySector').value,
-        dailyMinutes: parsedMins,
-        overtimeMultiplier: parseFloat(document.getElementById('settingOvertimeMult').value) || 1.0,
-        holidayMultiplier: parseFloat(document.getElementById('settingHolidayMult').value) || 1.0,
-        expiryDays: parseInt(document.getElementById('settingExpiryDays').value, 10) || 180,
-        managerEmail: document.getElementById('settingManagerEmail').value.trim(),
-        managerPhone: document.getElementById('settingManagerPhone').value.replace(/\D/g, '')
-      };
-
-      await runWithButtonLoading(btn, 'Salvando...', async () => {
-        try {
-          await saveSettingsToCloud();
-          updateHeaderUserInfo();
-          closeSettingsModal();
-          renderAll();
-          showToast('Parâmetros salvos na nuvem!');
-        } catch (err) {
-          settings = prevSettings;
-          updateHeaderUserInfo();
-          renderAll();
-          showToast('Erro ao salvar parâmetros — revertido');
-        }
-      });
-    });
-
-    function exportJSONBackup() {
-      const payload = {
-        version: 2,
-        exportedAt: new Date().toISOString(),
-        settings,
-        entries
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `saldohoras-backup-${getLocalISODate()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Backup JSON baixado!');
-    }
-
-    document.getElementById('exportJsonBtn').addEventListener('click', exportJSONBackup);
-    document.getElementById('exportJsonMenuBtn').addEventListener('click', () => {
-      exportJSONBackup();
-      closeExportMenu();
-    });
-
-    document.getElementById('importJsonInput').addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          if (!Array.isArray(parsed.entries)) throw new Error('Formato inválido');
-
-          const ok = await confirmDialog({
-            title: 'Importar backup JSON?',
-            message: `Serão mesclados ${parsed.entries.length} lançamentos na sua conta sem apagar registros não listados no arquivo.`,
-            confirmText: 'Importar agora',
-            cancelText: 'Cancelar',
-            variant: 'primary'
-          });
-          if (!ok) return;
-
-          if (parsed.settings) {
-            settings = {
-              ...settings,
-              ...parsed.settings,
-              dailyMinutes: parsed.settings.dailyMinutes || Math.round((Number(parsed.settings.dailyHours) || 8) * 60)
-            };
-            await saveSettingsToCloud();
-          }
-
-          const normalizedList = parsed.entries.map(raw => normalizeEntryRow({
-            ...raw,
-            id: raw.id || crypto.randomUUID(),
-            minutes: raw.minutes !== undefined ? raw.minutes : Math.round((Number(raw.hours) || 0) * 60)
-          }));
-
-          const snapshot = [...entries];
-          normalizedList.forEach(clean => {
-            const idx = entries.findIndex(x => x.id === clean.id);
-            if (idx >= 0) entries[idx] = clean;
-            else entries.push(clean);
-          });
-
-          try {
-            await Promise.all(normalizedList.map(clean => upsertEntryToCloud(clean)));
-            updateHeaderUserInfo();
-            closeSettingsModal();
-            renderAll();
-            showToast('Backup importado com sucesso!');
-          } catch (cloudErr) {
-            entries = snapshot;
-            renderAll();
-            showToast('Erro durante importação na nuvem — revertido');
-          }
-        } catch (err) {
-          showToast('Arquivo JSON inválido');
-        } finally {
-          event.target.value = '';
-        }
-      };
-      reader.readAsText(file);
-    });
-
-    // =========================================================================
-    // CALENDÁRIO DINÂMICO DE FERIADOS (BRASILAPI + FALLBACK ALGORÍTMICO + CACHE)
-    // =========================================================================
-    function computeEasterISO(year) {
-      // Algoritmo Gregoriano Anônimo (Meeus/Jones/Butcher)
-      const a = year % 19;
-      const b = Math.floor(year / 100);
-      const c = year % 100;
-      const d = Math.floor(b / 4);
-      const e = b % 4;
-      const f = Math.floor((b + 8) / 25);
-      const g = Math.floor((b - f + 1) / 3);
-      const h = (19 * a + b - d - g + 15) % 30;
-      const i = Math.floor(c / 4);
-      const k = c % 4;
-      const l = (32 + 2 * e + 2 * i - h - k) % 7;
-      const m = Math.floor((a + 11 * h + 22 * l) / 451);
-      const month = Math.floor((h + l - 7 * m + 114) / 31);
-      const day = ((h + l - 7 * m + 114) % 31) + 1;
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    }
-
-    function computeLocalFallbackHolidays(year, uf) {
-      const easterISO = computeEasterISO(year);
-      const list = [
-        { date: `${year}-01-01`, name: 'Confraternização Universal', scope: 'Nacional' },
-        { date: addDaysToLocalISO(easterISO, -47), name: 'Carnaval', scope: 'Nacional' },
-        { date: addDaysToLocalISO(easterISO, -2), name: 'Paixão de Cristo (Sexta-Feira Santa)', scope: 'Nacional' },
-        { date: easterISO, name: 'Páscoa', scope: 'Nacional' },
-        { date: `${year}-04-21`, name: 'Tiradentes', scope: 'Nacional' },
-        { date: `${year}-05-01`, name: 'Dia do Trabalho', scope: 'Nacional' },
-        { date: addDaysToLocalISO(easterISO, 60), name: 'Corpus Christi', scope: 'Nacional' },
-        { date: `${year}-09-07`, name: 'Independência do Brasil', scope: 'Nacional' },
-        { date: `${year}-10-12`, name: 'Nossa Senhora Aparecida', scope: 'Nacional' },
-        { date: `${year}-11-02`, name: 'Finados', scope: 'Nacional' },
-        { date: `${year}-11-15`, name: 'Proclamação da República', scope: 'Nacional' },
-        { date: `${year}-11-20`, name: 'Dia da Consciência Negra', scope: 'Nacional' },
-        { date: `${year}-12-25`, name: 'Natal', scope: 'Nacional' }
-      ];
-
-      if (uf && uf !== 'NONE' && STATE_HOLIDAYS[uf]) {
-        STATE_HOLIDAYS[uf].forEach(sh => {
-          list.push({ date: `${year}-${sh.mmdd}`, name: sh.name, scope: uf });
-        });
-      }
-
-      return list.sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    async function fetchHolidaysForYear(year, uf, forceRefresh = false) {
-      const cacheKey = `saldohoras_holidays_${year}_${uf}`;
-      const cachedRaw = localStorage.getItem(cacheKey);
-      let baseList = null;
-      let sourceLabel = 'BrasilAPI';
-      let updatedAt = '';
-
-      if (!forceRefresh && cachedRaw) {
-        try {
-          const cached = JSON.parse(cachedRaw);
-          // Cache válido por 7 dias
-          if (Date.now() - cached.ts < 7 * 24 * 60 * 60 * 1000 && Array.isArray(cached.items)) {
-            baseList = cached.items;
-            sourceLabel = cached.source || 'Cache local';
-            updatedAt = cached.updatedAt || '';
-          }
-        } catch (_) { /* ignora cache corrompido */ }
-      }
-
-      if (!baseList) {
-        try {
-          const resp = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const apiData = await resp.json();
-          const national = apiData.map(h => ({
-            date: h.date,
-            name: h.name,
-            scope: 'Nacional'
-          }));
-
-          const regional = (uf && uf !== 'NONE' && STATE_HOLIDAYS[uf])
-            ? STATE_HOLIDAYS[uf].map(sh => ({
-                date: `${year}-${sh.mmdd}`,
-                name: sh.name,
-                scope: uf
-              }))
-            : [];
-
-          const merged = [...national, ...regional].sort((a, b) => a.date.localeCompare(b.date));
-          const nowStr = new Date().toLocaleString('pt-BR');
-          localStorage.setItem(cacheKey, JSON.stringify({
-            ts: Date.now(),
-            updatedAt: nowStr,
-            source: 'BrasilAPI',
-            items: merged
-          }));
-          baseList = merged;
-          sourceLabel = 'BrasilAPI';
-          updatedAt = nowStr;
-        } catch (err) {
-          baseList = computeLocalFallbackHolidays(year, uf);
-          const nowStr = new Date().toLocaleString('pt-BR');
-          sourceLabel = 'Calendário Algorítmico Local';
-          updatedAt = nowStr;
-        }
-      }
-
-      currentHolidayList = baseList;
-      document.getElementById('holidaysMetaText').textContent =
-        `Ano ${year} • Fonte: ${sourceLabel}${updatedAt ? ` • Atualizado em ${updatedAt}` : ''}`;
-      renderHolidaysModalList();
-    }
-
-    function isHolidayAlreadyAdded(dateStr, nameStr) {
-      const normName = (nameStr || '').toLowerCase().trim();
-      return entries.some(e => e.date === dateStr && (
-        e.category === 'holiday' ||
-        e.title.toLowerCase().includes(normName.split('(')[0].trim().toLowerCase())
-      ));
-    }
-
-    function renderHolidaysModalList() {
-      const container = document.getElementById('holidaysListContainer');
-      document.getElementById('holidayYearDisplay').textContent = String(holidayYear);
-      document.getElementById('holidayUfSelect').value = holidayUf;
-
-      if (!currentHolidayList.length) {
-        container.innerHTML = '<div class="p-6 text-center text-xs text-slate-500">Nenhum feriado encontrado para este ano.</div>';
-        return;
-      }
-
-      container.innerHTML = currentHolidayList.map(h => {
-        const already = isHolidayAlreadyAdded(h.date, h.name);
-        const checked = !already && selectedHolidayDates.has(h.date);
-        const weekend = isWeekendISO(h.date);
-        const weekday = getWeekdayShortBR(h.date);
-
-        return `
-          <div class="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-            <div class="flex items-center gap-3 min-w-0">
-              <input
-                type="checkbox"
-                data-holiday-date="${h.date}"
-                ${already ? 'disabled' : ''}
-                ${checked ? 'checked' : ''}
-                class="holiday-checkbox w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40 cursor-pointer"
-              />
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">${formatDateBR(h.date)} (${weekday})</span>
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${h.scope === 'Nacional' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'}">${h.scope}</span>
-                  ${weekend ? '<span class="text-[10px] font-medium text-amber-600 dark:text-amber-400">Fim de semana</span>' : ''}
-                </div>
-                <p class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate mt-0.5">${escapeHtml(h.name)}</p>
-              </div>
-            </div>
-
-            <div class="shrink-0 flex items-center gap-2">
-              ${already
-                ? '<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">Já no extrato</span>'
-                : `<button type="button" data-quick-holiday-date="${h.date}" class="quick-add-holiday-btn px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-semibold transition">+ Lançar</button>`
-              }
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      document.getElementById('holidaySelectedCount').textContent =
-        `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
-    }
-
-    async function openHolidaysModal() {
-      holidayYear = new Date().getFullYear();
-      selectedHolidayDates.clear();
-      document.getElementById('holidaysModal').classList.remove('hidden');
-      lucide.createIcons();
-      await fetchHolidaysForYear(holidayYear, holidayUf, false);
-    }
-
-    function closeHolidaysModal() {
-      document.getElementById('holidaysModal').classList.add('hidden');
-    }
-
-    document.getElementById('openHolidaysBtn').addEventListener('click', openHolidaysModal);
-    document.getElementById('closeHolidaysModalBtn').addEventListener('click', closeHolidaysModal);
-    document.getElementById('cancelHolidaysBtn').addEventListener('click', closeHolidaysModal);
-    document.getElementById('holidaysModal').addEventListener('click', (e) => {
-      if (e.target.id === 'holidaysModal') closeHolidaysModal();
-    });
-
-    document.getElementById('prevHolidayYearBtn').addEventListener('click', async () => {
-      holidayYear -= 1;
-      selectedHolidayDates.clear();
-      await fetchHolidaysForYear(holidayYear, holidayUf, false);
-    });
-
-    document.getElementById('nextHolidayYearBtn').addEventListener('click', async () => {
-      holidayYear += 1;
-      selectedHolidayDates.clear();
-      await fetchHolidaysForYear(holidayYear, holidayUf, false);
-    });
-
-    document.getElementById('currentYearHolidayBtn').addEventListener('click', async () => {
-      holidayYear = new Date().getFullYear();
-      selectedHolidayDates.clear();
-      await fetchHolidaysForYear(holidayYear, holidayUf, false);
-    });
-
-    document.getElementById('holidayUfSelect').addEventListener('change', async (e) => {
-      holidayUf = e.target.value;
-      localStorage.setItem('saldohoras_holiday_uf', holidayUf);
-      selectedHolidayDates.clear();
-      await fetchHolidaysForYear(holidayYear, holidayUf, false);
-    });
-
-    document.getElementById('refreshHolidaysBtn').addEventListener('click', async () => {
-      await fetchHolidaysForYear(holidayYear, holidayUf, true);
-      showToast(`Calendário ${holidayYear} atualizado`);
-    });
-
-    document.getElementById('selectAllHolidaysBtn').addEventListener('click', () => {
-      selectedHolidayDates.clear();
-      currentHolidayList.forEach(h => {
-        if (!isHolidayAlreadyAdded(h.date, h.name)) selectedHolidayDates.add(h.date);
-      });
-      renderHolidaysModalList();
-    });
-
-    document.getElementById('clearSelectionHolidaysBtn').addEventListener('click', () => {
-      selectedHolidayDates.clear();
-      renderHolidaysModalList();
-    });
-
-    document.getElementById('holidaysListContainer').addEventListener('change', (e) => {
-      const cb = e.target.closest('.holiday-checkbox');
-      if (!cb) return;
-      const d = cb.dataset.holidayDate;
-      if (cb.checked) selectedHolidayDates.add(d);
-      else selectedHolidayDates.delete(d);
-      document.getElementById('holidaySelectedCount').textContent =
-        `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
-    });
-
-    document.getElementById('holidaysListContainer').addEventListener('click', (e) => {
-      const btn = e.target.closest('.quick-add-holiday-btn');
-      if (!btn) return;
-      const h = currentHolidayList.find(item => item.date === btn.dataset.quickHolidayDate);
-      if (!h) return;
-      closeHolidaysModal();
-      openEntryModal({
-        type: 'credit',
-        category: 'holiday',
-        date: h.date,
-        title: `${h.name} (Plantão/Feriado)`,
-        minutes: settings.dailyMinutes,
-        status: h.date <= getLocalISODate() ? 'realized' : 'planned',
-        expiry: addDaysToLocalISO(h.date, settings.expiryDays),
-        notes: `Feriado ${h.scope}`
-      }, false);
-    });
-
-    document.getElementById('importSelectedHolidaysBtn').addEventListener('click', async () => {
-      const chosen = currentHolidayList.filter(h =>
-        selectedHolidayDates.has(h.date) && !isHolidayAlreadyAdded(h.date, h.name)
-      );
-      if (!chosen.length) {
-        showToast('Selecione ao menos um feriado disponível');
-        return;
-      }
-
-      const btn = document.getElementById('importSelectedHolidaysBtn');
-      const mult = Number(settings.holidayMultiplier) || 1.0;
-      const workedMins = Number(settings.dailyMinutes) || 480;
-      const creditedMins = Math.round(workedMins * mult);
-      const todayISO = getLocalISODate();
-
-      const newEntries = chosen.map(h => ({
-        id: crypto.randomUUID(),
-        type: 'credit',
-        category: 'holiday',
-        date: h.date,
-        title: `${h.name} (Feriado)`,
-        minutes: creditedMins,
-        workedMinutes: workedMins,
-        multiplier: mult,
-        status: h.date <= todayISO ? 'realized' : 'planned',
-        expiry: addDaysToLocalISO(h.date, settings.expiryDays),
-        notes: `Feriado ${h.scope}`,
-        createdAt: new Date().toISOString()
-      }));
-
-      const snapshot = [...entries];
-      entries = [...entries, ...newEntries];
-      selectedHolidayDates.clear();
-
-      await runWithButtonLoading(btn, 'Adicionando...', async () => {
-        try {
-          await Promise.all(newEntries.map(item => upsertEntryToCloud(item)));
-          renderAll();
-          renderHolidaysModalList();
-          showToast(`${newEntries.length} ${newEntries.length === 1 ? 'feriado adicionado' : 'feriados adicionados'}!`);
-        } catch (err) {
-          entries = snapshot;
-          renderAll();
-          renderHolidaysModalList();
-          showToast('Erro ao importar feriados — revertido');
-        }
-      });
-    });
-
-    // =========================================================================
-    // SIMULADOR & GRÁFICOS
-    // =========================================================================
-    function updateSimulator(cachedProjectedMins = null) {
-      const projectedMins = cachedProjectedMins !== null
-        ? cachedProjectedMins
-        : entries.reduce((acc, item) => acc + (item.type === 'credit' ? Number(item.minutes) : -Number(item.minutes)), 0);
-
-      const simDays = parseInt(document.getElementById('simDaysSlider').value, 10) || 1;
-      const simMins = simDays * (Number(settings.dailyMinutes) || 480);
-      const remainingMins = projectedMins - simMins;
-
-      document.getElementById('simDaysValue').textContent = `${simDays} ${simDays === 1 ? 'dia' : 'dias'} (${formatHHMM(-simMins)})`;
-      document.getElementById('simRemainingResult').textContent = `${formatHHMM(remainingMins, true)} (${formatDaysFromMinutes(remainingMins)})`;
-    }
-
-    document.getElementById('simDaysSlider').addEventListener('input', () => updateSimulator());
-
-    document.getElementById('scheduleFromSimBtn').addEventListener('click', () => {
-      const simDays = parseInt(document.getElementById('simDaysSlider').value, 10) || 1;
-      const simMins = simDays * (Number(settings.dailyMinutes) || 480);
-      openEntryModal({
-        type: 'debit',
-        category: 'time_off',
-        minutes: simMins,
-        title: `Folga Compensatória (${simDays} ${simDays === 1 ? 'dia' : 'dias'})`,
-        status: 'planned'
-      }, false);
-    });
-
-    function renderCharts() {
-      const isDark = document.documentElement.classList.contains('dark');
-      const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)';
-      const textColor = isDark ? '#94a3b8' : '#64748b';
-
-      const chrono = getChronologicalEntries();
-      const labels = chrono.map(i => formatDateBR(i.date).slice(0, 5));
-      const dataHours = chrono.map(i => Number((i.runningMinutes / 60).toFixed(2)));
-
-      if (balanceChartInstance) balanceChartInstance.destroy();
-      const ctx1 = document.getElementById('balanceChart').getContext('2d');
-      balanceChartInstance = new Chart(ctx1, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Saldo Acumulado (horas)',
-            data: dataHours,
-            borderColor: '#4f46e5',
-            backgroundColor: 'rgba(79, 70, 229, 0.14)',
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointBackgroundColor: '#4f46e5'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `Saldo: ${formatHHMM(Math.round(ctx.parsed.y * 60), true)}`
-              }
-            }
-          },
-          scales: {
-            x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
-            y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 } } }
-          }
-        }
-      });
-
-      const totalCreditsMins = entries.filter(e => e.type === 'credit').reduce((s, e) => s + (Number(e.minutes) || 0), 0);
-      const totalDebitsMins = entries.filter(e => e.type === 'debit').reduce((s, e) => s + (Number(e.minutes) || 0), 0);
-
-      if (ratioChartInstance) ratioChartInstance.destroy();
-      const ctx2 = document.getElementById('ratioChart').getContext('2d');
-      ratioChartInstance = new Chart(ctx2, {
-        type: 'doughnut',
-        data: {
-          labels: [
-            `Créditos (${formatHHMM(totalCreditsMins)})`,
-            `Folgas/Saídas (${formatHHMM(totalDebitsMins)})`
-          ],
-          datasets: [{
-            data: [totalCreditsMins, totalDebitsMins],
-            backgroundColor: ['#10b981', '#f43f5e'],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: '68%',
-          plugins: {
-            legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } }
-          }
-        }
-      });
-    }
-
-    // =========================================================================
-    // COMUNICAÇÃO RH / WHATSAPP
-    // =========================================================================
-    function regenerateMessages() {
-      const chrono = getChronologicalEntries();
-      const realizedMins = chrono.filter(i => i.status === 'realized').reduce((s, i) => s + i.deltaMinutes, 0);
-      const projectedMins = chrono.reduce((s, i) => s + i.deltaMinutes, 0);
-      const plannedDebits = chrono.filter(i => i.status === 'planned' && i.type === 'debit');
-      const senderName = settings.userName || 'Colaborador';
-
-      const plannedLines = plannedDebits.length
-        ? plannedDebits.map(p => `• ${formatDateBR(p.date)}: ${p.title} (${formatHHMM(-p.minutes)})`).join('\n')
-        : '• Nenhuma folga futura agendada no momento.';
-
-      document.getElementById('emailTemplate').value =
-`Assunto: Alinhamento de Banco de Horas e Folgas Compensatórias — ${senderName}
-
-Olá, tudo bem?
-
-Segue o resumo atualizado do meu banco de horas para alinhamento e registro:
-
-• Saldo Realizado (disponível hoje): ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins)})
-• Saldo Projetado (considerando agendamentos): ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins)})
-• Jornada de referência: ${formatHHMM(settings.dailyMinutes)}/dia
-
-Compensações / Folgas previstas:
-${plannedLines}
-
-Fico à disposição para confirmarmos as datas sem impacto na operação.
-
-Atenciosamente,
-${senderName}`;
-
-      document.getElementById('whatsappTemplate').value =
-`Olá! Tudo certo? Passando para alinhar meu *Banco de Horas*:\n\n` +
-`✅ *Saldo disponível hoje:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins)})\n` +
-`📅 *Saldo projetado:* ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins)})\n\n` +
-`*Folgas previstas:*\n${plannedLines}\n\n` +
-`Podemos confirmar essas datas? — _${senderName}_`;
-    }
-
-    document.querySelectorAll('[data-action="regen-messages"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        regenerateMessages();
-        showToast('Textos atualizados com o saldo atual');
-      });
-    });
-
-    document.querySelectorAll('[data-copy-target]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const el = document.getElementById(btn.dataset.copyTarget);
-        el.select();
-        navigator.clipboard.writeText(el.value);
-        showToast(btn.dataset.copyToast || 'Copiado!');
-      });
-    });
-
-    document.getElementById('openMailClientBtn').addEventListener('click', () => {
-      const body = document.getElementById('emailTemplate').value;
-      const to = settings.managerEmail || '';
-      const subject = encodeURIComponent(`Alinhamento Banco de Horas — ${settings.userName || ''}`);
-      window.open(`mailto:${to}?subject=${subject}&body=${encodeURIComponent(body)}`, '_blank');
-    });
-
-    document.getElementById('openWhatsAppBtn').addEventListener('click', () => {
-      const text = encodeURIComponent(document.getElementById('whatsappTemplate').value);
-      const phone = settings.managerPhone ? settings.managerPhone : '';
-      window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
-    });
-
-    // =========================================================================
-    // EXPORTAÇÃO PDF & CSV
-    // =========================================================================
-    function toggleExportMenu() {
-      document.getElementById('exportDropdown').classList.toggle('hidden');
-    }
-    function closeExportMenu() {
-      document.getElementById('exportDropdown').classList.add('hidden');
-    }
-    document.getElementById('exportMenuBtn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleExportMenu();
-    });
-    document.addEventListener('click', (e) => {
-      if (!document.getElementById('exportMenuWrapper').contains(e.target)) closeExportMenu();
-    });
-
-    function exportCSV() {
-      const chrono = getChronologicalEntries();
-      const headers = ['Data', 'Evento', 'Tipo', 'Status', 'Duracao_HHMM', 'Saldo_Acumulado_HHMM', 'Vencimento', 'Observacoes'];
-      const rows = chrono.map(i => [
-        formatDateBR(i.date),
-        `"${(i.title || '').replace(/"/g, '""')}"`,
-        i.type === 'credit' ? 'Credito' : 'Debito',
-        i.status === 'realized' ? 'Realizado' : 'Previsto',
-        formatHHMM(i.deltaMinutes, true),
-        formatHHMM(i.runningMinutes, true),
-        i.expiry ? formatDateBR(i.expiry) : '',
-        `"${(i.notes || '').replace(/"/g, '""')}"`
-      ]);
-      const csv = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `saldohoras-extrato-${getLocalISODate()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Planilha CSV exportada!');
-    }
-
-    function exportPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const chrono = getChronologicalEntries();
-      const realizedMins = chrono.filter(i => i.status === 'realized').reduce((s, i) => s + i.deltaMinutes, 0);
-      const projectedMins = chrono.reduce((s, i) => s + i.deltaMinutes, 0);
-      const ownerName = settings.userName || currentUser?.email || 'Colaborador';
-
-      doc.setFillColor(30, 27, 75);
-      doc.rect(0, 0, 297, 28, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SaldoHoras — Extrato de Banco de Horas & Folgas', 14, 13);
-      doc.setFontSize(9.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(
-        `Colaborador: ${ownerName}  |  Jornada: ${formatHHMM(settings.dailyMinutes)}/dia  |  Emitido em: ${new Date().toLocaleDateString('pt-BR')}`,
-        14,
-        21
-      );
-
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(
-        `Saldo Realizado: ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins)})    |    Saldo Projetado: ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins)})`,
-        14,
-        37
-      );
-
-      const tableRows = chrono.map(i => [
-        formatDateBR(i.date),
-        i.title,
-        i.status === 'realized' ? 'Realizado' : 'Previsto',
-        formatHHMM(i.deltaMinutes, true),
-        formatHHMM(i.runningMinutes, true),
-        i.expiry ? formatDateBR(i.expiry) : '—',
-        i.notes || ''
-      ]);
-
-      doc.autoTable({
-        startY: 42,
-        head: [['Data', 'Evento / Descrição', 'Status', 'Horas', 'Saldo Acum.', 'Vencimento', 'Observações']],
-        body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
-        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: {
-          0: { cellWidth: 24 },
-          2: { cellWidth: 22 },
-          3: { halign: 'right', cellWidth: 22 },
-          4: { halign: 'right', cellWidth: 24 },
-          5: { cellWidth: 24 }
-        }
-      });
-
-      doc.save(`SaldoHoras_${ownerName.replace(/\s+/g, '_')}_${getLocalISODate()}.pdf`);
-      showToast('Relatório PDF baixado!');
-    }
-
-    document.getElementById('exportPdfBtn').addEventListener('click', () => {
-      exportPDF();
-      closeExportMenu();
-    });
-    document.getElementById('exportCsvBtn').addEventListener('click', () => {
-      exportCSV();
-      closeExportMenu();
-    });
-
-    // =========================================================================
-    // START
-    // =========================================================================
-    initTheme();
-    lucide.createIcons();
-  </script>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
