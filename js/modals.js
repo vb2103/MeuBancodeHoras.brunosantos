@@ -187,7 +187,7 @@ export function createModalManager(ctx) {
         presetSel.value = 'union_holiday';
       } else if (data.category === 'overtime' && mult === Number(settings.overtimeMultiplier)) {
         presetSel.value = 'union_overtime';
-      } else if ([1, 1.5, 2].includes(mult)) {
+      } else if ([1, 1.4, 1.5, 2].includes(mult)) {
         presetSel.value = String(mult);
       } else {
         presetSel.value = 'custom';
@@ -409,7 +409,7 @@ export function createModalManager(ctx) {
     document.getElementById('settingStateUf').value = settings.stateUf || 'SP';
     document.getElementById('settingDailyHHMM').value = formatHHMM(settings.dailyMinutes || 480);
     document.getElementById('settingOvertimeMult').value = settings.overtimeMultiplier ?? 1.5;
-    document.getElementById('settingHolidayMult').value = settings.holidayMultiplier ?? 1.0;
+    document.getElementById('settingHolidayMult').value = settings.holidayMultiplier ?? 1.4;
     document.getElementById('settingExpiryDays').value = settings.expiryDays || 180;
     document.getElementById('settingManagerEmail').value = settings.managerEmail || '';
     document.getElementById('settingManagerPhone').value = settings.managerPhone || '';
@@ -575,6 +575,13 @@ export function createModalManager(ctx) {
   async function refreshHolidaysView(forceRefresh = false) {
     const ufSelect = document.getElementById('holidayUfSelect');
     const uf = ufSelect.value || getActiveHolidayUf();
+    const s = ctx.getSettings();
+    const dailyM = Number(s.dailyMinutes) || 480;
+    const hMult = Number(s.holidayMultiplier) || 1.4;
+    const creditedM = applyMultiplierToMinutes(dailyM, hMult);
+    document.getElementById('holidaysRulePreview').textContent =
+      `Conversão para banco de horas: ${formatHHMM(dailyM)} × ${hMult}x = ${formatHHMM(creditedM, true)} (1 dia de feriado)`;
+
     document.getElementById('holidaysMetaText').textContent = `Carregando calendário de ${holidayYear}...`;
     const result = await fetchHolidaysForYear(holidayYear, uf, forceRefresh);
     currentHolidayList = result.items;

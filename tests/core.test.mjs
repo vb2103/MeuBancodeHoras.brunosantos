@@ -67,10 +67,24 @@ test('isHolidayEntry diferencia feriados de horas extras comuns', () => {
   assert.equal(isHolidayEntry({ type: 'credit', category: 'manual', title: 'Tiradentes' }), true);
 });
 
-test('catálogo de sindicatos e ramos cobre perfis principais', () => {
-  assert.equal(findUnionByCode('sindpd_sp')?.dailyMinutes, 480);
+test('catálogo de sindicatos e ramos cobre perfis principais e regra Sindpd-SP 1.4x (+40%)', () => {
+  const sindpd = findUnionByCode('sindpd_sp');
+  assert.equal(sindpd?.dailyMinutes, 480);
+  assert.equal(sindpd?.holidayMultiplier, 1.4);
   assert.equal(findUnionByCode('ti_sindpd')?.overtimeMultiplier, 1.5);
+  assert.equal(findUnionByCode('ti_sindpd')?.holidayMultiplier, 1.4);
+  assert.equal(findSectorByCode('tecnologia')?.holidayMultiplier, 1.4);
   assert.equal(findSectorByCode('financeiro')?.dailyMinutes, 360);
+
+  // 01:00 trabalhada em feriado Sindpd-SP = 01:24 no banco (84 min)
+  const oneHourHoliday = applyMultiplierToMinutes(60, sindpd.holidayMultiplier);
+  assert.equal(oneHourHoliday, 84);
+  assert.equal(formatHHMM(oneHourHoliday, true), '+01:24');
+
+  // 08:00 trabalhadas em feriado Sindpd-SP = 11:12 no banco (672 min)
+  const fullDayHoliday = applyMultiplierToMinutes(480, sindpd.holidayMultiplier);
+  assert.equal(fullDayHoliday, 672);
+  assert.equal(formatHHMM(fullDayHoliday, true), '+11:12');
 });
 
 test('calendário offline de feriados calcula Páscoa e feriados por ano/UF corretamente', () => {

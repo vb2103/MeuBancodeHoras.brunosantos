@@ -19,7 +19,7 @@
 - `js/app.js`: Orquestração da UI, filtros, abas e estado da aplicação.
 
 ## Regras de Ouro
-1. **Precisão em Minutos (`HH:MM`):** Realizar todos os cálculos em minutos inteiros e enviar `minutes` (`NOT NULL`) e `daily_minutes` (`NOT NULL`) em todos os upserts no Supabase.
+1. **Precisão em Minutos (`HH:MM`) & Tudo Vira Banco de Horas:** Realizar todos os cálculos em minutos inteiros (sem valores financeiros/monetários) e enviar `minutes` (`NOT NULL`) e `daily_minutes` (`NOT NULL`) em todos os upserts no Supabase. Para **SINDPD-SP** e perfis vinculados, feriado trabalhado vale **`1.4x` (`+40%` em horas)**: `01:00` = `01:24` e `08:00` = `11:12`.
 2. **Datas Locais:** Nunca usar `new Date().toISOString().split('T')[0]` para a data atual; usar `getLocalDateISO()`.
 3. **Sem Diálogos Nativos:** Nunca usar `window.alert()` ou `window.confirm()`; usar os modais próprios de `js/modals.js`.
 4. **Integridade de Dados:** Nunca apagar ou sobrescrever lançamentos existentes do usuário ao consultar/adicionar feriados; sempre sincronizar com rollback em caso de erro de rede.

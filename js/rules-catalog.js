@@ -12,9 +12,9 @@ export const UNION_CATALOG = [
     stateUf: 'SP',
     dailyMinutes: 480,
     overtimeMultiplier: 1.5,
-    holidayMultiplier: 1.0,
+    holidayMultiplier: 1.4,
     expiryDays: 180,
-    note: 'Referência TI/SP: jornada 08:00/dia (40h/sem), extra 1.5x, compensação de feriado/folga 1.0x (editável para 2.0x conforme CCT).'
+    note: 'Regra SINDPD-SP (Banco de Horas): jornada 08:00/dia, hora extra 1.5x e feriado trabalhado 1.4x (+40% em horas: 01:00 = 01:24; 08:00 = 11:12).'
   },
   {
     code: 'ti_sindpd',
@@ -23,9 +23,9 @@ export const UNION_CATALOG = [
     stateUf: 'SP',
     dailyMinutes: 480,
     overtimeMultiplier: 1.5,
-    holidayMultiplier: 2.0,
+    holidayMultiplier: 1.4,
     expiryDays: 180,
-    note: 'Referência TI Geral: jornada 08:00/dia, hora extra 1.5x, feriado 2.0x e prazo de 180 dias.'
+    note: 'Referência SINDPD/TI (Banco de Horas): jornada 08:00/dia, hora extra 1.5x, feriado trabalhado 1.4x (+40% em horas) e prazo de 180 dias.'
   },
   {
     code: 'sindpd_rj',
@@ -157,9 +157,9 @@ export const SECTOR_CATALOG = [
     unionCode: 'sindpd_sp',
     dailyMinutes: 480,
     overtimeMultiplier: 1.5,
-    holidayMultiplier: 1.0,
+    holidayMultiplier: 1.4,
     expiryDays: 180,
-    desc: 'Ramo de TI: sugerimos jornada de 08:00/dia (40h/sem), extra 1.5x e compensação 1.0x em feriados.'
+    desc: 'Ramo de TI (ref. SINDPD-SP): jornada de 08:00/dia, extra 1.5x e feriado trabalhado 1.4x (+40% em banco de horas: 08:00 = 11:12).'
   },
   {
     code: 'comercio',
@@ -217,9 +217,9 @@ export const SECTOR_CATALOG = [
     unionCode: 'sindpd_sp',
     dailyMinutes: 480,
     overtimeMultiplier: 1.5,
-    holidayMultiplier: 1.0,
+    holidayMultiplier: 1.4,
     expiryDays: 180,
-    desc: 'Ramo de Serviços/Escritório: sugerimos 08:00/dia (40h/sem), editável conforme sua CCT.'
+    desc: 'Ramo de Serviços/Escritório (ref. SINDPD-SP): jornada 08:00/dia, extra 1.5x e feriado 1.4x (+40% em horas), editável conforme sua CCT.'
   },
   {
     code: 'educacao',

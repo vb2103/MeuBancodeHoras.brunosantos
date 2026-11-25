@@ -23,7 +23,7 @@ export function createDefaultSettings(userName = '') {
     unionCode: 'sindpd_sp',
     companySector: 'tecnologia',
     overtimeMultiplier: 1.5,
-    holidayMultiplier: 1.0,
+    holidayMultiplier: 1.4,
     stateUf: 'SP'
   };
 }
@@ -44,7 +44,7 @@ export function normalizeSettingsRow(row, fallbackName = '') {
     unionCode: row.union_code || 'sindpd_sp',
     companySector: row.company_sector || 'tecnologia',
     overtimeMultiplier: Number(row.overtime_multiplier) > 0 ? Number(row.overtime_multiplier) : 1.5,
-    holidayMultiplier: Number(row.holiday_multiplier) > 0 ? Number(row.holiday_multiplier) : 1.0,
+    holidayMultiplier: Number(row.holiday_multiplier) > 0 ? Number(row.holiday_multiplier) : 1.4,
     stateUf: (row.state_uf || 'SP').toUpperCase()
   };
 }
