@@ -84,23 +84,39 @@ function showToast(msg, options = {}) {
   }, duration);
 }
 
+const SYNC_STATUS_STYLES = {
+  saving: {
+    text: 'Salvando...',
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70'
+  },
+  offline: {
+    text: 'Modo Offline',
+    dot: 'bg-sky-500',
+    badge: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/70'
+  },
+  error: {
+    text: 'Erro ao sincronizar',
+    dot: 'bg-rose-500',
+    badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70'
+  },
+  ok: {
+    text: 'Nuvem Ativa',
+    dot: 'bg-emerald-500',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70'
+  }
+};
+
 function setSyncStatus(state) {
   const badge = document.getElementById('syncBadge');
+  const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
   if (!badge || !text) return;
-  if (state === 'saving') {
-    text.textContent = 'Salvando...';
-    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70';
-  } else if (state === 'offline') {
-    text.textContent = 'Modo Offline';
-    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/70';
-  } else if (state === 'error') {
-    text.textContent = 'Erro ao sincronizar';
-    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70';
-  } else {
-    text.textContent = 'Nuvem Ativa';
-    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70';
-  }
+
+  const cfg = SYNC_STATUS_STYLES[state] || SYNC_STATUS_STYLES.ok;
+  text.textContent = cfg.text;
+  badge.className = `inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
+  if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
 }
 
 // ==================== TEMA CLARO / ESCURO ====================
@@ -1040,6 +1056,8 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (!currentUser) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (modals.hasOpenModal()) return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
 
   const key = e.key.toLowerCase();
@@ -1176,6 +1194,10 @@ window.addEventListener('offline', () => {
   setSyncStatus('offline');
   showToast('Você está offline — dados salvos localmente');
 });
+
+if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  setSyncStatus('offline');
+}
 
 // Registro de Service Worker PWA com caminho relativo para GitHub Pages
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

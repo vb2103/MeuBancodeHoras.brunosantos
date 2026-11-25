@@ -36,6 +36,7 @@ export async function runWithButtonLoading(btn, loadingHtml, fn) {
 export function createModalManager(ctx) {
   let confirmResolver = null;
   let lastFocusedEl = null;
+  let confirmLastFocusedEl = null;
 
   let holidayYear = new Date().getFullYear();
   let holidayFilter = 'all'; // 'all' | 'upcoming' | 'available'
@@ -94,7 +95,7 @@ export function createModalManager(ctx) {
     variant = 'danger'
   } = {}) {
     return new Promise((resolve) => {
-      lastFocusedEl = document.activeElement;
+      confirmLastFocusedEl = document.activeElement;
       confirmResolver = resolve;
 
       const modal = document.getElementById('confirmModal');
@@ -127,7 +128,10 @@ export function createModalManager(ctx) {
   function resolveConfirm(result) {
     const modal = document.getElementById('confirmModal');
     modal.classList.add('hidden');
-    restoreLastFocus();
+    if (confirmLastFocusedEl && confirmLastFocusedEl !== document.body && typeof confirmLastFocusedEl.focus === 'function') {
+      confirmLastFocusedEl.focus();
+    }
+    confirmLastFocusedEl = null;
     if (confirmResolver) {
       const fn = confirmResolver;
       confirmResolver = null;
@@ -1047,6 +1051,7 @@ export function createModalManager(ctx) {
     closeHolidaysModal,
     captureLastFocus,
     restoreLastFocus,
+    hasOpenModal: () => Boolean(getOpenModalElement()),
     registerExternalModal(id, closeFn) {
       if (id && typeof closeFn === 'function') {
         externalModals.push({ id, closeFn });
