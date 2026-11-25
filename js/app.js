@@ -473,10 +473,12 @@ function renderAll() {
       const catBadge = buildCategoryBadgeHtml(item, '');
       const workedSub = buildWorkedSubtextHtml(item);
 
-      const borderAccent = isCredit ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-rose-500';
+      const borderAccent = isCredit
+        ? 'border-l-4 border-l-emerald-500 dark:border-l-emerald-500'
+        : 'border-l-4 border-l-rose-500 dark:border-l-rose-500';
 
       return `
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="bg-white dark:bg-slate-900 border-y border-r border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl p-4 shadow-sm space-y-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
