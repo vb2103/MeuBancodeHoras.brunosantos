@@ -218,6 +218,10 @@ function updateHeaderUserInfo() {
   const ruleLabel = getActiveRuleSummary(settings);
   document.getElementById('headerSubtitle').textContent =
     `${displayName} • ${ruleLabel} (${settings.stateUf || 'SP'}) • Jornada ${formatHHMM(settings.dailyMinutes)}`;
+  const mobileRuleEl = document.getElementById('mobileRuleSummary');
+  if (mobileRuleEl) {
+    mobileRuleEl.textContent = `${ruleLabel} (${settings.stateUf || 'SP'}) • Jornada ${formatHHMM(settings.dailyMinutes)}/dia`;
+  }
   document.getElementById('settingsUserEmail').textContent = currentUser?.email || '—';
 
   const avatarEl = document.getElementById('headerProfileAvatar');
@@ -365,9 +369,35 @@ function buildActionButtonsHtml(item) {
   `;
 }
 
+function syncMobileFilterIndicators() {
+  const activeCount = ['yearFilter', 'typeFilter', 'statusFilter']
+    .filter((id) => (document.getElementById(id)?.value || 'all') !== 'all').length;
+  const badge = document.getElementById('mobileFilterBadge');
+  const toggleBtn = document.getElementById('mobileFilterToggleBtn');
+  if (badge) {
+    badge.textContent = String(activeCount);
+    badge.classList.toggle('hidden', activeCount === 0);
+  }
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('border-indigo-400', activeCount > 0);
+    toggleBtn.classList.toggle('bg-indigo-50/80', activeCount > 0);
+    toggleBtn.classList.toggle('dark:border-indigo-700', activeCount > 0);
+    toggleBtn.classList.toggle('dark:bg-indigo-950/40', activeCount > 0);
+  }
+}
+
+function syncSearchPlaceholder() {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+  input.placeholder = window.innerWidth < 768
+    ? 'Buscar lançamento ou feriado...'
+    : 'Buscar por evento, feriado ou observação... (atalho: /)';
+}
+
 // ==================== RENDERIZAÇÃO PRINCIPAL ====================
 function renderAll() {
   populateYearFilterOptions();
+  syncMobileFilterIndicators();
   const { chrono, remainingMap, urgentItems, summary, filtered, hasActiveFilters } = getFilteredEntriesState();
   const todayISO = getLocalDateISO();
 
@@ -521,7 +551,7 @@ function renderAll() {
               <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">Saldo: <strong class="font-mono tabular-nums text-slate-800 dark:text-slate-200">${formatHHMM(item.runningMinutes, true)}</strong></span>
               ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums max-w-full ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
             </div>
-            <div class="flex items-center gap-1 shrink-0 ml-auto">
+            <div class="sh-mobile-card-actions flex items-center gap-1 shrink-0 ml-auto">
               ${buildActionButtonsHtml(item)}
             </div>
           </div>
@@ -669,6 +699,12 @@ function switchMainTab(tabName) {
       mobBtn.className = t === tabName
         ? 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 min-w-0'
         : 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0';
+      const pill = mobBtn.querySelector('.mobile-nav-pill');
+      if (pill) {
+        pill.className = t === tabName
+          ? 'mobile-nav-pill px-3 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 flex items-center justify-center transition'
+          : 'mobile-nav-pill px-3 py-0.5 rounded-full flex items-center justify-center transition';
+      }
     }
   });
   if (tabName === 'graficos') {
@@ -739,10 +775,27 @@ document.getElementById('yearFilter').addEventListener('change', renderAll);
 document.getElementById('typeFilter').addEventListener('change', renderAll);
 document.getElementById('statusFilter').addEventListener('change', renderAll);
 
-document.getElementById('sortOrderBtn').addEventListener('click', () => {
+function toggleSortOrder() {
   sortAscending = !sortAscending;
-  document.getElementById('sortOrderLabel').textContent = sortAscending ? 'Mais antigos' : 'Mais recentes';
+  const label = sortAscending ? 'Mais antigos' : 'Mais recentes';
+  document.getElementById('sortOrderLabel').textContent = label;
+  const mirrorBtn = document.getElementById('mobileSortMirrorBtn');
+  if (mirrorBtn) {
+    mirrorBtn.title = label;
+    mirrorBtn.setAttribute('aria-label', `Ordenação: ${label}`);
+  }
   renderAll();
+}
+
+document.getElementById('sortOrderBtn').addEventListener('click', toggleSortOrder);
+document.getElementById('mobileSortMirrorBtn')?.addEventListener('click', toggleSortOrder);
+document.getElementById('mobileRuleStripBtn')?.addEventListener('click', () => modals.openSettingsModal());
+document.getElementById('mobileFilterToggleBtn')?.addEventListener('click', () => {
+  const drawer = document.getElementById('filterSelectsGroup');
+  const btn = document.getElementById('mobileFilterToggleBtn');
+  if (!drawer) return;
+  const isOpen = drawer.classList.toggle('is-open');
+  btn?.setAttribute('aria-expanded', String(isOpen));
 });
 
 document.querySelectorAll('.main-tab-btn').forEach((btn) => {
@@ -1283,4 +1336,6 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 initTheme();
+syncSearchPlaceholder();
+window.addEventListener('resize', syncSearchPlaceholder);
 window.lucide?.createIcons();

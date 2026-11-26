@@ -19,6 +19,7 @@ body {
 
 /* Elementos exclusivos para telas mobile (< 768px) permanecem ocultos no desktop */
 .sh-mobile-only,
+.sh-mobile-only-flex,
 .sh-mobile-only-grid {
   display: none !important;
 }
@@ -42,6 +43,10 @@ body {
 
   .sh-mobile-only {
     display: block !important;
+  }
+
+  .sh-mobile-only-flex {
+    display: flex !important;
   }
 
   .sh-mobile-only-grid {
@@ -98,8 +103,36 @@ body {
 
   /* Espaçamento seguro para barra inferior fixa */
   .sh-main {
-    padding: 1rem 0.875rem calc(96px + env(safe-area-inset-bottom)) !important;
+    padding: 0.75rem 0.875rem calc(92px + env(safe-area-inset-bottom)) !important;
+    gap: 0.75rem !important;
     min-width: 0;
+  }
+
+  .sh-main > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  /* Banner PWA compacto em 1 faixa no mobile */
+  .sh-pwa-banner {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0.625rem 0.75rem !important;
+    gap: 0.625rem !important;
+  }
+
+  .sh-pwa-icon {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .sh-pwa-desc {
+    display: none !important;
+  }
+
+  .sh-pwa-actions {
+    align-self: center !important;
+    gap: 0.375rem !important;
   }
 
   /* Grelha 2x2 compacta nos 4 KPIs mobile */
@@ -110,12 +143,12 @@ body {
   }
 
   .sh-kpi-card {
-    padding: 0.875rem !important;
+    padding: 0.75rem 0.875rem !important;
     min-width: 0;
   }
 
   .sh-kpi-head {
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.375rem !important;
     gap: 0.375rem !important;
     min-width: 0;
   }
@@ -128,14 +161,14 @@ body {
   }
 
   .sh-kpi-icon {
-    width: 1.75rem !important;
-    height: 1.75rem !important;
+    width: 1.625rem !important;
+    height: 1.625rem !important;
     flex-shrink: 0;
   }
 
   .sh-kpi-value {
     font-size: 1.25rem !important;
-    line-height: 1.65rem !important;
+    line-height: 1.55rem !important;
   }
 
   .sh-kpi-badge {
@@ -144,14 +177,82 @@ body {
   }
 
   .sh-kpi-sub {
-    margin-top: 0.375rem !important;
+    margin-top: 0.25rem !important;
     font-size: 0.6875rem !important;
   }
 
-  /* Prevenir overflow em filtros, simulador, gráficos e cards */
+  .sh-kpi-desc {
+    display: none !important;
+  }
+
+  /* Busca & Filtros compactos e retráteis no mobile */
+  .sh-filters-card {
+    padding: 0.75rem !important;
+  }
+
+  .sh-filters-card > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  .sh-filter-row {
+    gap: 0.5rem !important;
+  }
+
+  .sh-filter-selects {
+    display: none;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding-top: 0.25rem;
+  }
+
+  .sh-filter-selects.is-open {
+    display: grid;
+  }
+
   .sh-filter-select {
     width: 100% !important;
     min-width: 0 !important;
+  }
+
+  .sh-quick-pills-wrap {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding-top: 0.125rem !important;
+  }
+
+  .sh-quick-pills-scroll {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sh-quick-pills-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sh-quick-pills-scroll > .quick-pill,
+  .sh-quick-pills-scroll > #clearFiltersBtn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .sh-filter-counter {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 0.6875rem !important;
+  }
+
+  /* Área de toque confortável nos botões de ação dos cards mobile */
+  .sh-mobile-card-actions button {
+    min-width: 38px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .sh-sim-card {
