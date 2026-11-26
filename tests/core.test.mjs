@@ -837,3 +837,33 @@ test('Open Graph 1200x630, Desktop 1120px/modais 480px, FAQ 5 itens, Feedback e 
   assert.match(feedbackSql, /FORCE ROW LEVEL SECURITY/);
   assert.match(feedbackSql, /GRANT INSERT ON TABLE public\.bh_feedback TO anon, authenticated/);
 });
+
+test('iOS PWA standalone: safe-area-inset-top sem corte, header auto, h-14 interno e botão perfil w-10 h-10 shrink-0', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../assets/app.css', import.meta.url), 'utf8');
+
+  // 1. Meta tags obrigatórias para notch / status bar iOS standalone
+  assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1\.0, viewport-fit=cover" \/>/);
+  assert.match(html, /<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" \/>/);
+
+  // 2. <header> sem h-14/h-16 direta; altura fixa apenas no container flex interno e botão w-10 h-10 shrink-0
+  const headerTagMatch = html.match(/<header\b[^>]*>/);
+  assert.ok(headerTagMatch, '<header> deve existir no HTML');
+  assert.doesNotMatch(headerTagMatch[0], /\bh-1[46]\b/);
+  assert.match(headerTagMatch[0], /\bsh-app-header\b/);
+  assert.match(html, /<div class="sh-header-inner [^"]*\bh-14 md:h-16\b/);
+  assert.match(html, /id="userMenuBtn"[^>]*\bw-10 h-10 shrink-0\b/);
+
+  // 3. CSS mobile + @media (display-mode: standalone): height auto + safe-area + sem blur + compensação do <main>
+  assert.match(css, /\.sh-app-header\s*\{[\s\S]*?height:\s*auto\s*!important;[\s\S]*?padding-top:\s*env\(safe-area-inset-top\)\s*!important;[\s\S]*?backdrop-filter:\s*none\s*!important;[\s\S]*?-webkit-backdrop-filter:\s*none\s*!important;/);
+  assert.match(css, /@media \(display-mode:\s*standalone\)[\s\S]*?\.sh-app-header\s*\{[\s\S]*?height:\s*auto\s*!important;[\s\S]*?padding-top:\s*env\(safe-area-inset-top\)\s*!important;[\s\S]*?backdrop-filter:\s*none\s*!important;/);
+  assert.match(css, /\.sh-main\s*\{[\s\S]*?padding-top:\s*calc\(3\.5rem \+ env\(safe-area-inset-top\)/);
+
+  // 4. Desktop (>= 768px) preservado com inner h-16 (4rem), botão Perfil expandido e privacidade 36x36 (w-9 h-9)
+  assert.match(css, /@media \(min-width:\s*768px\)[\s\S]*?\.sh-header-inner\s*\{\s*height:\s*4rem;/);
+  assert.match(css, /@media \(min-width:\s*768px\)[\s\S]*?\.sh-app-header \.sh-user-menu-btn\s*\{/);
+  const privacyBtnMatch = html.match(/<button\b[^>]*id="desktopPrivacyToggleBtn"[^>]*>/);
+  assert.ok(privacyBtnMatch, '#desktopPrivacyToggleBtn deve existir no HTML');
+  assert.match(privacyBtnMatch[0], /\bw-9 h-9\b/);
+  assert.doesNotMatch(privacyBtnMatch[0], /\bsh-touch-44\b/);
+});

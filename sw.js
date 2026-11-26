@@ -1,12 +1,12 @@
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const CACHE_NAME = `saldohoras-static-${APP_VERSION}`;
 
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './assets/app.css?v=25',
-  './assets/tailwind.css?v=25',
+  './assets/app.css?v=26',
+  './assets/tailwind.css?v=26',
   './assets/icons/icon.svg',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',

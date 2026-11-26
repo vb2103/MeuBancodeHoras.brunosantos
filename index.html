@@ -31,7 +31,7 @@
   <meta name="twitter:image" content="https://vb2103.github.io/MeuBancodeHoras.brunosantos/og-image.png" />
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=25" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=26" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=25" />
+  <link rel="stylesheet" href="./assets/app.css?v=26" />
 
   <!-- Bibliotecas críticas pinadas com SRI (Chart.js e jsPDF carregam sob demanda) -->
   <script defer src="https://unpkg.com/lucide@1.81.0/dist/umd/lucide.min.js" integrity="sha384-I2eWHxO0tZqgUh5VERQyal+mmk2fGHjoqeYV3JjQb2aoe800N7hrumBW5rUGaN+b" crossorigin="anonymous"></script>
@@ -182,8 +182,8 @@
 
   <!-- ==================== SKELETON DE CARREGAMENTO INICIAL ==================== -->
   <div id="loadingOverlay" aria-busy="true" aria-label="Carregando SaldoHoras" class="sh-skeleton-overlay fixed inset-0 z-40 bg-slate-50 dark:bg-slate-950 overflow-hidden">
-    <div class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/90 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-      <div class="max-w-7xl w-full mx-auto flex items-center justify-between gap-3">
+    <div class="sh-skeleton-header border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/90 px-4 sm:px-6 lg:px-8">
+      <div class="sh-header-inner h-14 md:h-16 max-w-7xl w-full mx-auto flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 t-skel-pulse">
           <div class="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
           <div class="space-y-1.5">
@@ -213,8 +213,8 @@
   </div>
 
   <!-- ==================== CABEÇALHO PRINCIPAL ==================== -->
-  <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-    <div class="sh-header-inner max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+  <header class="sh-app-header sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+    <div class="sh-header-inner max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 md:h-16 flex items-center justify-between gap-3">
       <!-- Marca + Status -->
       <div class="flex items-center gap-3 min-w-0">
         <div class="sh-brand-icon w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -313,7 +313,7 @@
 
         <div aria-hidden="true" class="sh-mobile-hide hidden sm:block h-5 w-px bg-slate-200 dark:bg-slate-800 mx-0.5"></div>
 
-        <button type="button" id="desktopPrivacyToggleBtn" aria-label="Ocultar ou exibir valores" aria-pressed="false" title="Modo privacidade (ocultar horas)" class="sh-mobile-hide sh-touch-44 hidden sm:inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-500 dark:text-slate-300 transition shrink-0">
+        <button type="button" id="desktopPrivacyToggleBtn" aria-label="Ocultar ou exibir valores" aria-pressed="false" title="Modo privacidade (ocultar horas)" class="sh-mobile-hide hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-500 dark:text-slate-300 transition shrink-0">
           <span id="desktopPrivacyIconSwap" class="t-icon-swap" data-state="a">
             <span class="t-icon" data-icon="a"><i data-lucide="eye" class="w-4 h-4"></i></span>
             <span class="t-icon" data-icon="b"><i data-lucide="eye-off" class="w-4 h-4"></i></span>
@@ -322,10 +322,10 @@
 
         <!-- Menu da Conta (Perfil, Configurações, Aplicativo e Sair) -->
         <div class="relative" id="userMenuWrapper">
-          <button type="button" id="userMenuBtn" aria-label="Abrir menu da conta" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 min-h-[44px] md:min-h-0 h-11 md:h-9 pl-2 md:pl-1.5 pr-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+          <button type="button" id="userMenuBtn" aria-label="Abrir menu da conta" aria-haspopup="menu" aria-expanded="false" class="sh-user-menu-btn inline-flex items-center justify-center gap-2 w-10 h-10 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
             <span id="headerProfileAvatar" class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0">SH</span>
             <span id="headerProfileLabel" class="hidden md:inline max-w-[100px] truncate">Perfil</span>
-            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+            <i data-lucide="chevron-down" class="sh-mobile-hide w-3.5 h-3.5 text-slate-400 shrink-0"></i>
           </button>
 
           <div id="userMenuBackdrop" aria-hidden="true" class="sh-user-backdrop hidden md:hidden"></div>
@@ -422,7 +422,7 @@
               </button>
               <div class="mt-1 pt-1 border-t border-slate-100 dark:border-slate-800">
                 <button type="button" id="checkUpdatesMenuBtn" role="menuitem" class="w-full min-h-[36px] px-4 py-2 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                  SaldoHoras v1.0.0 • Verificar atualizações
+                  SaldoHoras v1.0.1 • Verificar atualizações
                 </button>
               </div>
             </div>

@@ -172,6 +172,15 @@ html.dark input[type='time'] {
   display: none;
 }
 
+.h-14 {
+  height: 3.5rem;
+}
+
+.sh-app-header,
+.sh-skeleton-header {
+  height: auto;
+}
+
 @media (max-width: 767px) {
   .sh-hero-card {
     display: block !important;
@@ -227,13 +236,51 @@ html.dark input[type='time'] {
     max-width: 100%;
   }
 
-  /* Cabeçalho dedicado mobile (< 768px) */
+  /* Cabeçalho dedicado mobile (< 768px) — iOS PWA standalone safe-area */
+  .sh-app-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding-top: env(safe-area-inset-top) !important;
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    z-index: 45 !important;
+  }
+
+  html.dark .sh-app-header {
+    background-color: #0f172a !important;
+  }
+
+  .sh-skeleton-header {
+    height: auto !important;
+    padding-top: env(safe-area-inset-top) !important;
+    background-color: #ffffff !important;
+  }
+
+  html.dark .sh-skeleton-header {
+    background-color: #0f172a !important;
+  }
+
   .sh-header-inner {
     height: 3.5rem !important;
-    padding-left: 0.875rem !important;
-    padding-right: 0.875rem !important;
+    padding-left: max(0.875rem, env(safe-area-inset-left)) !important;
+    padding-right: max(0.875rem, env(safe-area-inset-right)) !important;
     gap: 0.5rem !important;
     min-width: 0;
+  }
+
+  .sh-app-header .sh-user-menu-btn {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+    min-height: 2.5rem !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
   }
 
   .sh-brand-icon {
@@ -258,33 +305,42 @@ html.dark input[type='time'] {
     max-width: calc(100vw - 1.5rem) !important;
   }
 
-  /* Espaçamento seguro para barra inferior fixa */
+  /* Compensação de altura para cabeçalho fixo (h-14 + safe-area-inset-top) e barra inferior fixa */
+  html {
+    scroll-padding-top: calc(3.5rem + env(safe-area-inset-top) + 0.75rem);
+  }
+
   .sh-main {
-    padding: 0.75rem 0.875rem calc(96px + env(safe-area-inset-bottom)) !important;
+    padding-top: calc(3.5rem + env(safe-area-inset-top) + 0.75rem) !important;
+    padding-right: 0.875rem !important;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+    padding-left: 0.875rem !important;
     gap: 0.75rem !important;
     min-width: 0;
   }
 
-  /* Menu do Avatar (VB) como Bottom Sheet confortável no celular */
-  header.sticky {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    z-index: 45 !important;
+  #authScreen {
+    padding-top: max(1rem, env(safe-area-inset-top)) !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
   }
 
+  /* Menu do Avatar (VB) como Bottom Sheet confortável no celular */
   .sh-user-backdrop {
     position: fixed;
     inset: 0;
     z-index: 48;
     background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     transition: opacity var(--modal-open-dur) var(--modal-ease);
   }
 
   .sh-user-backdrop.is-open {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
   }
 
@@ -630,8 +686,53 @@ html.dark input[type='time'] {
   }
 }
 
+/* ==================== PWA STANDALONE (iOS black-translucent safe-area) ==================== */
+@media (display-mode: standalone) {
+  .sh-app-header {
+    height: auto !important;
+    padding-top: env(safe-area-inset-top) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: #ffffff !important;
+  }
+
+  html.dark .sh-app-header {
+    background-color: #0f172a !important;
+  }
+
+  .sh-skeleton-header {
+    height: auto !important;
+    padding-top: env(safe-area-inset-top) !important;
+  }
+}
+
 /* ==================== DESKTOP: MODAIS CENTRALIZADOS (>= 768px) ==================== */
 @media (min-width: 768px) {
+  .md\:h-16,
+  .sh-header-inner {
+    height: 4rem;
+  }
+
+  .sh-app-header .sh-user-menu-btn {
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    height: 2.25rem;
+    padding-left: 0.375rem;
+    padding-right: 0.625rem;
+  }
+
+  #desktopPrivacyToggleBtn[aria-pressed='true'] {
+    border-color: rgba(99, 102, 241, 0.55);
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #4f46e5;
+  }
+
+  html.dark #desktopPrivacyToggleBtn[aria-pressed='true'] {
+    border-color: rgba(129, 140, 248, 0.55);
+    background-color: rgba(99, 102, 241, 0.16);
+    color: #a5b4fc;
+  }
   .sh-sheet-backdrop {
     align-items: center !important;
     justify-content: center !important;
@@ -1196,6 +1297,7 @@ html.dark .t-error-msg {
 
 /* Skeleton Loader & Reveal suave */
 .sh-skeleton-overlay {
+  z-index: 46;
   opacity: 1;
   filter: blur(0);
   transition:
