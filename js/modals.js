@@ -664,8 +664,8 @@ export function createModalManager(ctx) {
     document.querySelectorAll('[data-punch-break]').forEach((btn) => {
       const isSelected = btn.dataset.punchBreak === selectedPunchBreakMode;
       btn.className = isSelected
-        ? 'min-h-[38px] px-3 py-1.5 rounded-xl border border-indigo-500 bg-indigo-600 text-white text-xs font-semibold transition'
-        : 'min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium transition';
+        ? 'sh-touch-h44 px-2 py-1.5 rounded-xl border border-indigo-500 bg-indigo-600 text-white text-[11px] sm:text-xs font-semibold whitespace-nowrap transition'
+        : 'sh-touch-h44 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] sm:text-xs font-medium whitespace-nowrap transition';
     });
   }
 
@@ -719,9 +719,11 @@ export function createModalManager(ctx) {
 
   document.getElementById('togglePunchCalcBtn')?.addEventListener('click', () => {
     const panel = document.getElementById('punchCalcPanel');
+    const toggleBtn = document.getElementById('togglePunchCalcBtn');
     if (!panel) return;
     const willOpen = panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !willOpen);
+    toggleBtn?.setAttribute('aria-expanded', String(willOpen));
     if (willOpen) {
       selectedPunchBreakMode = '60';
       syncPunchBreakChipsUI();
@@ -767,7 +769,9 @@ export function createModalManager(ctx) {
     clearInlineFieldError('entryDurationWrap', 'entryHoursPart');
     setDurationParts(appliedMins);
     updateEntryComputedPreview();
-    ctx.showToast(`Ponto calculado: ${formatHHMM(appliedMins)} aplicados!`);
+    document.getElementById('punchCalcPanel')?.classList.add('hidden');
+    document.getElementById('togglePunchCalcBtn')?.setAttribute('aria-expanded', 'false');
+    ctx.showToast(`Duração preenchida: ${formatHHMM(appliedMins)}`);
   });
 
   document.getElementById('entryForm').addEventListener('submit', async (e) => {
@@ -999,7 +1003,6 @@ export function createModalManager(ctx) {
   }
 
   document.getElementById('closeSettingsModalBtn').addEventListener('click', closeSettingsModal);
-  document.getElementById('cancelSettingsModalBtn').addEventListener('click', closeSettingsModal);
   document.getElementById('settingsModal').addEventListener('click', (e) => {
     if (e.target.id === 'settingsModal') closeSettingsModal();
   });

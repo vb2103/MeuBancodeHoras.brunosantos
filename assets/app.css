@@ -85,8 +85,15 @@ html.dark {
   }
 }
 
+html,
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Acessibilidade: Skip Link e anel de foco consistente via teclado */
@@ -205,7 +212,7 @@ html.dark input[type='time'] {
 
   input[type='date'],
   input[type='time'] {
-    min-height: 42px;
+    min-height: 44px;
     max-width: 100%;
   }
 
@@ -242,9 +249,64 @@ html.dark input[type='time'] {
 
   /* Espaçamento seguro para barra inferior fixa */
   .sh-main {
-    padding: 0.75rem 0.875rem calc(92px + env(safe-area-inset-bottom)) !important;
+    padding: 0.75rem 0.875rem calc(96px + env(safe-area-inset-bottom)) !important;
     gap: 0.75rem !important;
     min-width: 0;
+  }
+
+  /* Menu do Avatar (VB) como Bottom Sheet confortável no celular */
+  header.sticky {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    z-index: 45 !important;
+  }
+
+  .sh-user-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 48;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--modal-open-dur) var(--modal-ease);
+  }
+
+  .sh-user-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sh-user-sheet {
+    position: fixed !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 86dvh !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    border-radius: 1.25rem 1.25rem 0 0 !important;
+    border-bottom: 0 !important;
+    padding: 0.375rem 0 max(1rem, env(safe-area-inset-bottom)) !important;
+    z-index: 60 !important;
+    transform-origin: bottom center !important;
+    transform: translateY(20px) !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .sh-user-sheet.is-open {
+    transform: translateY(0) !important;
+  }
+
+  .sh-user-sheet.is-closing {
+    transform: translateY(14px) !important;
+    transition:
+      transform var(--modal-close-dur) var(--modal-ease),
+      opacity var(--modal-close-dur) var(--modal-ease) !important;
   }
 
   .sh-main > * + * {
@@ -546,11 +608,11 @@ html.dark input[type='time'] {
 
   /* Barra inferior fixa com safe area */
   .sh-bottom-nav {
-    padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 
   .sh-toast {
-    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
     left: 0.875rem !important;
     right: 0.875rem !important;
     max-width: calc(100vw - 1.75rem) !important;

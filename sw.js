@@ -1,4 +1,4 @@
-const CACHE_NAME = 'saldohoras-shell-v25';
+const CACHE_NAME = 'saldohoras-shell-v26';
 
 const APP_SHELL_ASSETS = [
   './',

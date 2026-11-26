@@ -266,27 +266,27 @@ function showToast(msg, options = {}) {
 
 const SYNC_STATUS_STYLES = {
   saving: {
-    text: 'Salvando...',
+    text: 'Sincronizando...',
     dot: 'bg-amber-500',
     badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70'
   },
   pending: {
-    text: 'Pendente de envio',
+    text: 'Aguardando envio',
     dot: 'bg-amber-500',
     badge: 'bg-amber-50/90 text-amber-800 border-amber-200/80 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-800/60'
   },
   offline: {
-    text: 'Modo Offline',
+    text: 'Offline — dados salvos no aparelho',
     dot: 'bg-amber-500',
     badge: 'bg-amber-50/90 text-amber-800 border-amber-200/80 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-800/60'
   },
   error: {
-    text: 'Erro ao sincronizar',
+    text: 'Sem conexão com a nuvem',
     dot: 'bg-rose-500',
     badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70'
   },
   ok: {
-    text: 'Nuvem Ativa',
+    text: 'Sincronizado agora',
     dot: 'bg-emerald-500',
     badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70'
   }
@@ -1896,8 +1896,32 @@ function closeExportMenu() {
 
 function closeUserMenu() {
   const dd = document.getElementById('userDropdown');
+  const backdrop = document.getElementById('userMenuBackdrop');
   if (isLayerOpen(dd)) closeAnimatedDropdown(dd);
+  if (backdrop && !backdrop.classList.contains('hidden')) {
+    backdrop.classList.remove('is-open');
+    const closeMs = readCssMs('--modal-close-dur', 150) + 16;
+    clearTimeout(backdrop._hideTimer);
+    backdrop._hideTimer = setTimeout(() => {
+      if (!backdrop.classList.contains('is-open')) backdrop.classList.add('hidden');
+    }, closeMs);
+  }
   document.getElementById('userMenuBtn')?.setAttribute('aria-expanded', 'false');
+}
+
+function openUserMenu() {
+  const dd = document.getElementById('userDropdown');
+  const backdrop = document.getElementById('userMenuBackdrop');
+  if (!dd) return;
+  syncInstallAppMenuVisibility();
+  openAnimatedDropdown(dd);
+  if (backdrop && window.innerWidth < 768) {
+    clearTimeout(backdrop._hideTimer);
+    backdrop.classList.remove('hidden');
+    void backdrop.offsetWidth;
+    backdrop.classList.add('is-open');
+  }
+  document.getElementById('userMenuBtn')?.setAttribute('aria-expanded', 'true');
 }
 
 document.getElementById('exportMenuBtn').addEventListener('click', (e) => {
@@ -1917,10 +1941,11 @@ document.getElementById('userMenuBtn')?.addEventListener('click', (e) => {
   const dd = document.getElementById('userDropdown');
   if (!dd) return;
   const opening = !isLayerOpen(dd);
-  if (opening) openAnimatedDropdown(dd);
-  else closeAnimatedDropdown(dd);
-  document.getElementById('userMenuBtn')?.setAttribute('aria-expanded', String(opening));
+  if (opening) openUserMenu();
+  else closeUserMenu();
 });
+
+document.getElementById('userMenuBackdrop')?.addEventListener('click', closeUserMenu);
 
 document.addEventListener('click', (e) => {
   if (!document.getElementById('exportMenuWrapper')?.contains(e.target)) closeExportMenu();
@@ -2287,7 +2312,7 @@ authController = setupAuth({
     if (avatarEl) avatarEl.textContent = 'SH';
     if (labelEl) labelEl.textContent = 'Perfil';
     if (menuFullName) menuFullName.textContent = 'Minha Conta';
-    if (menuSubInfo) menuSubInfo.textContent = 'Sincronizado com Supabase';
+    if (menuSubInfo) menuSubInfo.textContent = 'Backup automático na nuvem';
   },
   async onSessionReady(user) {
     currentUser = user;
@@ -2329,9 +2354,9 @@ authController = setupAuth({
         loadedSuccessfully = true;
         showToast('Modo offline — exibindo os dados salvos neste aparelho.');
       } else {
-        console.error('Erro ao carregar dados do Supabase:', err);
+        console.error('Erro ao carregar dados da nuvem:', err);
         setSyncStatus('error');
-        showToast('Erro ao sincronizar com o Supabase');
+        showToast('Erro ao sincronizar seus dados');
       }
     } finally {
       authController?.revealLoadingOverlay?.();
@@ -2344,36 +2369,74 @@ authController = setupAuth({
 
 // ==================== INSTALAÇÃO PWA & STATUS DE REDE ====================
 let deferredInstallPrompt = null;
-const pwaBanner = document.getElementById('pwaInstallBanner');
-const pwaInstallBtn = document.getElementById('pwaInstallBtn');
-const pwaDismissBtn = document.getElementById('pwaDismissBtn');
+const installAppMenuBtn = document.getElementById('installAppMenuBtn');
+const iosInstallModal = document.getElementById('iosInstallModal');
+
+function isStandaloneApp() {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    window.matchMedia?.('(display-mode: standalone)').matches
+    || window.navigator?.standalone === true
+  );
+}
+
+function syncInstallAppMenuVisibility() {
+  if (!installAppMenuBtn) return;
+  installAppMenuBtn.classList.toggle('hidden', isStandaloneApp());
+}
+
+function openIosInstallModal() {
+  if (!iosInstallModal) return;
+  modals.captureLastFocus();
+  openAnimatedModal(iosInstallModal);
+  renderLucideIcons(iosInstallModal);
+}
+
+function closeIosInstallModal() {
+  if (!iosInstallModal || !isLayerOpen(iosInstallModal)) return;
+  closeAnimatedModal(iosInstallModal);
+  modals.restoreLastFocus();
+}
+
+modals.registerExternalModal('iosInstallModal', closeIosInstallModal);
+document.getElementById('closeIosInstallBtn')?.addEventListener('click', closeIosInstallModal);
+document.getElementById('confirmIosInstallBtn')?.addEventListener('click', closeIosInstallModal);
+iosInstallModal?.addEventListener('click', (e) => {
+  if (e.target.id === 'iosInstallModal') closeIosInstallModal();
+});
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  if (!localStorage.getItem('sh_pwa_dismissed') && pwaBanner) {
-    pwaBanner.classList.remove('hidden');
-    renderLucideIcons(pwaBanner);
-  }
+  syncInstallAppMenuVisibility();
 });
 
-pwaInstallBtn?.addEventListener('click', async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  const choice = await deferredInstallPrompt.userChoice;
-  if (choice.outcome === 'accepted') {
-    showToast('SaldoHoras instalado com sucesso!');
-  }
+window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
-  pwaBanner?.classList.add('hidden');
+  syncInstallAppMenuVisibility();
+  showToast('SaldoHoras instalado com sucesso!');
 });
 
-pwaDismissBtn?.addEventListener('click', () => {
-  pwaBanner?.classList.add('hidden');
-  try {
-    localStorage.setItem('sh_pwa_dismissed', '1');
-  } catch { /* ignore */ }
+installAppMenuBtn?.addEventListener('click', async () => {
+  closeUserMenu();
+  if (isStandaloneApp()) {
+    syncInstallAppMenuVisibility();
+    return;
+  }
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      showToast('SaldoHoras instalado com sucesso!');
+    }
+    deferredInstallPrompt = null;
+    syncInstallAppMenuVisibility();
+    return;
+  }
+  openIosInstallModal();
 });
+
+syncInstallAppMenuVisibility();
 
 window.addEventListener('online', async () => {
   const synced = await flushPendingSyncQueue({ showSyncedToast: true });

@@ -1,7 +1,7 @@
 {
   "name": "SaldoHoras — Banco de Horas & Folgas",
   "short_name": "SaldoHoras",
-  "description": "Controle de banco de horas em HH:MM, feriados dinâmicos, regras por sindicato/ramo e folgas com sincronização Supabase.",
+  "description": "Controle de banco de horas em HH:MM, feriados, regras por sindicato ou área e folgas sincronizadas na nuvem.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -20,13 +20,25 @@
       "src": "./assets/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "./assets/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
