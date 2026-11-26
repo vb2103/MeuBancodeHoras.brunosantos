@@ -138,10 +138,10 @@ function renderFifoExpiryTimeline(analytics, privacyMode = false) {
 
         <div class="flex flex-wrap items-center justify-end gap-2">
           ${canWriteOff ? `
-          <button type="button" data-bucket-id="${escapeHtml(bucket.id)}" class="writeoff-bucket-btn min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition">
+          <button type="button" data-bucket-id="${escapeHtml(bucket.id)}" class="writeoff-bucket-btn min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition">
             Encerrar / Dar baixa
           </button>` : ''}
-          <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn min-h-[40px] px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition">
+          <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn min-h-[44px] px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition">
             Simular folga
           </button>
         </div>
@@ -476,7 +476,17 @@ export function renderCharts(chronoEntries, remainingMap = new Map(), settings =
   renderInsightsCards(analytics, chronoEntries, dailyMinutes, privacyMode);
   renderFifoExpiryTimeline(analytics, privacyMode);
 
-  if (typeof window.Chart !== 'function') return;
+  if (typeof window.Chart !== 'function') {
+    ['balanceChart', 'ratioChart', 'monthlyChart'].forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+    ['balanceChartEmpty', 'ratioChartEmpty', 'monthlyChartEmpty'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && Array.isArray(chronoEntries) && chronoEntries.length > 0) {
+        el.textContent = 'Gráficos visuais indisponíveis offline antes do primeiro carregamento.';
+        el.classList.remove('hidden');
+      }
+    });
+    return;
+  }
 
   const isDark = document.documentElement.classList.contains('dark');
   const isCompact = typeof window !== 'undefined' && window.innerWidth < 768;

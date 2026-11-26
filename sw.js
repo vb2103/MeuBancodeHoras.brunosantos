@@ -1,11 +1,11 @@
-const CACHE_NAME = 'saldohoras-shell-v24';
+const CACHE_NAME = 'saldohoras-shell-v25';
 
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './assets/app.css?v=24',
-  './assets/tailwind.css?v=24',
+  './assets/app.css?v=25',
+  './assets/tailwind.css?v=25',
   './assets/icons/icon.svg',
   './js/config.js',
   './js/time.js',
@@ -14,6 +14,8 @@ const APP_SHELL_ASSETS = [
   './js/holidays.js',
   './js/db.js',
   './js/security.js',
+  './js/vendor-loader.js',
+  './js/ui-motion.js',
   './js/auth.js',
   './js/charts.js',
   './js/export.js',
@@ -23,16 +25,31 @@ const APP_SHELL_ASSETS = [
   './js/app.js'
 ];
 
+const PINNED_CDN_ASSETS = [
+  'https://unpkg.com/lucide@1.81.0/dist/umd/lucide.min.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+];
+
+const PINNED_CDN_SET = new Set(PINNED_CDN_ASSETS);
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      Promise.all(
-        APP_SHELL_ASSETS.map((asset) =>
+      Promise.all([
+        ...APP_SHELL_ASSETS.map((asset) =>
           fetch(new Request(asset, { cache: 'no-cache' }))
-            .then((res) => (res && res.ok ? cache.put(asset, res) : null))
+            .then((res) => (resOk(res) ? cache.put(asset, res) : null))
+            .catch(() => null)
+        ),
+        ...PINNED_CDN_ASSETS.map((cdnUrl) =>
+          fetch(new Request(cdnUrl, { mode: 'cors', cache: 'force-cache' }))
+            .then((res) => (resOk(res) ? cache.put(cdnUrl, res) : null))
             .catch(() => null)
         )
-      )
+      ])
     )
   );
   self.skipWaiting();
@@ -47,22 +64,59 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+function fetchWithTimeout(request, timeoutMs = 2400) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('SW network timeout')), timeoutMs);
+    fetch(request)
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  // Nunca interceptar/cachear chamadas autenticadas ao Supabase ou APIs externas dinâmicas
+
+  // Nunca interceptar chamadas autenticadas ou APIs dinâmicas
   if (url.hostname.includes('supabase.co') || url.hostname.includes('brasilapi.com.br')) {
     return;
   }
 
-  // Apenas assets locais da mesma origem usam Network-First (sem cache HTTP stale) com fallback offline
-  if (url.origin === self.location.origin) {
+  // Bibliotecas externas com versão e integridade fixas usam Cache-First para abrir instantâneo e offline
+  if (PINNED_CDN_SET.has(request.url)) {
     event.respondWith(
-      fetch(request.mode === 'navigate' ? request.url : request, { cache: 'no-cache' })
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(new Request(request.url, { mode: 'cors' })).then((response) => {
+          if (resOk(response)) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request.url, copy));
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // Assets locais da mesma origem: Network-First com timeout rápido para fallback imediato ao cache offline
+  if (url.origin === self.location.origin) {
+    const netReq = request.mode === 'navigate'
+      ? new Request(request.url, { cache: 'no-cache' })
+      : new Request(request, { cache: 'no-cache' });
+
+    event.respondWith(
+      fetchWithTimeout(netReq, 2400)
         .then((response) => {
-          if (response && resOk(response)) {
+          if (resOk(response)) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }

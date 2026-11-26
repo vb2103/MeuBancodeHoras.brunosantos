@@ -12,17 +12,31 @@ import {
 } from './security.js';
 import { formatHHMM } from './time.js';
 import { runWithButtonLoading } from './modals.js';
+import {
+  clearAllInlineErrors,
+  closeAnimatedModal,
+  openAnimatedModal,
+  renderLucideIcons,
+  syncSlidingTabs,
+  triggerInlineFieldError
+} from './ui-motion.js';
 
 export function createProfileManager(ctx) {
   let activeTab = 'perfil';
 
   const modal = document.getElementById('profileModal');
   const alertBox = document.getElementById('profileAlert');
+  const nameWrap = document.getElementById('profileNameWrap');
   const nameInput = document.getElementById('profileNameInput');
+  const newEmailWrap = document.getElementById('profileNewEmailWrap');
   const newEmailInput = document.getElementById('profileNewEmail');
+  const emailPwdWrap = document.getElementById('profileEmailPwdWrap');
   const emailPwdInput = document.getElementById('profileEmailPassword');
+  const curPwdWrap = document.getElementById('profileCurrentPwdWrap');
   const curPwdInput = document.getElementById('profileCurrentPassword');
+  const newPwdWrap = document.getElementById('profileNewPwdWrap');
   const newPwdInput = document.getElementById('profileNewPassword');
+  const confirmPwdWrap = document.getElementById('profileConfirmPwdWrap');
   const confirmPwdInput = document.getElementById('profileConfirmPassword');
   const pwdMatchHint = document.getElementById('profilePwdMatchHint');
 
@@ -114,13 +128,21 @@ export function createProfileManager(ctx) {
   function switchTab(tabName) {
     activeTab = tabName;
     clearProfileAlert();
+    clearAllInlineErrors(modal);
+    const tabsBar = document.getElementById('profileTabs');
     ['perfil', 'seguranca'].forEach((t) => {
       document.getElementById(`profilePanel-${t}`).classList.toggle('hidden', t !== tabName);
       const btn = document.getElementById(`profileTabBtn-${t}`);
-      btn.className = t === tabName
-        ? 'profile-tab-btn px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition'
-        : 'profile-tab-btn px-3.5 py-2 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+      const selected = t === tabName;
+      btn.setAttribute('aria-selected', String(selected));
+      btn.className = selected
+        ? 'profile-tab-btn t-tab sh-touch-h44 px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-900 dark:text-white'
+        : 'profile-tab-btn t-tab sh-touch-h44 px-3.5 py-2 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
     });
+    const activeBtn = document.getElementById(`profileTabBtn-${tabName}`);
+    if (tabsBar && activeBtn && !modal.classList.contains('hidden')) {
+      syncSlidingTabs(tabsBar, activeBtn, { animate: true });
+    }
   }
 
   function syncProfileHeaderSummary() {
@@ -149,14 +171,19 @@ export function createProfileManager(ctx) {
 
   function openProfileModal(defaultTab = 'perfil') {
     ctx.captureLastFocus();
+    clearAllInlineErrors(modal);
     syncProfileHeaderSummary();
     const settings = ctx.getSettings();
     nameInput.value = settings.userName || '';
     newEmailInput.value = '';
     clearSensitiveInputs();
+    openAnimatedModal(modal);
     switchTab(defaultTab);
-    modal.classList.remove('hidden');
-    window.lucide?.createIcons();
+    const tabsBar = document.getElementById('profileTabs');
+    requestAnimationFrame(() => {
+      syncSlidingTabs(tabsBar, document.getElementById(`profileTabBtn-${defaultTab}`), { animate: false });
+    });
+    renderLucideIcons(modal);
     if (window.innerWidth >= 768) {
       if (defaultTab === 'seguranca') curPwdInput.focus();
       else nameInput.focus();
@@ -166,9 +193,16 @@ export function createProfileManager(ctx) {
   function closeProfileModal() {
     clearSensitiveInputs();
     clearProfileAlert();
-    modal.classList.add('hidden');
+    clearAllInlineErrors(modal);
+    closeAnimatedModal(modal);
     ctx.restoreLastFocus();
   }
+
+  window.addEventListener('resize', () => {
+    if (!modal.classList.contains('hidden')) {
+      syncSlidingTabs(document.getElementById('profileTabs'), document.getElementById(`profileTabBtn-${activeTab}`), { animate: false });
+    }
+  });
 
   ctx.registerExternalModal('profileModal', closeProfileModal);
 
@@ -195,12 +229,13 @@ export function createProfileManager(ctx) {
   document.getElementById('profileIdentityForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     clearProfileAlert();
+    clearAllInlineErrors(modal);
     const user = ctx.getUser();
     if (!user) return;
     const cleanName = nameInput.value.trim();
     if (!cleanName) {
+      triggerInlineFieldError(nameWrap, nameInput, 'Informe como deseja ser chamado no app e nos relatórios.');
       showProfileAlert('Informe um nome válido para exibição.', 'error');
-      nameInput.focus();
       return;
     }
 
@@ -227,6 +262,7 @@ export function createProfileManager(ctx) {
   document.getElementById('profileEmailForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     clearProfileAlert();
+    clearAllInlineErrors(modal);
     const user = ctx.getUser();
     if (!user?.email) return;
 
@@ -234,18 +270,18 @@ export function createProfileManager(ctx) {
     const currentPwd = emailPwdInput.value;
 
     if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      triggerInlineFieldError(newEmailWrap, newEmailInput, 'Digite um endereço de e-mail válido.');
       showProfileAlert('Informe um endereço de e-mail válido.', 'error');
-      newEmailInput.focus();
       return;
     }
     if (nextEmail === user.email.toLowerCase()) {
+      triggerInlineFieldError(newEmailWrap, newEmailInput, 'Escolha um endereço diferente do atual.');
       showProfileAlert('O novo e-mail precisa ser diferente do e-mail atual.', 'error');
-      newEmailInput.focus();
       return;
     }
     if (!currentPwd) {
+      triggerInlineFieldError(emailPwdWrap, emailPwdInput, 'Digite sua senha atual para confirmar esta mudança.');
       showProfileAlert('Por segurança, informe sua senha atual para alterar o e-mail.', 'error');
-      emailPwdInput.focus();
       return;
     }
 
@@ -257,8 +293,8 @@ export function createProfileManager(ctx) {
           password: currentPwd
         });
         if (reauthErr) {
+          triggerInlineFieldError(emailPwdWrap, emailPwdInput, 'Senha atual incorreta.');
           showProfileAlert('Senha atual incorreta. A alteração de e-mail foi bloqueada.', 'error');
-          emailPwdInput.focus();
           return;
         }
 
@@ -292,6 +328,7 @@ export function createProfileManager(ctx) {
   document.getElementById('profilePasswordForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     clearProfileAlert();
+    clearAllInlineErrors(modal);
     const user = ctx.getUser();
     if (!user?.email) return;
 
@@ -301,8 +338,8 @@ export function createProfileManager(ctx) {
     const revokeOthers = Boolean(document.getElementById('profileRevokeOthersCheckbox')?.checked);
 
     if (!currentPwd) {
+      triggerInlineFieldError(curPwdWrap, curPwdInput, 'Informe sua senha atual para continuar.');
       showProfileAlert('Informe sua senha atual para confirmar sua identidade.', 'error');
-      curPwdInput.focus();
       return;
     }
 
@@ -311,14 +348,14 @@ export function createProfileManager(ctx) {
       currentPassword: currentPwd
     });
     if (!policy.valid) {
+      triggerInlineFieldError(newPwdWrap, newPwdInput, policy.reason || 'Nova senha não atende aos critérios.');
       showProfileAlert(policy.reason || 'A nova senha não atende aos requisitos mínimos de segurança.', 'error');
-      newPwdInput.focus();
       return;
     }
 
     if (newPwd !== confirmPwd) {
+      triggerInlineFieldError(confirmPwdWrap, confirmPwdInput, 'As senhas digitadas não coincidem.');
       showProfileAlert('A confirmação de senha não coincide com a nova senha.', 'error');
-      confirmPwdInput.focus();
       return;
     }
 
@@ -331,8 +368,8 @@ export function createProfileManager(ctx) {
           password: currentPwd
         });
         if (reauthErr) {
+          triggerInlineFieldError(curPwdWrap, curPwdInput, 'Senha atual incorreta.');
           showProfileAlert('Senha atual incorreta. Nenhuma alteração foi realizada.', 'error');
-          curPwdInput.focus();
           return;
         }
 

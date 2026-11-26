@@ -6,6 +6,16 @@ import {
   renderPasswordStrengthUI,
   wirePasswordVisibilityToggle
 } from './security.js';
+import {
+  clearAllInlineErrors,
+  closeAnimatedModal,
+  openAnimatedModal,
+  prefersReducedMotion,
+  readCssMs,
+  renderLucideIcons,
+  syncSlidingTabs,
+  triggerInlineFieldError
+} from './ui-motion.js';
 
 export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast }) {
   let authMode = 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
@@ -30,6 +40,21 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
   const backBtn = document.getElementById('backToLoginBtn');
   const authTabs = document.getElementById('authTabs');
   const loadingOverlay = document.getElementById('loadingOverlay');
+
+  function revealLoadingOverlay() {
+    if (!loadingOverlay || loadingOverlay.classList.contains('hidden')) return;
+    if (prefersReducedMotion()) {
+      loadingOverlay.classList.add('hidden');
+      loadingOverlay.classList.remove('is-revealed');
+      return;
+    }
+    loadingOverlay.classList.add('is-revealed');
+    const ms = readCssMs('--reveal-dur', 400) + 20;
+    setTimeout(() => {
+      loadingOverlay.classList.add('hidden');
+      loadingOverlay.classList.remove('is-revealed');
+    }, ms);
+  }
 
   const resetPwdToggle = wirePasswordVisibilityToggle(document.getElementById('toggleAuthPwdBtn'), pwdInput);
   const resetConfirmToggle = wirePasswordVisibilityToggle(document.getElementById('toggleAuthConfirmPwdBtn'), confirmInput);
@@ -80,6 +105,7 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
 
   function switchAuthMode(mode) {
     authMode = mode;
+    clearAllInlineErrors(authScreen);
     authAlert.classList.add('hidden');
     resendBtn.classList.add('hidden');
     emailWrap.classList.remove('hidden');
@@ -88,8 +114,10 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
 
     if (mode === 'login') {
       authTabs.classList.remove('hidden');
-      tabLogin.className = 'py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
-      tabSignup.className = 'py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+      tabLogin.setAttribute('aria-selected', 'true');
+      tabSignup.setAttribute('aria-selected', 'false');
+      tabLogin.className = 't-tab sh-touch-h44 py-2 rounded-lg text-slate-900 dark:text-white font-semibold';
+      tabSignup.className = 't-tab sh-touch-h44 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
       nameWrap.classList.add('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
@@ -102,8 +130,10 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
       backBtn.classList.add('hidden');
     } else if (mode === 'signup') {
       authTabs.classList.remove('hidden');
-      tabSignup.className = 'py-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
-      tabLogin.className = 'py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+      tabSignup.setAttribute('aria-selected', 'true');
+      tabLogin.setAttribute('aria-selected', 'false');
+      tabSignup.className = 't-tab sh-touch-h44 py-2 rounded-lg text-slate-900 dark:text-white font-semibold';
+      tabLogin.className = 't-tab sh-touch-h44 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
       nameWrap.classList.remove('hidden');
       pwdWrap.classList.remove('hidden');
       pwdInput.required = true;
@@ -149,8 +179,19 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
     resetConfirmToggle?.();
     updateAuthStrengthFeedback();
     submitBtn.innerHTML = getSubmitHtmlForMode(mode);
-    window.lucide?.createIcons();
+    renderLucideIcons(authScreen);
+    if (!authTabs.classList.contains('hidden')) {
+      syncSlidingTabs(authTabs, mode === 'signup' ? tabSignup : tabLogin, {
+        animate: !authScreen.classList.contains('hidden')
+      });
+    }
   }
+
+  window.addEventListener('resize', () => {
+    if (!authScreen.classList.contains('hidden') && !authTabs.classList.contains('hidden')) {
+      syncSlidingTabs(authTabs, authMode === 'signup' ? tabSignup : tabLogin, { animate: false });
+    }
+  });
 
   pwdInput.addEventListener('input', updateAuthStrengthFeedback);
   emailInput.addEventListener('input', updateAuthStrengthFeedback);
@@ -162,14 +203,50 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
   document.getElementById('authForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (isAuthBusy) return;
-    isAuthBusy = true;
+    clearAllInlineErrors(authScreen);
+    authAlert.classList.add('hidden');
 
     const email = emailInput.value.trim();
     const password = pwdInput.value;
     const confirmPwd = confirmInput?.value || '';
     const fullName = document.getElementById('authName').value.trim();
-    resendBtn.classList.add('hidden');
 
+    if (authMode !== 'update_password' && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+      triggerInlineFieldError(emailWrap, emailInput, 'Informe um e-mail válido (ex.: voce@empresa.com.br).');
+      return;
+    }
+
+    if (authMode === 'signup') {
+      if (!fullName) {
+        triggerInlineFieldError(nameWrap, 'authName', 'Informe seu nome completo para criar a conta.');
+        return;
+      }
+      const policy = evaluatePasswordPolicy(password, { email });
+      if (!policy.valid) {
+        triggerInlineFieldError(pwdWrap, pwdInput, policy.reason || 'A senha precisa atender aos critérios abaixo.');
+        return;
+      }
+      if (password !== confirmPwd) {
+        triggerInlineFieldError(confirmWrap, confirmInput, 'As duas senhas precisam ser iguais.');
+        return;
+      }
+    } else if (authMode === 'update_password') {
+      const policy = evaluatePasswordPolicy(password, { email });
+      if (!policy.valid) {
+        triggerInlineFieldError(pwdWrap, pwdInput, policy.reason || 'A senha precisa atender aos critérios abaixo.');
+        return;
+      }
+      if (password !== confirmPwd) {
+        triggerInlineFieldError(confirmWrap, confirmInput, 'As duas senhas precisam ser iguais.');
+        return;
+      }
+    } else if (authMode === 'login' && !password) {
+      triggerInlineFieldError(pwdWrap, pwdInput, 'Digite sua senha para entrar.');
+      return;
+    }
+
+    isAuthBusy = true;
+    resendBtn.classList.add('hidden');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Processando...';
 
@@ -184,28 +261,13 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
             showAuthAlert('<strong>E-mail ainda não confirmado.</strong> Verifique sua caixa de entrada (ou spam) e clique no link enviado antes de entrar.', 'warning');
             resendBtn.classList.remove('hidden');
           } else if (msg.includes('invalid login credentials')) {
-            showAuthAlert('E-mail ou senha incorretos. Verifique seus dados e tente novamente.', 'error');
+            triggerInlineFieldError(pwdWrap, pwdInput, 'E-mail ou senha incorretos. Confira e tente novamente.');
+            showAuthAlert('E-mail ou senha incorretos. Verifique seus dados ou use "Esqueci a senha".', 'error');
           } else {
             showAuthAlert(mapAuthErrorMessage(error), 'error');
           }
         }
       } else if (authMode === 'signup') {
-        if (!fullName) {
-          showAuthAlert('Informe seu nome completo para criar a conta.', 'error');
-          return;
-        }
-        const policy = evaluatePasswordPolicy(password, { email });
-        if (!policy.valid) {
-          showAuthAlert(escapeHtml(policy.reason), 'error');
-          pwdInput.focus();
-          return;
-        }
-        if (password !== confirmPwd) {
-          showAuthAlert('A confirmação de senha não coincide.', 'error');
-          confirmInput?.focus();
-          return;
-        }
-
         const { error } = await supabaseClient.auth.signUp({
           email,
           password,
@@ -233,18 +295,6 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
           showAuthAlert(`Se existir uma conta para <strong>${escapeHtml(email)}</strong>, enviaremos um link seguro de redefinição.`, 'success');
         }
       } else if (authMode === 'update_password') {
-        const policy = evaluatePasswordPolicy(password, { email });
-        if (!policy.valid) {
-          showAuthAlert(escapeHtml(policy.reason), 'error');
-          pwdInput.focus();
-          return;
-        }
-        if (password !== confirmPwd) {
-          showAuthAlert('A confirmação de senha não coincide.', 'error');
-          confirmInput?.focus();
-          return;
-        }
-
         const { data, error } = await supabaseClient.auth.updateUser({ password });
         if (error) {
           showAuthAlert('Erro ao atualizar senha: ' + mapAuthErrorMessage(error), 'error');
@@ -256,7 +306,7 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
           }
           onToast('Senha atualizada com sucesso!');
           switchAuthMode('login');
-          authScreen.classList.add('hidden');
+          closeAnimatedModal(authScreen);
           if (data?.user) {
             loadedUserId = data.user.id;
             await onSessionReady(data.user);
@@ -269,7 +319,7 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
       isAuthBusy = false;
       submitBtn.disabled = false;
       submitBtn.innerHTML = getSubmitHtmlForMode(authMode);
-      window.lucide?.createIcons();
+      renderLucideIcons(authScreen);
     }
   });
 
@@ -302,7 +352,8 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
       pwdInput.value = '';
       if (confirmInput) confirmInput.value = '';
       switchAuthMode('login');
-      authScreen.classList.remove('hidden');
+      openAnimatedModal(authScreen);
+      requestAnimationFrame(() => syncSlidingTabs(authTabs, tabLogin, { animate: false }));
       onSignedOut();
       onToast(scope === 'global' ? 'Todas as sessões foram encerradas' : 'Sessão encerrada');
     }
@@ -312,8 +363,8 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
 
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY' && session?.user) {
-      loadingOverlay.classList.add('hidden');
-      authScreen.classList.remove('hidden');
+      revealLoadingOverlay();
+      openAnimatedModal(authScreen);
       switchAuthMode('update_password');
       showAuthAlert('Defina sua nova senha forte abaixo para acessar o <strong>SaldoHoras</strong>.', 'warning');
       return;
@@ -321,8 +372,9 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
 
     if (event === 'SIGNED_OUT' || !session?.user) {
       loadedUserId = null;
-      loadingOverlay.classList.add('hidden');
-      authScreen.classList.remove('hidden');
+      revealLoadingOverlay();
+      openAnimatedModal(authScreen);
+      requestAnimationFrame(() => syncSlidingTabs(authTabs, authMode === 'signup' ? tabSignup : tabLogin, { animate: false }));
       onSignedOut();
       return;
     }
@@ -337,14 +389,14 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
     }
 
     if (loadedUserId === session.user.id && event === 'SIGNED_IN') {
-      authScreen.classList.add('hidden');
+      closeAnimatedModal(authScreen);
       return;
     }
 
     loadedUserId = session.user.id;
-    authScreen.classList.add('hidden');
+    closeAnimatedModal(authScreen);
     await onSessionReady(session.user);
   });
 
-  return { switchAuthMode, performLogout };
+  return { switchAuthMode, performLogout, revealLoadingOverlay };
 }

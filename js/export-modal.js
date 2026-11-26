@@ -11,6 +11,8 @@ import {
   renderPrintReportSheet
 } from './export.js';
 import { formatHHMM } from './time.js';
+import { closeAnimatedModal, openAnimatedModal, renderLucideIcons } from './ui-motion.js';
+import { ensureJsPdf } from './vendor-loader.js';
 
 export function createExportModalManager(ctx) {
   const modal = document.getElementById('exportModal');
@@ -119,13 +121,13 @@ export function createExportModalManager(ctx) {
     if (radio) radio.checked = true;
 
     refreshExportPreview();
-    modal.classList.remove('hidden');
-    window.lucide?.createIcons();
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
     document.getElementById('closeExportModalBtn')?.focus();
   }
 
   function closeExportModal() {
-    modal.classList.add('hidden');
+    closeAnimatedModal(modal);
     ctx.restoreLastFocus();
   }
 
@@ -170,12 +172,17 @@ export function createExportModalManager(ctx) {
 
   document.getElementById('modalDownloadPdfBtn')?.addEventListener('click', async () => {
     const data = resolveScopedData();
+    if (!data.rows.length) {
+      ctx.showToast('Nenhum lançamento encontrado no recorte selecionado para exportar PDF.');
+      return;
+    }
     const opts = await buildExportOptions(data);
     try {
+      await ensureJsPdf();
       exportPDF(data.rows, ctx.getSettings(), opts);
       ctx.showToast('Relatório PDF baixado!');
     } catch (err) {
-      if (err?.code === 'JSPDF_UNAVAILABLE') {
+      if (err?.code === 'JSPDF_UNAVAILABLE' || String(err?.message || '').includes('Falha ao carregar')) {
         ctx.showToast('PDF offline indisponível — abrindo impressão...');
         triggerNativePrint(data.rows, opts);
       } else {

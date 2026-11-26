@@ -28,6 +28,8 @@ import {
   saveSyncQueue,
   saveUserCache
 } from '../js/sync-queue.js';
+import { prefersReducedMotion, readCssMs } from '../js/ui-motion.js';
+import { PINNED_VENDORS } from '../js/vendor-loader.js';
 import {
   applyMultiplierToMinutes,
   buildExpiryAlertSummary,
@@ -542,4 +544,15 @@ test('fila offline (sync-queue.js) mescla operações, aplica estado e persiste 
   assert.equal(hasCompletedOnboarding('u1', mockStorage), false);
   markOnboardingCompleted('u1', mockStorage);
   assert.equal(hasCompletedOnboarding('u1', mockStorage), true);
+});
+
+test('dependências CDN v25 têm versão fixa, SRI SHA-384 e helpers de motion seguros em Node', () => {
+  const vendors = Object.values(PINNED_VENDORS);
+  assert.equal(vendors.length, 5);
+  for (const v of vendors) {
+    assert.match(v.url, /^https:\/\/.*@\d+\.\d+\.\d+\/|\/\d+\.\d+\.\d+\//);
+    assert.match(v.integrity, /^sha384-[A-Za-z0-9+/=]{60,}$/);
+  }
+  assert.equal(prefersReducedMotion(), false);
+  assert.equal(readCssMs('--modal-open-dur', 250), 250);
 });

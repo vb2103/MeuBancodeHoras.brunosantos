@@ -1,13 +1,133 @@
 :root {
   color-scheme: light;
+  --sh-focus-ring: #4f46e5;
+
+  /* Tokens de movimento (transitions-dev) */
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --dropdown-open-dur: 250ms;
+  --dropdown-close-dur: 150ms;
+  --dropdown-pre-scale: 0.97;
+  --dropdown-closing-scale: 0.99;
+  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --toast-open: 350ms;
+  --toast-close: 250ms;
+  --toast-distance: 16px;
+  --toast-blur: 2px;
+  --toast-scale: 0.97;
+  --toast-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --acc-expand: 250ms;
+  --acc-collapse: 250ms;
+  --acc-chevron: 250ms;
+  --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --icon-swap-dur: 250ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
+
+  --shake-distance: 6px;
+  --shake-overshoot: 4px;
+  --shake-dur-a: 80ms;
+  --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --revert-dur: 280ms;
+
+  --pulse-dur: 1000ms;
+  --pulse-count: infinite;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+
+  --subtle-dur: 455ms;
+  --subtle-distance: 0.14em;
+  --subtle-blur: 0.042em;
+  --subtle-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --check-opacity-dur: 500ms;
+  --check-rotate-dur: 500ms;
+  --check-rotate-from: 80deg;
+  --check-bob-dur: 500ms;
+  --check-y-amount: 14px;
+  --check-blur-dur: 500ms;
+  --check-blur-from: 6px;
+  --check-path-dur: 500ms;
+  --check-path-delay: 80ms;
+  --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
 }
 
 html.dark {
   color-scheme: dark;
+  --sh-focus-ring: #818cf8;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Acessibilidade: Skip Link e anel de foco consistente via teclado */
+.sh-skip-link {
+  position: fixed;
+  top: -100px;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.625rem 1rem;
+  border-radius: 0.75rem;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+  transition: top var(--duration-quick) var(--ease-smooth-out);
+}
+
+.sh-skip-link:focus-visible {
+  top: 0.75rem;
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+:where(button, a, summary, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--sh-focus-ring);
+  outline-offset: 2px;
+}
+
+#mainContent:focus {
+  outline: none;
+}
+
+/* Alvos de toque confortáveis (>= 44px) independentes de Tailwind */
+.sh-touch-44 {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
+.sh-touch-h44 {
+  min-height: 44px !important;
 }
 
 html.dark input[type='date'],
@@ -437,6 +557,403 @@ html.dark input[type='time'] {
   }
 }
 
+/* Cards de lançamento mobile: indicador interno sem cortar cantos arredondados */
+.mobile-entry-card {
+  border-width: 1px;
+}
+
+.sh-entry-indicator {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+/* Botão limpar busca inline */
+.sh-clear-btn {
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+  transition:
+    opacity var(--duration-quick) var(--ease-smooth-out),
+    transform var(--duration-quick) var(--ease-smooth-out),
+    color var(--duration-quick) ease-out,
+    background-color var(--duration-quick) ease-out;
+}
+
+.sh-clear-btn.is-visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* ==================== TRANSITIONS-DEV PRIMITIVES ==================== */
+
+/* Modal & Bottom Sheet assimétricos (250ms abrir / 150ms fechar) */
+.t-modal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+}
+
+.t-modal .sh-modal-panel {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+
+.t-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.t-modal.is-open .sh-modal-panel {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.t-modal.is-closing {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--modal-close-dur) var(--modal-ease);
+}
+
+.t-modal.is-closing .sh-modal-panel {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity var(--modal-close-dur) var(--modal-ease);
+}
+
+@media (max-width: 767px) {
+  .t-modal .sh-sheet-panel {
+    transform: translateY(20px);
+  }
+
+  .t-modal.is-open .sh-sheet-panel {
+    transform: translateY(0);
+  }
+
+  .t-modal.is-closing .sh-sheet-panel {
+    transform: translateY(14px);
+  }
+}
+
+/* Menu dropdown origin-aware (250ms abrir / 150ms fechar) */
+.t-dropdown {
+  transform-origin: top left;
+  transform: scale(var(--dropdown-pre-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dropdown-open-dur) var(--dropdown-ease),
+    opacity var(--dropdown-open-dur) var(--dropdown-ease);
+  will-change: transform, opacity;
+}
+
+.t-dropdown[data-origin='top-right'] {
+  transform-origin: top right;
+}
+
+.t-dropdown[data-origin='top-center'] {
+  transform-origin: top center;
+}
+
+.t-dropdown[data-origin='bottom-right'] {
+  transform-origin: bottom right;
+}
+
+.t-dropdown.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.t-dropdown.is-closing {
+  transform: scale(var(--dropdown-closing-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dropdown-close-dur) var(--dropdown-ease),
+    opacity var(--dropdown-close-dur) var(--dropdown-ease);
+}
+
+/* Toast assimétrico (350ms abrir / 250ms fechar) */
+.t-toast {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
+  will-change: transform, opacity, filter;
+  transition:
+    opacity var(--toast-close) var(--toast-ease),
+    transform var(--toast-close) var(--toast-ease),
+    filter var(--toast-close) var(--toast-ease),
+    visibility 0s linear var(--toast-close);
+}
+
+.t-toast.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+  transition:
+    opacity var(--toast-open) var(--toast-ease),
+    transform var(--toast-open) var(--toast-ease),
+    filter var(--toast-open) var(--toast-ease),
+    visibility 0s linear 0s;
+}
+
+/* Abas com indicador deslizante */
+.t-tabs {
+  position: relative;
+}
+
+.t-tab {
+  position: relative;
+  z-index: 1;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+
+.t-tabs-pill {
+  position: absolute;
+  top: 0.25rem;
+  left: 0;
+  width: 0;
+  height: calc(100% - 0.5rem);
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.08);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+html.dark .t-tabs-pill {
+  background: #0f172a;
+}
+
+.t-tabs-underline {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  border-radius: 9999px;
+  background: #4f46e5;
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  pointer-events: none;
+}
+
+html.dark .t-tabs-underline {
+  background: #818cf8;
+}
+
+/* Acordeão puro CSS com grid-template-rows (0fr <-> 1fr) */
+.t-acc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--acc-collapse) var(--acc-ease);
+}
+
+.t-acc[data-open='true'] .t-acc-panel {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--acc-expand) var(--acc-ease);
+}
+
+.t-acc-panel-inner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity var(--acc-collapse) var(--acc-ease),
+    filter var(--acc-collapse) var(--acc-ease);
+}
+
+.t-acc[data-open='true'] .t-acc-panel-inner {
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--acc-expand) var(--acc-ease),
+    filter var(--acc-expand) var(--acc-ease);
+}
+
+.t-acc-chevron {
+  display: inline-flex;
+  transform: scaleY(1);
+  transform-origin: center;
+  transition: transform var(--acc-chevron) var(--acc-ease);
+}
+
+.t-acc[data-open='true'] .t-acc-chevron {
+  transform: scaleY(-1);
+}
+
+/* Icon swap (olho / tema sem re-renderizar SVG) */
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+}
+
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+  pointer-events: none;
+}
+
+/* Validação inline + tremor em erro */
+.t-input {
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  will-change: transform;
+}
+
+.t-input.is-error,
+.t-input-wrap.is-error .t-input {
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.16);
+}
+
+html.dark .t-input.is-error,
+html.dark .t-input-wrap.is-error .t-input {
+  border-color: #fb7185 !important;
+  box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.2);
+}
+
+.t-error-msg {
+  display: none;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  font-weight: 500;
+  color: #e11d48;
+}
+
+html.dark .t-error-msg {
+  color: #fb7185;
+}
+
+.t-input-wrap.is-error .t-error-msg {
+  display: block;
+}
+
+.t-input.is-shaking {
+  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+}
+
+@keyframes t-input-shake {
+  0% { transform: translateX(0); animation-timing-function: var(--shake-ease); }
+  28.57% { transform: translateX(var(--shake-distance)); animation-timing-function: var(--shake-ease); }
+  57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+  78.57% { transform: translateX(var(--shake-overshoot)); animation-timing-function: var(--shake-ease); }
+  100% { transform: translateX(0); }
+}
+
+/* Skeleton Loader & Reveal suave */
+.sh-skeleton-overlay {
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter var(--reveal-dur) var(--reveal-ease);
+}
+
+.sh-skeleton-overlay.is-revealed {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  pointer-events: none;
+}
+
+.t-skel-pulse > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+
+@keyframes t-skel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: var(--pulse-min); }
+}
+
+/* Números com troca sutil dígito-a-dígito */
+.t-subtle-number {
+  display: inline-flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-subtle-slot {
+  position: relative;
+  display: inline-block;
+}
+
+.t-subtle-new {
+  display: inline-block;
+}
+
+.t-subtle-old {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.t-subtle-number.is-animating .t-subtle-new {
+  animation: t-subtle-in var(--subtle-dur) var(--subtle-ease) both;
+}
+
+.t-subtle-number.is-animating .t-subtle-old {
+  animation: t-subtle-out var(--subtle-dur) var(--subtle-ease) both;
+}
+
+@keyframes t-subtle-in {
+  from {
+    transform: translateY(calc(var(--subtle-distance) * var(--subtle-dir, 1)));
+    opacity: 0;
+    filter: blur(var(--subtle-blur));
+  }
+}
+
+@keyframes t-subtle-out {
+  to {
+    transform: translateY(calc(var(--subtle-distance) * var(--subtle-dir, 1) * -1));
+    opacity: 0;
+    filter: blur(var(--subtle-blur));
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -471,8 +988,32 @@ html.dark input[type='time'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .modal-animate {
-    animation: none;
+  .modal-animate,
+  .t-input.is-shaking,
+  .t-skel-pulse > *,
+  .t-subtle-number .t-subtle-new {
+    animation: none !important;
+  }
+
+  .t-modal,
+  .t-modal .sh-modal-panel,
+  .t-dropdown,
+  .t-toast,
+  .t-tab,
+  .t-tabs-pill,
+  .t-tabs-underline,
+  .t-acc-panel,
+  .t-acc-panel-inner,
+  .t-acc-chevron,
+  .t-icon-swap .t-icon,
+  .t-input,
+  .sh-clear-btn,
+  .sh-skeleton-overlay {
+    transition: none !important;
+  }
+
+  .t-subtle-number .t-subtle-old {
+    display: none;
   }
 }
 

@@ -13,6 +13,17 @@ import {
 import { fetchHolidaysForYear, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from './holidays.js';
 import { SECTOR_CATALOG, UNION_CATALOG, findSectorByCode, findUnionByCode } from './rules-catalog.js';
 import { applyMultiplierToMinutes, computePunchBalance, formatHHMM, isInitialBalanceEntry, parseDurationToMinutes } from './time.js';
+import {
+  clearAllInlineErrors,
+  clearInlineFieldError,
+  closeAnimatedModal,
+  isLayerOpen,
+  openAnimatedModal,
+  renderLucideIcons,
+  setAccordionOpen,
+  syncSlidingTabs,
+  triggerInlineFieldError
+} from './ui-motion.js';
 
 /**
  * Executa operação assíncrona travando apenas o botão acionado.
@@ -29,7 +40,7 @@ export async function runWithButtonLoading(btn, loadingHtml, fn) {
     btn.disabled = false;
     btn.dataset.busy = '0';
     btn.innerHTML = originalHtml;
-    window.lucide?.createIcons();
+    renderLucideIcons(btn);
   }
 }
 
@@ -66,7 +77,7 @@ export function createModalManager(ctx) {
 
   function getOpenModalElement() {
     const ids = ['confirmModal', 'writeOffModal', 'initialSetupModal', 'shortcutsModal', 'entryIntentModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
-    return ids.map((id) => document.getElementById(id)).find((el) => el && !el.classList.contains('hidden')) || null;
+    return ids.map((id) => document.getElementById(id)).find((el) => isLayerOpen(el)) || null;
   }
 
   document.addEventListener('keydown', (e) => {
@@ -115,25 +126,25 @@ export function createModalManager(ctx) {
       cancelBtn.textContent = cancelText;
 
       if (variant === 'danger') {
-        okBtn.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-rose-500';
+        okBtn.className = 'sh-touch-h44 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-rose-500';
         iconBox.className = 'w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0';
       } else if (variant === 'warning') {
-        okBtn.className = 'px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-500';
+        okBtn.className = 'sh-touch-h44 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-amber-500';
         iconBox.className = 'w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0';
       } else {
-        okBtn.className = 'px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500';
+        okBtn.className = 'sh-touch-h44 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-indigo-500';
         iconBox.className = 'w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0';
       }
 
-      modal.classList.remove('hidden');
-      window.lucide?.createIcons();
+      openAnimatedModal(modal);
+      renderLucideIcons(modal);
       cancelBtn.focus();
     });
   }
 
   function resolveConfirm(result) {
     const modal = document.getElementById('confirmModal');
-    modal.classList.add('hidden');
+    closeAnimatedModal(modal);
     if (confirmLastFocusedEl && confirmLastFocusedEl !== document.body && typeof confirmLastFocusedEl.focus === 'function') {
       confirmLastFocusedEl.focus();
     }
@@ -156,16 +167,16 @@ export function createModalManager(ctx) {
     lastFocusedEl = document.activeElement;
     const modal = document.getElementById('shortcutsModal');
     if (!modal) return;
-    modal.classList.remove('hidden');
+    openAnimatedModal(modal);
     document.body.classList.add('overflow-hidden');
-    window.lucide?.createIcons();
+    renderLucideIcons(modal);
     document.getElementById('confirmShortcutsModalBtn')?.focus();
   }
 
   function closeShortcutsModal() {
     const modal = document.getElementById('shortcutsModal');
     if (!modal) return;
-    modal.classList.add('hidden');
+    closeAnimatedModal(modal);
     document.body.classList.remove('overflow-hidden');
     restoreLastFocus();
   }
@@ -207,15 +218,15 @@ export function createModalManager(ctx) {
       openEntryModal(null, false, { source: 'intent' });
       return;
     }
-    modal.classList.remove('hidden');
-    window.lucide?.createIcons();
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
     focusDesktopOnly(document.getElementById('intentCreditBtn'));
   }
 
   function closeEntryIntentModal({ restoreFocus = true } = {}) {
     const modal = document.getElementById('entryIntentModal');
-    if (!modal || modal.classList.contains('hidden')) return;
-    modal.classList.add('hidden');
+    if (!isLayerOpen(modal)) return;
+    closeAnimatedModal(modal);
     if (restoreFocus) restoreLastFocus();
   }
 
@@ -448,6 +459,8 @@ export function createModalManager(ctx) {
 
   function openEntryModal(data = null, isEditing = false, context = {}) {
     lastFocusedEl = document.activeElement;
+    const modal = document.getElementById('entryModal');
+    clearAllInlineErrors(modal);
     const settings = ctx.getSettings();
     const source = isEditing ? 'edit' : (context?.source || (data?.category === 'holiday' ? 'holiday' : 'intent'));
     const typeVal = setActiveEntryType(data?.type || 'credit');
@@ -511,13 +524,15 @@ export function createModalManager(ctx) {
     );
     setEntryAdvancedOpen(shouldOpenAdv);
     document.getElementById('punchCalcPanel')?.classList.add('hidden');
-    document.getElementById('entryModal').classList.remove('hidden');
-    window.lucide?.createIcons();
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
     focusDesktopOnly(document.getElementById('entryTitle'));
   }
 
   function closeEntryModal({ restoreFocus = true } = {}) {
-    document.getElementById('entryModal').classList.add('hidden');
+    const modal = document.getElementById('entryModal');
+    clearAllInlineErrors(modal);
+    closeAnimatedModal(modal);
     if (restoreFocus) restoreLastFocus();
   }
 
@@ -749,6 +764,7 @@ export function createModalManager(ctx) {
       applyEntryTypeSwitch(res.suggestedType);
     }
 
+    clearInlineFieldError('entryDurationWrap', 'entryHoursPart');
     setDurationParts(appliedMins);
     updateEntryComputedPreview();
     ctx.showToast(`Ponto calculado: ${formatHHMM(appliedMins)} aplicados!`);
@@ -756,13 +772,21 @@ export function createModalManager(ctx) {
 
   document.getElementById('entryForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const modal = document.getElementById('entryModal');
+    clearAllInlineErrors(modal);
     const btn = document.getElementById('entrySubmitBtn');
     const hh = Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0);
     const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('entryMinutesPart').value, 10) || 0));
     const workedMinutes = hh * 60 + mm;
 
+    const entryDate = document.getElementById('entryDate').value;
+    if (!entryDate) {
+      triggerInlineFieldError('entryDateFieldWrap', 'entryDate', 'Informe a data do lançamento.');
+      return;
+    }
+
     if (workedMinutes <= 0) {
-      ctx.showToast('Informe uma duração maior que 00:00');
+      triggerInlineFieldError('entryDurationWrap', 'entryHoursPart', 'Informe uma duração maior que 00:00 (ou use os atalhos abaixo).');
       return;
     }
 
@@ -774,7 +798,6 @@ export function createModalManager(ctx) {
     const multiplier = type === 'credit' ? getActiveMultiplierForForm() : 1.0;
     const finalMinutes = type === 'credit' ? applyMultiplierToMinutes(workedMinutes, multiplier) : workedMinutes;
 
-    const entryDate = document.getElementById('entryDate').value;
     const rawTitle = document.getElementById('entryTitle').value.trim();
     const entryTitle = rawTitle || ENTRY_CATEGORIES[category]?.label || (type === 'debit' ? 'Folga Compensatória' : 'Hora Extra');
 
@@ -834,12 +857,7 @@ export function createModalManager(ctx) {
   }
 
   function setSettingsAdvancedOpen(isOpen) {
-    const box = document.getElementById('settingsAdvancedBox');
-    const btn = document.getElementById('toggleSettingsAdvancedBtn');
-    const chevron = document.getElementById('settingsAdvancedChevron');
-    box?.classList.toggle('hidden', !isOpen);
-    btn?.setAttribute('aria-expanded', String(Boolean(isOpen)));
-    chevron?.classList.toggle('rotate-180', Boolean(isOpen));
+    setAccordionOpen('settingsAdvancedAcc', Boolean(isOpen));
   }
 
   function updateSettingsRuleSummaryCard() {
@@ -873,17 +891,27 @@ export function createModalManager(ctx) {
     const customBtn = document.getElementById('customModeBtn');
     const unionBox = document.getElementById('unionSelectBox');
     const sectorBox = document.getElementById('sectorSelectBox');
+    const tabsBar = document.getElementById('settingsModeTabs');
+    const modal = document.getElementById('settingsModal');
 
-    const activeCls = 'px-2.5 py-2 rounded-lg bg-indigo-600 text-white transition text-center';
-    const inactiveCls = 'px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-center';
+    const activeCls = 't-tab sh-touch-h44 px-2.5 py-2 rounded-lg text-slate-900 dark:text-white font-semibold text-center';
+    const inactiveCls = 't-tab sh-touch-h44 px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 font-medium text-center';
 
     unionBtn.className = mode === 'union' ? activeCls : inactiveCls;
     sectorBtn.className = mode === 'sector' ? activeCls : inactiveCls;
     customBtn.className = mode === 'custom' ? activeCls : inactiveCls;
+    unionBtn.setAttribute('aria-selected', String(mode === 'union'));
+    sectorBtn.setAttribute('aria-selected', String(mode === 'sector'));
+    customBtn.setAttribute('aria-selected', String(mode === 'custom'));
 
     unionBox.classList.toggle('hidden', mode !== 'union');
     sectorBox.classList.toggle('hidden', mode !== 'sector');
     setSettingsAdvancedOpen(mode === 'custom');
+
+    const activeBtn = mode === 'union' ? unionBtn : (mode === 'custom' ? customBtn : sectorBtn);
+    if (tabsBar && activeBtn && isLayerOpen(modal)) {
+      syncSlidingTabs(tabsBar, activeBtn, { animate: true });
+    }
   }
 
   function getActiveUnionModeFromUI() {
@@ -921,6 +949,8 @@ export function createModalManager(ctx) {
 
   function openSettingsModal() {
     lastFocusedEl = document.activeElement;
+    const modal = document.getElementById('settingsModal');
+    clearAllInlineErrors(modal);
     populateSettingsSelects();
     const settings = ctx.getSettings();
 
@@ -930,7 +960,8 @@ export function createModalManager(ctx) {
     const sectorSel = document.getElementById('settingCompanySector');
     sectorSel.value = findSectorByCode(settings.companySector) ? settings.companySector : 'tecnologia';
 
-    setSettingsUnionModeUI(settings.unionMode || 'sector');
+    const activeMode = settings.unionMode || 'sector';
+    setSettingsUnionModeUI(activeMode);
     document.getElementById('settingStateUf').value = settings.stateUf || 'SP';
     document.getElementById('settingDailyHHMM').value = formatHHMM(settings.dailyMinutes || 480);
     document.getElementById('settingOvertimeMult').value = settings.overtimeMultiplier ?? 1.5;
@@ -947,8 +978,13 @@ export function createModalManager(ctx) {
     }
 
     updateSettingsRuleSummaryCard();
-    document.getElementById('settingsModal').classList.remove('hidden');
-    window.lucide?.createIcons();
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
+    const activeTabBtn = activeMode === 'union'
+      ? document.getElementById('unionModeBtn')
+      : (activeMode === 'custom' ? document.getElementById('customModeBtn') : document.getElementById('sectorModeBtn'));
+    requestAnimationFrame(() => syncSlidingTabs(document.getElementById('settingsModeTabs'), activeTabBtn, { animate: false }));
+
     const firstSelect = settings.unionMode === 'union'
       ? document.getElementById('settingUnionCode')
       : document.getElementById('settingCompanySector');
@@ -956,7 +992,9 @@ export function createModalManager(ctx) {
   }
 
   function closeSettingsModal() {
-    document.getElementById('settingsModal').classList.add('hidden');
+    const modal = document.getElementById('settingsModal');
+    clearAllInlineErrors(modal);
+    closeAnimatedModal(modal);
     restoreLastFocus();
   }
 
@@ -981,8 +1019,8 @@ export function createModalManager(ctx) {
   document.getElementById('settingUnionCode').addEventListener('change', () => applyPresetFromSelection('union'));
   document.getElementById('settingCompanySector').addEventListener('change', () => applyPresetFromSelection('sector'));
   document.getElementById('toggleSettingsAdvancedBtn')?.addEventListener('click', () => {
-    const isHidden = document.getElementById('settingsAdvancedBox')?.classList.contains('hidden');
-    setSettingsAdvancedOpen(Boolean(isHidden));
+    const isCurrentlyOpen = document.getElementById('settingsAdvancedAcc')?.getAttribute('data-open') === 'true';
+    setSettingsAdvancedOpen(!isCurrentlyOpen);
   });
   ['settingDailyHHMM', 'settingOvertimeMult', 'settingHolidayMult', 'settingExpiryDays'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', updateSettingsRuleSummaryCard);
@@ -990,10 +1028,20 @@ export function createModalManager(ctx) {
 
   document.getElementById('settingsForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const modal = document.getElementById('settingsModal');
+    clearAllInlineErrors(modal);
+
     const parsedMins = parseDurationToMinutes(document.getElementById('settingDailyHHMM').value, { min: 60, max: 1440 });
     if (parsedMins === null) {
       setSettingsAdvancedOpen(true);
-      ctx.showToast('Jornada inválida. Use HH:MM (ex.: 08:00 ou 07:20)');
+      triggerInlineFieldError('settingDailyWrap', 'settingDailyHHMM', 'Jornada inválida. Use HH:MM entre 01:00 e 24:00 (ex.: 08:00).');
+      return;
+    }
+
+    const expiryDays = parseInt(document.getElementById('settingExpiryDays').value, 10);
+    if (!Number.isFinite(expiryDays) || expiryDays < 15 || expiryDays > 730) {
+      setSettingsAdvancedOpen(true);
+      triggerInlineFieldError('settingExpiryWrap', 'settingExpiryDays', 'Informe um prazo entre 15 e 730 dias.');
       return;
     }
 
@@ -1007,7 +1055,7 @@ export function createModalManager(ctx) {
       dailyMinutes: parsedMins,
       overtimeMultiplier: parseFloat(document.getElementById('settingOvertimeMult').value) || 1.0,
       holidayMultiplier: parseFloat(document.getElementById('settingHolidayMult').value) || 1.0,
-      expiryDays: parseInt(document.getElementById('settingExpiryDays').value, 10) || 180
+      expiryDays
     };
 
     await runWithButtonLoading(btn, 'Salvando...', async () => {
@@ -1030,8 +1078,8 @@ export function createModalManager(ctx) {
     document.querySelectorAll('.holiday-view-pill').forEach((btn) => {
       const active = btn.dataset.holidayFilter === holidayFilter;
       btn.className = active
-        ? 'holiday-view-pill min-h-[34px] px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
-        : 'holiday-view-pill min-h-[34px] px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
+        ? 'holiday-view-pill sh-touch-h44 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
+        : 'holiday-view-pill sh-touch-h44 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
     });
   }
 
@@ -1159,7 +1207,7 @@ export function createModalManager(ctx) {
     }).join('');
 
     syncHolidaysBatchFooterUI();
-    window.lucide?.createIcons();
+    renderLucideIcons(container);
   }
 
   function getHolidayBatchWorkedMinutes() {
@@ -1192,6 +1240,8 @@ export function createModalManager(ctx) {
 
   async function openHolidaysModal() {
     lastFocusedEl = document.activeElement;
+    const modal = document.getElementById('holidaysModal');
+    clearAllInlineErrors(modal);
     populateSettingsSelects();
     holidayYear = new Date().getFullYear();
     holidayFilter = 'all';
@@ -1206,14 +1256,16 @@ export function createModalManager(ctx) {
 
     const uf = getActiveHolidayUf();
     document.getElementById('holidayUfSelect').value = uf;
-    document.getElementById('holidaysModal').classList.remove('hidden');
-    window.lucide?.createIcons();
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
     focusDesktopOnly(document.getElementById('holidayUfSelect'));
     await refreshHolidaysView(false);
   }
 
   function closeHolidaysModal() {
-    document.getElementById('holidaysModal').classList.add('hidden');
+    const modal = document.getElementById('holidaysModal');
+    if (!modal || !isLayerOpen(modal)) return;
+    closeAnimatedModal(modal);
     restoreLastFocus();
   }
 
@@ -1362,11 +1414,11 @@ export function createModalManager(ctx) {
     }
 
     const batchInput = document.getElementById('holidayBatchHHMM');
+    clearInlineFieldError('holidayBatchHoursWrap', 'holidayBatchHHMM');
     const rawBatch = batchInput?.value?.trim() || '';
     const parsedBatch = rawBatch ? parseDurationToMinutes(rawBatch) : (Number(settings.dailyMinutes) || 480);
     if (!parsedBatch || parsedBatch <= 0) {
-      ctx.showToast('Informe uma duração válida em HH:MM (ex.: 08:00 ou 04:00)');
-      batchInput?.focus();
+      triggerInlineFieldError('holidayBatchHoursWrap', 'holidayBatchHHMM', 'Informe uma duração válida em HH:MM (ex.: 08:00 ou 04:00).');
       return;
     }
 
@@ -1486,16 +1538,17 @@ export function createModalManager(ctx) {
       document.getElementById('initBackToStep1Btn')?.classList.toggle('hidden', adjustOnly);
     }
 
+    clearAllInlineErrors(modal);
     syncInitialSetupUI();
-    modal.classList.remove('hidden');
-    window.lucide?.createIcons();
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
     focusDesktopOnly(startStep === 1 ? unionSel : document.getElementById('initModeZeroBtn'));
   }
 
   function closeInitialSetupModal(markDone = true) {
     const modal = document.getElementById('initialSetupModal');
-    if (!modal || modal.classList.contains('hidden')) return;
-    modal.classList.add('hidden');
+    if (!modal || !isLayerOpen(modal)) return;
+    closeAnimatedModal(modal);
     if (markDone) ctx.onOnboardingCompleted?.();
     restoreLastFocus();
   }
@@ -1536,6 +1589,7 @@ export function createModalManager(ctx) {
 
   document.getElementById('initModeZeroBtn')?.addEventListener('click', () => {
     initBalanceMode = 'zero';
+    clearInlineFieldError('initCustomHoursWrap', 'initHoursPart');
     syncInitialSetupUI();
   });
   document.getElementById('initModeCustomBtn')?.addEventListener('click', () => {
@@ -1559,6 +1613,7 @@ export function createModalManager(ctx) {
     input.addEventListener('input', () => {
       const clean = input.value.replace(/\D/g, '');
       if (input.value !== clean) input.value = clean;
+      clearInlineFieldError('initCustomHoursWrap', 'initHoursPart');
     });
     input.addEventListener('blur', () => {
       const v = parseInt(input.value, 10) || 0;
@@ -1591,9 +1646,10 @@ export function createModalManager(ctx) {
     const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('initMinutesPart')?.value, 10) || 0));
     const totalMins = hh * 60 + mm;
     if (totalMins <= 0) {
-      ctx.showToast('Informe um saldo inicial maior que 00:00');
+      triggerInlineFieldError('initCustomHoursWrap', 'initHoursPart', 'Informe um saldo inicial maior que 00:00.');
       return;
     }
+    clearInlineFieldError('initCustomHoursWrap', 'initHoursPart');
 
     const s = ctx.getSettings();
     const todayIso = getLocalDateISO();
@@ -1649,13 +1705,16 @@ export function createModalManager(ctx) {
         `Crédito "${entryItem.title}" (${formatDateBR(entryItem.date)}) com saldo restante de ${formatHHMM(remMins)}. Escolha como deseja encerrar:`;
     }
     syncWriteOffReasonUI();
-    document.getElementById('writeOffModal')?.classList.remove('hidden');
-    window.lucide?.createIcons();
+    const modal = document.getElementById('writeOffModal');
+    openAnimatedModal(modal);
+    renderLucideIcons(modal);
     focusDesktopOnly(document.getElementById('writeOffReasonExpiredBtn'));
   }
 
   function closeWriteOffModal() {
-    document.getElementById('writeOffModal')?.classList.add('hidden');
+    const modal = document.getElementById('writeOffModal');
+    if (!modal || !isLayerOpen(modal)) return;
+    closeAnimatedModal(modal);
     writeOffTarget = null;
     restoreLastFocus();
   }
@@ -1736,41 +1795,41 @@ export function createModalManager(ctx) {
       }
     },
     handleEscapeKey() {
-      if (!document.getElementById('confirmModal').classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('confirmModal'))) {
         resolveConfirm(false);
         return true;
       }
-      if (!document.getElementById('writeOffModal')?.classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('writeOffModal'))) {
         closeWriteOffModal();
         return true;
       }
-      if (!document.getElementById('initialSetupModal')?.classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('initialSetupModal'))) {
         closeInitialSetupModal(true);
         return true;
       }
-      if (!document.getElementById('shortcutsModal').classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('shortcutsModal'))) {
         closeShortcutsModal();
         return true;
       }
-      if (!document.getElementById('entryIntentModal')?.classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('entryIntentModal'))) {
         closeEntryIntentModal({ restoreFocus: true });
         return true;
       }
-      if (!document.getElementById('entryModal').classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('entryModal'))) {
         closeEntryModal();
         return true;
       }
-      if (!document.getElementById('holidaysModal').classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('holidaysModal'))) {
         closeHolidaysModal();
         return true;
       }
-      if (!document.getElementById('settingsModal').classList.contains('hidden')) {
+      if (isLayerOpen(document.getElementById('settingsModal'))) {
         closeSettingsModal();
         return true;
       }
       for (const ext of externalModals) {
         const el = document.getElementById(ext.id);
-        if (el && !el.classList.contains('hidden')) {
+        if (el && isLayerOpen(el)) {
           ext.closeFn();
           return true;
         }
