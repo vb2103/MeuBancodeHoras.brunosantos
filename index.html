@@ -14,7 +14,7 @@
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=23" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=24" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=23" />
+  <link rel="stylesheet" href="./assets/app.css?v=24" />
 
   <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -224,6 +224,10 @@
 
         <div aria-hidden="true" class="sh-mobile-hide hidden sm:block h-5 w-px bg-slate-200 dark:bg-slate-800 mx-0.5"></div>
 
+        <button type="button" id="desktopPrivacyToggleBtn" aria-label="Ocultar ou exibir valores" aria-pressed="false" title="Modo privacidade (ocultar horas)" class="sh-mobile-hide hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-500 dark:text-slate-300 transition shrink-0">
+          <i data-lucide="eye" class="w-4 h-4"></i>
+        </button>
+
         <!-- Menu da Conta (Perfil, Parâmetros, Tema, Atalhos e Sair) -->
         <div class="relative" id="userMenuWrapper">
           <button type="button" id="userMenuBtn" aria-label="Abrir menu da conta" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 min-h-[44px] md:min-h-0 h-11 md:h-9 pl-2 md:pl-1.5 pr-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
@@ -252,6 +256,11 @@
               <i data-lucide="sliders-horizontal" class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0"></i>
               <span class="truncate">Regra &amp; Jornada</span>
               <kbd class="sh-mobile-hide ml-auto px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-mono text-slate-400">S</kbd>
+            </button>
+
+            <button type="button" id="openInitialBalanceBtn" role="menuitem" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition">
+              <i data-lucide="scale" class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0"></i>
+              <span class="truncate">Definir / Ajustar saldo inicial</span>
             </button>
 
             <button type="button" id="themeToggle" role="menuitem" aria-label="Alternar tema claro ou escuro" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition">
@@ -415,7 +424,12 @@
       <!-- Hero Card Unificado Mobile (exclusivo da aba Extrato < 768px) -->
       <section id="mobileHeroCard" aria-label="Resumo do saldo" class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
         <div>
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Seu saldo atual</span>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Seu saldo atual</span>
+            <button type="button" id="mobilePrivacyToggleBtn" aria-label="Ocultar ou exibir valores" aria-pressed="false" class="min-w-[40px] min-h-[40px] -my-2 -mr-1.5 inline-flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70 transition">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
           <div class="flex items-baseline gap-2.5 flex-wrap mt-0.5">
             <span id="heroRealizedHours" class="text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white tracking-tight">+00:00</span>
             <span id="heroRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias de folga</span>
@@ -548,51 +562,24 @@
         </div>
       </div>
 
-      <!-- Estado Vazio / Onboarding -->
+      <!-- Estado Vazio / Boas-Vindas -->
       <div id="emptyState" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-10">
         <!-- Caso 1: Conta sem lançamentos ainda -->
-        <div id="emptyOnboarding" class="space-y-6">
-          <div class="text-center max-w-lg mx-auto space-y-2">
-            <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-              <i data-lucide="sparkles" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Bem-vindo ao SaldoHoras</h3>
-            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Comece seu controle em 3 passos simples. Tudo é convertido automaticamente em horas (<span class="font-mono font-semibold">HH:MM</span>) no seu banco de horas.</p>
+        <div id="emptyOnboarding" class="text-center max-w-sm mx-auto py-4 space-y-4">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+            <i data-lucide="wallet" class="w-6 h-6"></i>
           </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between gap-3">
-              <div class="space-y-1.5">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">Passo 1</span>
-                <h4 class="text-sm font-bold text-slate-900 dark:text-white">Regra &amp; Jornada</h4>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Escolha seu sindicato (ex.: Sindpd-SP 1.4x) ou ramo da empresa, UF e jornada diária.</p>
-              </div>
-              <button type="button" id="onboardingSettingsBtn" class="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
-                Escolher Regra &amp; Jornada
-              </button>
-            </div>
-
-            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between gap-3">
-              <div class="space-y-1.5">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Passo 2</span>
-                <h4 class="text-sm font-bold text-slate-900 dark:text-white">Importar Feriados</h4>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Consulte o calendário oficial da sua UF e lance os feriados trabalhados com multiplicador.</p>
-              </div>
-              <button type="button" id="onboardingHolidaysBtn" class="w-full py-2 px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition">
-                Abrir Feriados
-              </button>
-            </div>
-
-            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between gap-3">
-              <div class="space-y-1.5">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">Passo 3</span>
-                <h4 class="text-sm font-bold text-slate-900 dark:text-white">Lançar Hora ou Folga</h4>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Registre horas extras, plantões ou folgas realizadas e planejadas com cálculo FIFO.</p>
-              </div>
-              <button type="button" id="onboardingNewEntryBtn" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
-                + Novo Lançamento
-              </button>
-            </div>
+          <div class="space-y-1.5">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Seu banco de horas está zerado</h3>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Toque no botão <strong class="font-semibold text-slate-700 dark:text-slate-200">+</strong> abaixo para registrar sua primeira hora extra, feriado ou folga</p>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+            <button type="button" id="onboardingNewEntryBtn" class="sh-mobile-hide w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+              + Novo Lançamento
+            </button>
+            <button type="button" id="emptySetInitialBalanceBtn" class="w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+              Informar saldo anterior
+            </button>
           </div>
         </div>
 
@@ -601,9 +588,9 @@
           <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
             <i data-lucide="search-x" class="w-6 h-6"></i>
           </div>
-          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Nenhum lançamento corresponde aos filtros</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">Limpe os filtros ativos ou tente buscar por outro termo ou período.</p>
-          <button type="button" id="emptyClearFiltersBtn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-semibold transition">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Nenhum lançamento encontrado neste filtro</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">Tente limpar os filtros ativos ou buscar por outro termo ou período.</p>
+          <button type="button" id="emptyClearFiltersBtn" class="inline-flex items-center gap-1.5 min-h-[42px] px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-semibold transition">
             Limpar filtros
           </button>
         </div>
@@ -612,6 +599,25 @@
 
     <!-- ==================== ABA 2: GRÁFICOS & SIMULADOR ==================== -->
     <section id="tabPanel-graficos" class="hidden space-y-5 sm:space-y-6">
+      <!-- Estado Vazio Gráficos -->
+      <div id="analyticsEmptyState" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-10 text-center space-y-4">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+          <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+        </div>
+        <div class="max-w-sm mx-auto space-y-1.5">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">Seus gráficos aparecerão aqui</h3>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Os gráficos de evolução, prazos a vencer e o simulador de folgas são preenchidos automaticamente após o primeiro lançamento.</p>
+        </div>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-2">
+          <button type="button" id="analyticsEmptyNewBtn" class="w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+            + Fazer lançamento
+          </button>
+          <button type="button" id="analyticsEmptyInitialBtn" class="w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+            Informar saldo anterior
+          </button>
+        </div>
+      </div>
+
       <!-- Alternador de sub-abas exclusivo Mobile -->
       <div id="analyticsSubTabs" class="sh-mobile-only-grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
         <button type="button" id="analyticsTabBtn-simulador" data-analytics-subtab="simulador" class="px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">
@@ -795,7 +801,7 @@
             </span>
             <span class="min-w-0">
               <strong class="block text-xs font-bold text-slate-900 dark:text-white truncate">Exportar Relatórios &amp; Backup</strong>
-              <span class="block text-[11px] text-slate-500 dark:text-slate-400 truncate">PDF, Excel (.xls), Planilha CSV, XML e Agenda</span>
+              <span class="block text-[11px] text-slate-500 dark:text-slate-400 truncate">PDF, Excel (.xlsx), Planilha CSV, XML e Agenda</span>
             </span>
           </span>
           <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 shrink-0"></i>
@@ -833,6 +839,22 @@
         </form>
       </div>
 
+      <!-- Estado Vazio RH -->
+      <div id="commEmptyState" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 text-center space-y-3">
+        <div class="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+          <i data-lucide="send" class="w-5 h-5"></i>
+        </div>
+        <div class="max-w-sm mx-auto space-y-1">
+          <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Ainda não há lançamentos para gerar relatório</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Você já pode salvar o contato do gestor acima. Assim que registrar sua primeira hora ou folga, os textos e o PDF ficarão prontos aqui.</p>
+        </div>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+          <button type="button" id="commEmptyNewBtn" class="w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+            + Novo Lançamento
+          </button>
+        </div>
+      </div>
+
       <!-- Alternador de canal exclusivo Mobile -->
       <div id="commChannelTabs" class="sh-mobile-only-grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
         <button type="button" id="commTabBtn-whatsapp" data-comm-channel="whatsapp" class="px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">
@@ -843,7 +865,7 @@
         </button>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div id="commChannelsGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Card E-mail -->
         <div id="commCardEmail" class="sh-chart-card sh-mobile-hidden-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4 min-w-0">
           <div class="space-y-3">
@@ -1037,40 +1059,50 @@
               <button type="button" id="fillJourneyBtn" title="Preencher com a jornada configurada" aria-pressed="false" class="duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition">1 dia</button>
             </div>
 
-            <!-- Calculadora de Ponto Diário -->
-            <div id="punchCalcPanel" class="hidden mt-2.5 p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5">
+            <!-- Calculadora de Ponto Diário (Turno Noturno + Intervalo Rápido) -->
+            <div id="punchCalcPanel" class="hidden mt-2.5 p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 space-y-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-[11px] font-bold text-indigo-900 dark:text-indigo-200">Bate-Ponto Rápido</span>
-                <span class="text-[10px] text-slate-500 dark:text-slate-400">Sem intervalo? Limpe o almoço</span>
+                <span class="text-xs font-bold text-indigo-900 dark:text-indigo-200">Calcular pelo ponto</span>
+                <span id="punchNextDayBadge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200">Dia seguinte</span>
               </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+
+              <div class="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label for="punchIn" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Entrada</label>
-                  <input type="time" id="punchIn" value="08:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
+                  <label for="punchIn" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Entrada</label>
+                  <input type="time" id="punchIn" value="08:00" class="w-full min-h-[42px] px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm font-mono tabular-nums" />
                 </div>
                 <div>
-                  <label for="punchBreakStart" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Saída Almoço</label>
-                  <input type="time" id="punchBreakStart" value="12:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
-                </div>
-                <div>
-                  <label for="punchBreakEnd" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Volta Almoço</label>
-                  <input type="time" id="punchBreakEnd" value="13:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
-                </div>
-                <div>
-                  <label for="punchOut" class="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Saída</label>
-                  <input type="time" id="punchOut" value="18:00" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono" />
+                  <label for="punchOut" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Saída</label>
+                  <input type="time" id="punchOut" value="18:00" class="w-full min-h-[42px] px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm font-mono tabular-nums" />
                 </div>
               </div>
-              <label class="flex items-center gap-2 text-[11px] text-slate-700 dark:text-slate-300 cursor-pointer">
-                <input type="checkbox" id="punchCompareJourney" checked class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                <span>Descontar minha jornada base (<strong id="punchJourneyHint" class="font-mono">08:00</strong>) — desmarque em feriados/folgas inteiras</span>
-              </label>
-              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <span id="punchCalcPreview" class="text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">—</span>
-                <button type="button" id="applyPunchCalcBtn" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold transition">
-                  Aplicar ao lançamento
-                </button>
+
+              <div class="space-y-1.5">
+                <span class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Intervalo</span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button type="button" data-punch-break="0" class="min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-xs font-medium transition">Sem intervalo</button>
+                  <button type="button" data-punch-break="60" class="min-h-[38px] px-3 py-1.5 rounded-xl border border-indigo-500 bg-indigo-600 text-white text-xs font-semibold transition">1h</button>
+                  <button type="button" data-punch-break="custom" class="min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-xs font-medium transition">Personalizado</button>
+                </div>
+                <div id="punchCustomBreakBox" class="hidden pt-1">
+                  <div class="flex items-center gap-2">
+                    <label for="punchCustomBreakInput" class="text-[11px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Duração do intervalo:</label>
+                    <input type="text" id="punchCustomBreakInput" value="00:30" placeholder="00:30 ou 45m" class="w-28 min-h-[38px] px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono tabular-nums" />
+                  </div>
+                </div>
               </div>
+
+              <div class="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-indigo-200/60 dark:border-indigo-800/50 space-y-2">
+                <p id="punchCalcPreview" class="text-xs font-mono font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums leading-snug">—</p>
+                <label class="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <input type="checkbox" id="punchCompareJourney" class="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 shrink-0" />
+                  <span>Descontar minha jornada diária (<strong id="punchJourneyHint" class="font-mono">08:00</strong>) e lançar só a diferença</span>
+                </label>
+              </div>
+
+              <button type="button" id="applyPunchCalcBtn" class="w-full min-h-[42px] px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+                Aplicar duração calculada
+              </button>
             </div>
           </div>
 
@@ -1610,6 +1642,11 @@
             <span>Salvar na Agenda</span>
           </button>
         </div>
+
+        <button type="button" id="entryDetailWriteOffBtn" class="hidden w-full min-h-[44px] px-4 py-2 rounded-xl border border-amber-300/80 dark:border-amber-800/70 bg-amber-50/80 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 hover:bg-amber-100/80 dark:hover:bg-amber-950/50 text-xs font-semibold items-center justify-center gap-2 transition">
+          <i data-lucide="archive" class="w-4 h-4 shrink-0"></i>
+          <span>Encerrar / Dar baixa</span>
+        </button>
       </div>
 
       <div class="sh-sheet-footer pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2.5">
@@ -1621,6 +1658,109 @@
           <i data-lucide="pencil" class="w-4 h-4"></i>
           <span>Editar</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: PRIMEIRO ACESSO & SALDO INICIAL ==================== -->
+  <div id="initialSetupModal" role="dialog" aria-modal="true" aria-labelledby="initialSetupTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 modal-animate my-auto">
+      <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
+      <div class="sh-sheet-header flex items-start justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="min-w-0">
+          <h2 id="initialSetupTitle" class="text-base font-bold text-slate-900 dark:text-white">Configuração rápida</h2>
+          <p id="initialSetupSubtitle" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Passo 1 de 2 • Escolha sua regra padrão</p>
+        </div>
+        <button type="button" id="closeInitialSetupBtn" aria-label="Fechar configuração inicial" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="sh-sheet-body mt-4 space-y-4">
+        <!-- Passo 1: Sindicato / Jornada -->
+        <div id="initStep1Box" class="space-y-4">
+          <div class="space-y-1.5">
+            <label for="initUnionSelect" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Seu Sindicato ou Regra Padrão</label>
+            <select id="initUnionSelect" class="w-full min-h-[44px] px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500"></select>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Já pré-configura sua jornada e multiplicadores (ex.: SINDPD-SP 1.4x em feriados). Você pode alterar depois.</p>
+          </div>
+
+          <div class="flex items-center justify-between gap-2 pt-2">
+            <button type="button" id="initSkipBtn" class="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Pular por enquanto</button>
+            <button type="button" id="initNextToStep2Btn" class="min-h-[44px] px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">Continuar ›</button>
+          </div>
+        </div>
+
+        <!-- Passo 2: Saldo Inicial -->
+        <div id="initStep2Box" class="hidden space-y-3">
+          <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">Você já tem horas acumuladas antes de começar?</p>
+
+          <button type="button" id="initModeZeroBtn" class="w-full min-h-[56px] p-3.5 rounded-xl border-2 border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-left transition">
+            <strong class="block text-sm text-slate-900 dark:text-white">Começar zerado (00:00)</strong>
+            <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Vou começar a registrar minhas novas horas aqui</span>
+          </button>
+
+          <button type="button" id="initModeCustomBtn" class="w-full min-h-[56px] p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-left transition">
+            <strong class="block text-sm text-slate-900 dark:text-white">Informar saldo atual</strong>
+            <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Já tenho horas extras ou saldo negativo no ponto da empresa</span>
+          </button>
+
+          <div id="initCustomBalanceBox" class="hidden p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="initSignCreditBtn" class="min-h-[42px] px-3 py-2 rounded-xl border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition">+ Positivo</button>
+              <button type="button" id="initSignDebitBtn" class="min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold transition">- Negativo</button>
+            </div>
+
+            <div class="flex items-center justify-center gap-2">
+              <div class="relative flex-1">
+                <input type="text" id="initHoursPart" inputmode="numeric" value="00" maxlength="3" aria-label="Horas do saldo inicial" class="w-full min-h-[48px] px-3 pr-8 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-lg font-mono font-bold text-center tabular-nums" />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold pointer-events-none">h</span>
+              </div>
+              <span class="text-lg font-mono font-bold text-slate-400">:</span>
+              <div class="relative flex-1">
+                <input type="text" id="initMinutesPart" inputmode="numeric" value="00" maxlength="2" aria-label="Minutos do saldo inicial" class="w-full min-h-[48px] px-3 pr-10 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-lg font-mono font-bold text-center tabular-nums" />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold pointer-events-none">min</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2">
+            <button type="button" id="initBackToStep1Btn" class="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">‹ Voltar</button>
+            <button type="button" id="saveInitialSetupBtn" class="flex-1 min-h-[44px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">Salvar e concluir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: ENCERRAR / DAR BAIXA EM CRÉDITO ==================== -->
+  <div id="writeOffModal" role="dialog" aria-modal="true" aria-labelledby="writeOffTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 modal-animate my-auto">
+      <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
+      <div class="sh-sheet-header flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h2 id="writeOffTitle" class="text-base font-bold text-slate-900 dark:text-white">Encerrar / Dar baixa</h2>
+        <button type="button" id="closeWriteOffModalBtn" aria-label="Fechar baixa de crédito" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="sh-sheet-body mt-4 space-y-3">
+        <p id="writeOffSummaryText" class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">—</p>
+
+        <button type="button" id="writeOffReasonExpiredBtn" class="w-full min-h-[56px] p-3.5 rounded-xl border-2 border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-left transition">
+          <strong class="block text-sm text-slate-900 dark:text-white">Expirou sem uso</strong>
+          <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Abate o saldo restante vencido mantendo o histórico original</span>
+        </button>
+
+        <button type="button" id="writeOffReasonSettledBtn" class="w-full min-h-[56px] p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-left transition">
+          <strong class="block text-sm text-slate-900 dark:text-white">Pago / Zerado no fechamento</strong>
+          <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Registra a quitação ou zeramento do banco pela empresa</span>
+        </button>
+
+        <div class="flex items-center gap-2.5 pt-2">
+          <button type="button" id="cancelWriteOffModalBtn" class="min-h-[44px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">Cancelar</button>
+          <button type="button" id="confirmWriteOffBtn" class="flex-1 min-h-[44px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">Confirmar baixa</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1959,8 +2099,8 @@
   <!-- ==================== TOAST DE NOTIFICAÇÃO ==================== -->
   <div id="toast" role="status" aria-live="polite" class="sh-toast fixed bottom-20 sm:bottom-5 right-4 sm:right-5 z-[70] hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xl modal-animate">
     <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0"></i>
-    <span id="toastMsg">Ação concluída</span>
-    <button type="button" id="toastActionBtn" class="hidden ml-1 px-2.5 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-[11px] font-bold transition shrink-0">Desfazer</button>
+    <span id="toastMsg" class="flex-1 min-w-0">Ação concluída</span>
+    <button type="button" id="toastActionBtn" class="hidden ml-auto px-3 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-[11px] font-bold transition shrink-0">Desfazer</button>
   </div>
 
   <script type="module" src="./js/app.js"></script>

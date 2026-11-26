@@ -12,7 +12,7 @@ import {
 } from './config.js';
 import { fetchHolidaysForYear, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from './holidays.js';
 import { SECTOR_CATALOG, UNION_CATALOG, findSectorByCode, findUnionByCode } from './rules-catalog.js';
-import { applyMultiplierToMinutes, computePunchBalance, formatHHMM, parseDurationToMinutes } from './time.js';
+import { applyMultiplierToMinutes, computePunchBalance, formatHHMM, isInitialBalanceEntry, parseDurationToMinutes } from './time.js';
 
 /**
  * Executa operação assíncrona travando apenas o botão acionado.
@@ -65,7 +65,7 @@ export function createModalManager(ctx) {
   }
 
   function getOpenModalElement() {
-    const ids = ['confirmModal', 'shortcutsModal', 'entryIntentModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
+    const ids = ['confirmModal', 'writeOffModal', 'initialSetupModal', 'shortcutsModal', 'entryIntentModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
     return ids.map((id) => document.getElementById(id)).find((el) => el && !el.classList.contains('hidden')) || null;
   }
 
@@ -631,14 +631,36 @@ export function createModalManager(ctx) {
     setEntryAdvancedOpen(!isOpen);
   });
 
+  let selectedPunchBreakMode = '60'; // '0' | '60' | 'custom'
+
+  function getSelectedPunchBreakMinutes() {
+    if (selectedPunchBreakMode === '0') return 0;
+    if (selectedPunchBreakMode === '60') return 60;
+    const raw = document.getElementById('punchCustomBreakInput')?.value?.trim() || '';
+    if (!raw) return 0;
+    const parsed = parseDurationToMinutes(raw, { min: 0, max: 720 });
+    return parsed !== null ? parsed : 0;
+  }
+
+  function syncPunchBreakChipsUI() {
+    const customBox = document.getElementById('punchCustomBreakBox');
+    customBox?.classList.toggle('hidden', selectedPunchBreakMode !== 'custom');
+
+    document.querySelectorAll('[data-punch-break]').forEach((btn) => {
+      const isSelected = btn.dataset.punchBreak === selectedPunchBreakMode;
+      btn.className = isSelected
+        ? 'min-h-[38px] px-3 py-1.5 rounded-xl border border-indigo-500 bg-indigo-600 text-white text-xs font-semibold transition'
+        : 'min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium transition';
+    });
+  }
+
   function getPunchCalcResult() {
     const dailyMinutes = Number(ctx.getSettings().dailyMinutes) || 480;
     const compareWithJourney = Boolean(document.getElementById('punchCompareJourney')?.checked);
     return computePunchBalance({
       entryTime: document.getElementById('punchIn')?.value || '',
-      breakStart: document.getElementById('punchBreakStart')?.value || '',
-      breakEnd: document.getElementById('punchBreakEnd')?.value || '',
       exitTime: document.getElementById('punchOut')?.value || '',
+      breakMinutes: getSelectedPunchBreakMinutes(),
       dailyMinutes,
       compareWithJourney
     });
@@ -649,21 +671,34 @@ export function createModalManager(ctx) {
     if (hint) hint.textContent = formatHHMM(Number(ctx.getSettings().dailyMinutes) || 480);
 
     const preview = document.getElementById('punchCalcPreview');
-    if (!preview) return;
+    const nextDayBadge = document.getElementById('punchNextDayBadge');
+    const entryVal = document.getElementById('punchIn')?.value || '--:--';
+    const exitVal = document.getElementById('punchOut')?.value || '--:--';
     const res = getPunchCalcResult();
+
+    nextDayBadge?.classList.toggle('hidden', !res?.crossesMidnight);
+
+    if (!preview) return;
     if (!res) {
-      preview.textContent = 'Preencha Entrada e Saída válidas.';
+      preview.textContent = 'Preencha horários válidos de entrada e saída.';
       return;
     }
+
+    const dayNote = res.crossesMidnight ? ' (dia seguinte)' : '';
+    const breakNote = res.breakMinutes > 0
+      ? ` − ${formatHHMM(res.breakMinutes)} intervalo`
+      : ' (sem intervalo)';
+    const baseFormula = `${entryVal} às ${exitVal}${dayNote}${breakNote} = ${formatHHMM(res.workedMinutes)}`;
+
     if (document.getElementById('punchCompareJourney')?.checked) {
       if (res.diffMinutes === 0) {
-        preview.textContent = `Trabalhado ${formatHHMM(res.workedMinutes)} = jornada exata (00:00 de saldo)`;
+        preview.textContent = `${baseFormula} • Igual à jornada (00:00)`;
       } else {
-        const tag = res.suggestedType === 'credit' ? 'Crédito' : 'Débito/Saída';
-        preview.textContent = `Trabalhado ${formatHHMM(res.workedMinutes)} -> ${formatHHMM(res.diffMinutes, true)} (${tag})`;
+        const tag = res.suggestedType === 'credit' ? 'Crédito' : 'Folga/Débito';
+        preview.textContent = `${baseFormula} vs jornada → ${formatHHMM(res.diffMinutes, true)} (${tag})`;
       }
     } else {
-      preview.textContent = `Turno completo líquido: ${formatHHMM(res.workedMinutes)} (Crédito)`;
+      preview.textContent = baseFormula;
     }
   }
 
@@ -673,14 +708,26 @@ export function createModalManager(ctx) {
     const willOpen = panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !willOpen);
     if (willOpen) {
-      const cat = document.getElementById('entryCategory')?.value;
+      selectedPunchBreakMode = '60';
+      syncPunchBreakChipsUI();
       const cmpBox = document.getElementById('punchCompareJourney');
-      if (cmpBox) cmpBox.checked = cat !== 'holiday';
+      if (cmpBox) cmpBox.checked = false;
       updatePunchCalcPreview();
     }
   });
 
-  ['punchIn', 'punchBreakStart', 'punchBreakEnd', 'punchOut', 'punchCompareJourney'].forEach((id) => {
+  document.querySelectorAll('[data-punch-break]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedPunchBreakMode = btn.dataset.punchBreak || '60';
+      syncPunchBreakChipsUI();
+      updatePunchCalcPreview();
+      if (selectedPunchBreakMode === 'custom') {
+        document.getElementById('punchCustomBreakInput')?.focus();
+      }
+    });
+  });
+
+  ['punchIn', 'punchOut', 'punchCustomBreakInput', 'punchCompareJourney'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', updatePunchCalcPreview);
     document.getElementById(id)?.addEventListener('change', updatePunchCalcPreview);
   });
@@ -691,16 +738,20 @@ export function createModalManager(ctx) {
       ctx.showToast('Informe horários válidos no bate-ponto.');
       return;
     }
-    if (res.durationMinutes <= 0) {
+    const compareWithJourney = Boolean(document.getElementById('punchCompareJourney')?.checked);
+    const appliedMins = compareWithJourney ? res.durationMinutes : res.workedMinutes;
+    if (appliedMins <= 0) {
       ctx.showToast('Diferença igual a 00:00 em relação à jornada.');
       return;
     }
 
-    applyEntryTypeSwitch(res.suggestedType);
+    if (compareWithJourney) {
+      applyEntryTypeSwitch(res.suggestedType);
+    }
 
-    setDurationParts(res.durationMinutes);
+    setDurationParts(appliedMins);
     updateEntryComputedPreview();
-    ctx.showToast(`Ponto calculado: ${formatHHMM(res.diffMinutes, true)} aplicados!`);
+    ctx.showToast(`Ponto calculado: ${formatHHMM(appliedMins)} aplicados!`);
   });
 
   document.getElementById('entryForm').addEventListener('submit', async (e) => {
@@ -1351,6 +1402,314 @@ export function createModalManager(ctx) {
     syncHolidaysBatchFooterUI();
   });
 
+  // ==================== ONBOARDING / SALDO INICIAL ====================
+  let initBalanceMode = 'zero'; // 'zero' | 'custom'
+  let initBalanceSign = 'credit'; // 'credit' | 'debit'
+  let initSelectedUnion = 'sindpd_sp';
+
+  function syncInitialSetupUI() {
+    const step1 = document.getElementById('initStep1Box');
+    const step2 = document.getElementById('initStep2Box');
+    const titleEl = document.getElementById('initialSetupTitle');
+    const subtitleEl = document.getElementById('initialSetupSubtitle');
+    const customBox = document.getElementById('initCustomBalanceBox');
+
+    const isStep1Visible = step1 && !step1.classList.contains('hidden');
+    if (titleEl && subtitleEl) {
+      if (isStep1Visible) {
+        titleEl.textContent = 'Configuração rápida';
+        subtitleEl.textContent = 'Passo 1 de 2 • Escolha sua regra padrão';
+      } else if (step1?.dataset.adjustOnly === '1') {
+        titleEl.textContent = 'Definir saldo inicial';
+        subtitleEl.textContent = 'Informe horas acumuladas anteriores ao app';
+      } else {
+        titleEl.textContent = 'Saldo anterior';
+        subtitleEl.textContent = 'Passo 2 de 2 • Você já tem horas no banco?';
+      }
+    }
+
+    const zeroCard = document.getElementById('initModeZeroBtn');
+    const customCard = document.getElementById('initModeCustomBtn');
+    const activeCardCls = 'w-full min-h-[56px] p-3.5 rounded-xl border-2 border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-left transition';
+    const inactiveCardCls = 'w-full min-h-[56px] p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-left transition';
+    if (zeroCard) zeroCard.className = initBalanceMode === 'zero' ? activeCardCls : inactiveCardCls;
+    if (customCard) customCard.className = initBalanceMode === 'custom' ? activeCardCls : inactiveCardCls;
+    customBox?.classList.toggle('hidden', initBalanceMode !== 'custom');
+
+    const posBtn = document.getElementById('initSignCreditBtn');
+    const negBtn = document.getElementById('initSignDebitBtn');
+    if (posBtn && negBtn) {
+      posBtn.className = initBalanceSign === 'credit'
+        ? 'min-h-[42px] px-3 py-2 rounded-xl border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition'
+        : 'min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold transition';
+      negBtn.className = initBalanceSign === 'debit'
+        ? 'min-h-[42px] px-3 py-2 rounded-xl border border-rose-500 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-xs font-bold transition'
+        : 'min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold transition';
+    }
+  }
+
+  function openInitialSetupModal({ startStep = 1, adjustOnly = false } = {}) {
+    lastFocusedEl = document.activeElement;
+    const modal = document.getElementById('initialSetupModal');
+    if (!modal) return;
+
+    populateSettingsSelects();
+    const s = ctx.getSettings();
+    initSelectedUnion = findUnionByCode(s.unionCode) ? s.unionCode : 'sindpd_sp';
+
+    const unionSel = document.getElementById('initUnionSelect');
+    if (unionSel) {
+      unionSel.innerHTML = UNION_CATALOG.map((u) => `<option value="${u.code}">${escapeHtml(u.name)}</option>`).join('');
+      unionSel.value = initSelectedUnion;
+    }
+
+    const existingInitial = ctx.getEntries().find((e) => isInitialBalanceEntry(e));
+    if (existingInitial) {
+      initBalanceMode = 'custom';
+      initBalanceSign = existingInitial.type === 'debit' ? 'debit' : 'credit';
+      const total = Math.max(0, Math.round(Number(existingInitial.minutes) || 0));
+      document.getElementById('initHoursPart').value = String(Math.floor(total / 60)).padStart(2, '0');
+      document.getElementById('initMinutesPart').value = String(total % 60).padStart(2, '0');
+    } else {
+      initBalanceMode = 'zero';
+      initBalanceSign = 'credit';
+      document.getElementById('initHoursPart').value = '00';
+      document.getElementById('initMinutesPart').value = '00';
+    }
+
+    const step1 = document.getElementById('initStep1Box');
+    const step2 = document.getElementById('initStep2Box');
+    if (step1 && step2) {
+      step1.dataset.adjustOnly = adjustOnly ? '1' : '0';
+      step1.classList.toggle('hidden', startStep === 2);
+      step2.classList.toggle('hidden', startStep !== 2);
+      document.getElementById('initBackToStep1Btn')?.classList.toggle('hidden', adjustOnly);
+    }
+
+    syncInitialSetupUI();
+    modal.classList.remove('hidden');
+    window.lucide?.createIcons();
+    focusDesktopOnly(startStep === 1 ? unionSel : document.getElementById('initModeZeroBtn'));
+  }
+
+  function closeInitialSetupModal(markDone = true) {
+    const modal = document.getElementById('initialSetupModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    if (markDone) ctx.onOnboardingCompleted?.();
+    restoreLastFocus();
+  }
+
+  document.getElementById('closeInitialSetupBtn')?.addEventListener('click', () => closeInitialSetupModal(true));
+  document.getElementById('initSkipBtn')?.addEventListener('click', () => closeInitialSetupModal(true));
+  document.getElementById('initialSetupModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'initialSetupModal') closeInitialSetupModal(true);
+  });
+
+  document.getElementById('initNextToStep2Btn')?.addEventListener('click', async () => {
+    const unionCode = document.getElementById('initUnionSelect')?.value || 'sindpd_sp';
+    const u = findUnionByCode(unionCode);
+    if (u) {
+      const nextSettings = {
+        ...ctx.getSettings(),
+        unionMode: 'union',
+        unionCode: u.code,
+        companySector: u.sector || ctx.getSettings().companySector,
+        dailyMinutes: u.dailyMinutes,
+        overtimeMultiplier: u.overtimeMultiplier,
+        holidayMultiplier: u.holidayMultiplier,
+        expiryDays: u.expiryDays,
+        stateUf: u.stateUf || ctx.getSettings().stateUf
+      };
+      await ctx.saveSettings(nextSettings, { silentToast: true });
+    }
+    document.getElementById('initStep1Box')?.classList.add('hidden');
+    document.getElementById('initStep2Box')?.classList.remove('hidden');
+    syncInitialSetupUI();
+  });
+
+  document.getElementById('initBackToStep1Btn')?.addEventListener('click', () => {
+    document.getElementById('initStep2Box')?.classList.add('hidden');
+    document.getElementById('initStep1Box')?.classList.remove('hidden');
+    syncInitialSetupUI();
+  });
+
+  document.getElementById('initModeZeroBtn')?.addEventListener('click', () => {
+    initBalanceMode = 'zero';
+    syncInitialSetupUI();
+  });
+  document.getElementById('initModeCustomBtn')?.addEventListener('click', () => {
+    initBalanceMode = 'custom';
+    syncInitialSetupUI();
+    document.getElementById('initHoursPart')?.focus();
+  });
+  document.getElementById('initSignCreditBtn')?.addEventListener('click', () => {
+    initBalanceSign = 'credit';
+    syncInitialSetupUI();
+  });
+  document.getElementById('initSignDebitBtn')?.addEventListener('click', () => {
+    initBalanceSign = 'debit';
+    syncInitialSetupUI();
+  });
+
+  ['initHoursPart', 'initMinutesPart'].forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener('focus', () => input.select());
+    input.addEventListener('input', () => {
+      const clean = input.value.replace(/\D/g, '');
+      if (input.value !== clean) input.value = clean;
+    });
+    input.addEventListener('blur', () => {
+      const v = parseInt(input.value, 10) || 0;
+      const clamped = id === 'initHoursPart' ? Math.min(999, Math.max(0, v)) : Math.min(59, Math.max(0, v));
+      input.value = String(clamped).padStart(2, '0');
+    });
+  });
+
+  document.getElementById('saveInitialSetupBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('saveInitialSetupBtn');
+    const existingInitial = ctx.getEntries().find((e) => isInitialBalanceEntry(e));
+
+    if (initBalanceMode === 'zero') {
+      if (existingInitial && typeof ctx.removeEntryQuiet === 'function') {
+        await runWithButtonLoading(btn, 'Salvando...', async () => {
+          const ok = await ctx.removeEntryQuiet(existingInitial.id);
+          if (ok) {
+            ctx.showToast('Saldo inicial zerado!');
+            closeInitialSetupModal(true);
+          }
+        });
+      } else {
+        ctx.showToast('Configuração inicial concluída!');
+        closeInitialSetupModal(true);
+      }
+      return;
+    }
+
+    const hh = Math.max(0, parseInt(document.getElementById('initHoursPart')?.value, 10) || 0);
+    const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('initMinutesPart')?.value, 10) || 0));
+    const totalMins = hh * 60 + mm;
+    if (totalMins <= 0) {
+      ctx.showToast('Informe um saldo inicial maior que 00:00');
+      return;
+    }
+
+    const s = ctx.getSettings();
+    const todayIso = getLocalDateISO();
+    const entryObj = {
+      id: existingInitial?.id || generateUUID(),
+      type: initBalanceSign,
+      date: existingInitial?.date || todayIso,
+      minutes: totalMins,
+      workedMinutes: totalMins,
+      multiplier: 1.0,
+      category: 'adjustment',
+      title: 'Saldo inicial informado',
+      status: 'realized',
+      expiry: initBalanceSign === 'credit' ? (existingInitial?.expiry || addDaysToISO(todayIso, s.expiryDays)) : '',
+      notes: 'Saldo Inicial • Ajustado manualmente pelo usuário',
+      createdAt: existingInitial?.createdAt || new Date().toISOString()
+    };
+
+    await runWithButtonLoading(btn, 'Salvando...', async () => {
+      const ok = await ctx.saveEntry(entryObj);
+      if (ok) closeInitialSetupModal(true);
+    });
+  });
+
+  // ==================== MODAL: ENCERRAMENTO / BAIXA DE CRÉDITO EXPIRADO ====================
+  let writeOffTarget = null;
+  let writeOffReason = 'expired'; // 'expired' | 'settled'
+
+  function syncWriteOffReasonUI() {
+    const expBtn = document.getElementById('writeOffReasonExpiredBtn');
+    const setBtn = document.getElementById('writeOffReasonSettledBtn');
+    const activeCls = 'w-full min-h-[56px] p-3.5 rounded-xl border-2 border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-left transition';
+    const inactiveCls = 'w-full min-h-[56px] p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-left transition';
+    if (expBtn) expBtn.className = writeOffReason === 'expired' ? activeCls : inactiveCls;
+    if (setBtn) setBtn.className = writeOffReason === 'settled' ? activeCls : inactiveCls;
+  }
+
+  function openWriteOffModal(entryItem, remainingMinutes) {
+    if (!entryItem || entryItem.type !== 'credit') return;
+    const remMins = Math.max(0, Math.round(Number(remainingMinutes) || 0));
+    if (remMins <= 0) {
+      ctx.showToast('Este crédito já foi totalmente compensado.');
+      return;
+    }
+
+    lastFocusedEl = document.activeElement;
+    writeOffTarget = { entry: entryItem, remainingMinutes: remMins };
+    writeOffReason = 'expired';
+
+    const summaryEl = document.getElementById('writeOffSummaryText');
+    if (summaryEl) {
+      summaryEl.textContent =
+        `Crédito "${entryItem.title}" (${formatDateBR(entryItem.date)}) com saldo restante de ${formatHHMM(remMins)}. Escolha como deseja encerrar:`;
+    }
+    syncWriteOffReasonUI();
+    document.getElementById('writeOffModal')?.classList.remove('hidden');
+    window.lucide?.createIcons();
+    focusDesktopOnly(document.getElementById('writeOffReasonExpiredBtn'));
+  }
+
+  function closeWriteOffModal() {
+    document.getElementById('writeOffModal')?.classList.add('hidden');
+    writeOffTarget = null;
+    restoreLastFocus();
+  }
+
+  document.getElementById('closeWriteOffModalBtn')?.addEventListener('click', closeWriteOffModal);
+  document.getElementById('cancelWriteOffModalBtn')?.addEventListener('click', closeWriteOffModal);
+  document.getElementById('writeOffModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'writeOffModal') closeWriteOffModal();
+  });
+  document.getElementById('writeOffReasonExpiredBtn')?.addEventListener('click', () => {
+    writeOffReason = 'expired';
+    syncWriteOffReasonUI();
+  });
+  document.getElementById('writeOffReasonSettledBtn')?.addEventListener('click', () => {
+    writeOffReason = 'settled';
+    syncWriteOffReasonUI();
+  });
+
+  document.getElementById('confirmWriteOffBtn')?.addEventListener('click', async () => {
+    if (!writeOffTarget) return;
+    const btn = document.getElementById('confirmWriteOffBtn');
+    const { entry, remainingMinutes } = writeOffTarget;
+    const cleanTitle = String(entry.title || '').replace(/\s*\((?:Plantão\/Feriado|Feriado)\)\s*$/i, '').trim() || entry.title;
+    const isExpiredReason = writeOffReason === 'expired';
+    const writeOffDate = getLocalDateISO() >= entry.date ? getLocalDateISO() : entry.date;
+
+    const writeOffEntry = {
+      id: generateUUID(),
+      type: 'debit',
+      date: writeOffDate,
+      minutes: remainingMinutes,
+      workedMinutes: remainingMinutes,
+      multiplier: 1.0,
+      category: 'adjustment',
+      title: isExpiredReason
+        ? `Baixa por vencimento — ${cleanTitle}`
+        : `Fechamento de ciclo — ${cleanTitle}`,
+      status: 'realized',
+      expiry: '',
+      notes: isExpiredReason
+        ? `Expirou sem uso (ref. ${formatDateBR(entry.date)})`
+        : `Pago / Zerado no fechamento (ref. ${formatDateBR(entry.date)})`,
+      createdAt: new Date().toISOString()
+    };
+
+    await runWithButtonLoading(btn, 'Aplicando baixa...', async () => {
+      const ok = await ctx.saveEntry(writeOffEntry);
+      if (ok) {
+        ctx.showToast(`Baixa de ${formatHHMM(remainingMinutes)} registrada!`);
+        closeWriteOffModal();
+      }
+    });
+  });
+
   return {
     confirmDialog,
     resolveConfirm,
@@ -1364,6 +1723,10 @@ export function createModalManager(ctx) {
     closeSettingsModal,
     openHolidaysModal,
     closeHolidaysModal,
+    openInitialSetupModal,
+    closeInitialSetupModal,
+    openWriteOffModal,
+    closeWriteOffModal,
     captureLastFocus,
     restoreLastFocus,
     hasOpenModal: () => Boolean(getOpenModalElement()),
@@ -1375,6 +1738,14 @@ export function createModalManager(ctx) {
     handleEscapeKey() {
       if (!document.getElementById('confirmModal').classList.contains('hidden')) {
         resolveConfirm(false);
+        return true;
+      }
+      if (!document.getElementById('writeOffModal')?.classList.contains('hidden')) {
+        closeWriteOffModal();
+        return true;
+      }
+      if (!document.getElementById('initialSetupModal')?.classList.contains('hidden')) {
+        closeInitialSetupModal(true);
         return true;
       }
       if (!document.getElementById('shortcutsModal').classList.contains('hidden')) {

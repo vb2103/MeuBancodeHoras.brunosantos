@@ -28,13 +28,28 @@ import { createProfileManager } from './profile.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
 import { getUserInitials } from './security.js';
 import {
+  applyQueueToState,
+  enqueueSyncOp,
+  hasCompletedOnboarding,
+  isLikelyNetworkError,
+  loadSyncQueue,
+  loadUserCache,
+  markOnboardingCompleted,
+  saveSyncQueue,
+  saveUserCache
+} from './sync-queue.js';
+import {
   buildExpiryAlertSummary,
   computeChronologicalAndFIFO,
   formatDaysFromMinutes,
   formatHHMM,
   formatUrgentExpiryCardNote,
   getExpiryBadge,
-  isHolidayEntry
+  isHolidayEntry,
+  isInitialBalanceEntry,
+  isWriteOffEntry,
+  maskPrivacyDays,
+  maskPrivacyHours
 } from './time.js';
 
 // ==================== ESTADO DA APLICAÇÃO ====================
@@ -53,9 +68,120 @@ let renderedRemainingMap = new Map();
 let activeDetailEntryId = null;
 let syncAlertDismissedState = null;
 let lastSyncState = 'ok';
+let isFlushingQueue = false;
 let defaultTemplatesCache = { emailTemplate: '', whatsappTemplate: '' };
+let privacyMode = (() => {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.PRIVACY) === '1';
+  } catch {
+    return false;
+  }
+})();
 
-// ==================== TOAST & SYNC BADGE ====================
+function formatVisibleHHMM(mins, showPlus = false) {
+  const formatted = formatHHMM(mins, showPlus);
+  return privacyMode ? maskPrivacyHours(formatted) : formatted;
+}
+
+function formatVisibleDays(mins, dailyMins, withSuffix = false) {
+  const base = formatDaysFromMinutes(mins, dailyMins);
+  if (privacyMode) return maskPrivacyDays(base, withSuffix && mins >= 0);
+  return withSuffix && mins >= 0 ? `${base} de folga` : base;
+}
+
+function syncPrivacyButtonsUI() {
+  const iconName = privacyMode ? 'eye-off' : 'eye';
+  const labelText = privacyMode ? 'Exibir valores ocultos' : 'Ocultar valores';
+  ['mobilePrivacyToggleBtn', 'desktopPrivacyToggleBtn'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', String(privacyMode));
+    btn.setAttribute('aria-label', labelText);
+    btn.title = privacyMode ? 'Modo privacidade ativo (clique para exibir)' : 'Modo privacidade (ocultar horas)';
+    btn.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
+  });
+  window.lucide?.createIcons();
+}
+
+function togglePrivacyMode() {
+  privacyMode = !privacyMode;
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRIVACY, privacyMode ? '1' : '0');
+  } catch { /* ignore */ }
+  syncPrivacyButtonsUI();
+  renderAll();
+}
+
+// ==================== TOAST, SYNC & FILA OFFLINE ====================
+function persistCurrentUserSnapshot() {
+  if (!currentUser?.id) return;
+  saveUserCache(currentUser.id, { settings, entries });
+}
+
+function enqueueLocalSync(op) {
+  if (!currentUser?.id) return 0;
+  const current = loadSyncQueue(currentUser.id);
+  const next = enqueueSyncOp(current, op);
+  saveSyncQueue(currentUser.id, next);
+  persistCurrentUserSnapshot();
+  return next.length;
+}
+
+function clearSyncedQueueOps(predicate) {
+  if (!currentUser?.id) return;
+  const current = loadSyncQueue(currentUser.id);
+  if (!current.length) return;
+  const next = current.filter((op) => !predicate(op));
+  if (next.length !== current.length) {
+    saveSyncQueue(currentUser.id, next);
+  }
+}
+
+async function flushPendingSyncQueue({ showSyncedToast = false } = {}) {
+  if (!currentUser?.id || isFlushingQueue) return 0;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+
+  let queue = loadSyncQueue(currentUser.id);
+  if (!queue.length) {
+    if (lastSyncState === 'offline' || lastSyncState === 'pending') {
+      setSyncStatus('ok');
+    }
+    return 0;
+  }
+
+  isFlushingQueue = true;
+  setSyncStatus('saving');
+  let syncedCount = 0;
+
+  try {
+    while (queue.length > 0) {
+      const op = queue[0];
+      if (op.kind === 'settings' && op.settings) {
+        await saveSettingsToCloud(currentUser.id, op.settings);
+      } else if (op.kind === 'upsert' && op.entry) {
+        await upsertEntryToCloud(currentUser.id, op.entry);
+      } else if (op.kind === 'delete' && op.id) {
+        await deleteEntryFromCloud(currentUser.id, op.id);
+      }
+      queue = queue.slice(1);
+      saveSyncQueue(currentUser.id, queue);
+      syncedCount += 1;
+    }
+
+    persistCurrentUserSnapshot();
+    setSyncStatus('ok');
+    if (syncedCount > 0 && showSyncedToast) {
+      showToast('Dados sincronizados na nuvem', { duration: 3000 });
+    }
+    return syncedCount;
+  } catch (err) {
+    setSyncStatus(isLikelyNetworkError(err) ? 'offline' : 'pending');
+    return syncedCount;
+  } finally {
+    isFlushingQueue = false;
+  }
+}
+
 function showToast(msg, options = {}) {
   const { actionLabel = null, onAction = null, duration = 3000 } = options || {};
   const toast = document.getElementById('toast');
@@ -100,6 +226,11 @@ const SYNC_STATUS_STYLES = {
     dot: 'bg-amber-500',
     badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70'
   },
+  pending: {
+    text: 'Pendente de envio',
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50/90 text-amber-800 border-amber-200/80 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-800/60'
+  },
   offline: {
     text: 'Modo Offline',
     dot: 'bg-amber-500',
@@ -118,20 +249,28 @@ const SYNC_STATUS_STYLES = {
 };
 
 function setSyncStatus(state) {
-  lastSyncState = state;
-  if (state === 'ok') {
+  const pendingCount = currentUser?.id ? loadSyncQueue(currentUser.id).length : 0;
+  const resolvedState = (state === 'ok' && pendingCount > 0) ? 'pending' : state;
+  lastSyncState = resolvedState;
+  if (resolvedState === 'ok') {
     syncAlertDismissedState = null;
   }
 
   const badge = document.getElementById('syncBadge');
   const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
-  const cfg = SYNC_STATUS_STYLES[state] || SYNC_STATUS_STYLES.ok;
+  const cfg = SYNC_STATUS_STYLES[resolvedState] || SYNC_STATUS_STYLES.ok;
+  const pendingSuffix = pendingCount > 0
+    ? ` • ${pendingCount} ${pendingCount === 1 ? 'pendente' : 'pendentes'}`
+    : '';
+  const statusLabel = resolvedState === 'pending'
+    ? `${pendingCount} ${pendingCount === 1 ? 'alteração pendente' : 'alterações pendentes'}`
+    : `${cfg.text}${resolvedState === 'offline' ? pendingSuffix : ''}`;
 
   if (badge && text) {
-    text.textContent = cfg.text;
-    badge.title = cfg.text;
-    badge.setAttribute('aria-label', `Sincronização: ${cfg.text}`);
+    text.textContent = statusLabel;
+    badge.title = statusLabel;
+    badge.setAttribute('aria-label', `Sincronização: ${statusLabel}`);
     badge.className = `sh-sync-badge sh-mobile-hide inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
     if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
   }
@@ -139,7 +278,7 @@ function setSyncStatus(state) {
   const menuBadge = document.getElementById('userMenuSyncBadge');
   const menuDot = document.getElementById('userMenuSyncDot');
   const menuText = document.getElementById('userMenuSyncText');
-  if (menuText) menuText.textContent = cfg.text;
+  if (menuText) menuText.textContent = statusLabel;
   if (menuBadge) {
     menuBadge.className = `mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
   }
@@ -149,15 +288,17 @@ function setSyncStatus(state) {
   const mobileAlertDot = document.getElementById('mobileSyncAlertDot');
   const mobileAlertText = document.getElementById('mobileSyncAlertText');
   if (mobileAlert && mobileAlertText) {
-    const isAlertState = state === 'error' || state === 'offline';
-    const shouldShow = isAlertState && syncAlertDismissedState !== state;
+    const isAlertState = resolvedState === 'error' || resolvedState === 'offline' || resolvedState === 'pending';
+    const shouldShow = isAlertState && syncAlertDismissedState !== resolvedState;
     mobileAlert.className = `sh-mobile-only px-3 py-1.5 rounded-xl border text-xs font-medium ${cfg.badge}${shouldShow ? '' : ' hidden'}`;
     mobileAlert.style.display = shouldShow ? '' : 'none';
     if (mobileAlertDot) mobileAlertDot.className = `w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`;
     mobileAlertText.textContent = shouldShow
-      ? (state === 'error'
+      ? (resolvedState === 'error'
         ? 'Sem sincronização com a nuvem — tente novamente em instantes.'
-        : 'Modo offline — dados salvos localmente.')
+        : resolvedState === 'pending'
+          ? `${pendingCount} ${pendingCount === 1 ? 'alteração aguardando envio' : 'alterações aguardando envio'}.`
+          : `Modo offline${pendingSuffix} — dados salvos localmente.`)
       : '';
   }
 }
@@ -201,15 +342,36 @@ async function persistSettings(nextSettings, { silentToast = false } = {}) {
   if (!currentUser) return false;
   const prevSettings = { ...settings };
   settings = nextSettings;
+  persistCurrentUserSnapshot();
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    enqueueLocalSync({ kind: 'settings', settings: nextSettings });
+    updateHeaderUserInfo();
+    setSyncStatus('offline');
+    renderAll();
+    if (!silentToast) showToast('Parâmetros salvos no aparelho (aguardando conexão)');
+    return true;
+  }
 
   try {
     await saveSettingsToCloud(currentUser.id, settings, setSyncStatus);
+    clearSyncedQueueOps((op) => op.kind === 'settings');
     updateHeaderUserInfo();
     renderAll();
     if (!silentToast) showToast('Parâmetros salvos na nuvem!');
+    void flushPendingSyncQueue({ showSyncedToast: false });
     return true;
-  } catch {
+  } catch (err) {
+    if (isLikelyNetworkError(err)) {
+      enqueueLocalSync({ kind: 'settings', settings: nextSettings });
+      updateHeaderUserInfo();
+      setSyncStatus('offline');
+      renderAll();
+      if (!silentToast) showToast('Sem conexão — parâmetros salvos na fila local');
+      return true;
+    }
     settings = prevSettings;
+    persistCurrentUserSnapshot();
     updateHeaderUserInfo();
     renderAll();
     showToast('Erro ao salvar parâmetros — revertido');
@@ -222,20 +384,42 @@ const modals = createModalManager({
   getSettings: () => settings,
   getEntries: () => entries,
   showToast,
+  onOnboardingCompleted() {
+    if (currentUser?.id) markOnboardingCompleted(currentUser.id);
+  },
   async saveEntry(entryObj) {
     if (!currentUser) return false;
     const snapshot = [...entries];
     const idx = entries.findIndex((item) => item.id === entryObj.id);
     if (idx >= 0) entries[idx] = entryObj;
     else entries.push(entryObj);
+    persistCurrentUserSnapshot();
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      enqueueLocalSync({ kind: 'upsert', entry: entryObj });
+      setSyncStatus('offline');
+      renderAll();
+      showToast('Salvo no aparelho — será enviado ao reconectar');
+      return true;
+    }
 
     try {
       await upsertEntryToCloud(currentUser.id, entryObj, setSyncStatus);
+      clearSyncedQueueOps((op) => op.kind !== 'settings' && (op.id === entryObj.id || op.entry?.id === entryObj.id));
       renderAll();
       showToast('Lançamento salvo na nuvem!');
+      void flushPendingSyncQueue({ showSyncedToast: false });
       return true;
-    } catch {
+    } catch (err) {
+      if (isLikelyNetworkError(err)) {
+        enqueueLocalSync({ kind: 'upsert', entry: entryObj });
+        setSyncStatus('offline');
+        renderAll();
+        showToast('Sem conexão — alteração salva na fila local');
+        return true;
+      }
       entries = snapshot;
+      persistCurrentUserSnapshot();
       renderAll();
       showToast('Falha ao salvar na nuvem — alteração revertida');
       return false;
@@ -245,15 +429,65 @@ const modals = createModalManager({
     if (!currentUser || !newEntries.length) return false;
     const snapshot = [...entries];
     entries = [...entries, ...newEntries];
+    persistCurrentUserSnapshot();
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      newEntries.forEach((entry) => enqueueLocalSync({ kind: 'upsert', entry }));
+      setSyncStatus('offline');
+      renderAll();
+      return true;
+    }
 
     try {
       await upsertEntriesBatchToCloud(currentUser.id, newEntries, setSyncStatus);
+      const savedIds = new Set(newEntries.map((entry) => entry.id));
+      clearSyncedQueueOps((op) => op.kind !== 'settings' && savedIds.has(op.id || op.entry?.id));
       renderAll();
+      void flushPendingSyncQueue({ showSyncedToast: false });
       return true;
-    } catch {
+    } catch (err) {
+      if (isLikelyNetworkError(err)) {
+        newEntries.forEach((entry) => enqueueLocalSync({ kind: 'upsert', entry }));
+        setSyncStatus('offline');
+        renderAll();
+        return true;
+      }
       entries = snapshot;
+      persistCurrentUserSnapshot();
       renderAll();
       showToast('Erro ao importar para a nuvem — revertido');
+      return false;
+    }
+  },
+  async removeEntryQuiet(id) {
+    if (!currentUser || !id) return false;
+    const snapshot = [...entries];
+    entries = entries.filter((e) => e.id !== id);
+    persistCurrentUserSnapshot();
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      enqueueLocalSync({ kind: 'delete', id });
+      setSyncStatus('offline');
+      renderAll();
+      return true;
+    }
+
+    try {
+      await deleteEntryFromCloud(currentUser.id, id, setSyncStatus);
+      clearSyncedQueueOps((op) => op.kind !== 'settings' && (op.id === id || op.entry?.id === id));
+      renderAll();
+      void flushPendingSyncQueue({ showSyncedToast: false });
+      return true;
+    } catch (err) {
+      if (isLikelyNetworkError(err)) {
+        enqueueLocalSync({ kind: 'delete', id });
+        setSyncStatus('offline');
+        renderAll();
+        return true;
+      }
+      entries = snapshot;
+      persistCurrentUserSnapshot();
+      renderAll();
       return false;
     }
   },
@@ -323,10 +557,22 @@ function formatSimulatedDaysLabel(simDays) {
 }
 
 function renderAnalyticsTab() {
+  const hasData = entries.length > 0;
+  document.getElementById('analyticsEmptyState')?.classList.toggle('hidden', hasData);
+  document.getElementById('analyticsSubTabs')?.classList.toggle('hidden', !hasData);
+  document.getElementById('analyticsPanel-simulador')?.classList.toggle('hidden', !hasData);
+  document.getElementById('analyticsPanel-graficos')?.classList.toggle('hidden', !hasData);
+  if (!hasData) {
+    destroyCharts();
+    window.lucide?.createIcons();
+    return;
+  }
+
   const { chrono, remainingMap } = computeChronologicalAndFIFO(entries);
   renderCharts(chrono, remainingMap, settings, {
     balanceScope: analyticsBalanceScope,
-    ratioMode: analyticsRatioMode
+    ratioMode: analyticsRatioMode,
+    privacyMode
   });
   window.lucide?.createIcons();
 }
@@ -346,14 +592,14 @@ function updateSimulator(cachedProjectedMins = null) {
   const simMins = Math.round(simDays * dailyMins);
   const remainingMins = projectedMins - simMins;
 
-  document.getElementById('simDaysValue').textContent = `${formatSimulatedDaysLabel(simDays)} (${formatHHMM(-simMins)})`;
+  document.getElementById('simDaysValue').textContent = `${formatSimulatedDaysLabel(simDays)} (${formatVisibleHHMM(-simMins)})`;
   document.getElementById('simRemainingResult').textContent =
-    `${formatHHMM(remainingMins, true)} (${formatDaysFromMinutes(remainingMins, dailyMins)})`;
+    `${formatVisibleHHMM(remainingMins, true)} (${formatVisibleDays(remainingMins, dailyMins)})`;
 
   const negWarning = document.getElementById('simNegativeWarning');
   if (negWarning) {
     if (remainingMins < 0) {
-      negWarning.textContent = `Atenção: com essa folga você ficaria devendo ${formatHHMM(Math.abs(remainingMins))} no banco de horas.`;
+      negWarning.textContent = `Atenção: com essa folga você ficaria devendo ${formatVisibleHHMM(Math.abs(remainingMins))} no banco de horas.`;
       negWarning.classList.remove('hidden');
     } else {
       negWarning.classList.add('hidden');
@@ -399,6 +645,12 @@ function getFilteredEntriesState() {
 }
 
 function buildCategoryBadgeHtml(item, extraClass = 'ml-1.5') {
+  if (isInitialBalanceEntry(item)) {
+    return `<span class="inline-block ${extraClass} px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">Saldo Inicial</span>`;
+  }
+  if (isWriteOffEntry(item)) {
+    return `<span class="inline-block ${extraClass} px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">Encerramento / Baixa</span>`;
+  }
   if (!item.category || item.category === 'manual') return '';
   const label = ENTRY_CATEGORIES[item.category]?.label || item.category;
   return `<span class="inline-block ${extraClass} px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">${escapeHtml(label)}</span>`;
@@ -409,7 +661,7 @@ function buildWorkedSubtextHtml(item) {
   const worked = Number(item.workedMinutes);
   const mult = Number(item.multiplier || 1);
   if (!worked || (worked === Number(item.minutes) && mult === 1)) return '';
-  return `<div class="text-[10px] font-normal text-slate-400 dark:text-slate-500 mt-0.5 tabular-nums">Trab. ${formatHHMM(worked)} × ${mult}x</div>`;
+  return `<div class="text-[10px] font-normal text-slate-400 dark:text-slate-500 mt-0.5 tabular-nums">Trab. ${formatVisibleHHMM(worked)} × ${mult}x</div>`;
 }
 
 function buildActionButtonsHtml(item) {
@@ -434,6 +686,8 @@ function buildActionButtonsHtml(item) {
 }
 
 function getMobileCompactCategoryLabel(item) {
+  if (isInitialBalanceEntry(item)) return 'Saldo inicial';
+  if (isWriteOffEntry(item)) return 'Baixa de saldo';
   const map = {
     holiday: 'Feriado trabalhado',
     overtime: 'Hora extra',
@@ -507,7 +761,7 @@ function renderAll() {
   renderedRemainingMap = remainingMap;
 
   const realizedEl = document.getElementById('kpiRealizedHours');
-  realizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
+  realizedEl.textContent = formatVisibleHHMM(summary.realizedMinutes, true);
   if (summary.realizedMinutes > 0) {
     realizedEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400';
   } else if (summary.realizedMinutes < 0) {
@@ -515,10 +769,10 @@ function renderAll() {
   } else {
     realizedEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
   }
-  document.getElementById('kpiRealizedDays').textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
+  document.getElementById('kpiRealizedDays').textContent = formatVisibleDays(summary.realizedMinutes, settings.dailyMinutes);
 
   const projEl = document.getElementById('kpiProjectedHours');
-  projEl.textContent = formatHHMM(summary.projectedMinutes, true);
+  projEl.textContent = formatVisibleHHMM(summary.projectedMinutes, true);
   if (summary.projectedMinutes < 0) {
     projEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400';
   } else if (summary.projectedMinutes > 0) {
@@ -526,10 +780,10 @@ function renderAll() {
   } else {
     projEl.className = 'sh-kpi-value text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white';
   }
-  document.getElementById('kpiProjectedDays').textContent = formatDaysFromMinutes(summary.projectedMinutes, settings.dailyMinutes);
-  document.getElementById('kpiCreditsHours').textContent = formatHHMM(summary.creditsMinutes, true);
+  document.getElementById('kpiProjectedDays').textContent = formatVisibleDays(summary.projectedMinutes, settings.dailyMinutes);
+  document.getElementById('kpiCreditsHours').textContent = formatVisibleHHMM(summary.creditsMinutes, true);
   document.getElementById('kpiCreditsCount').textContent = `${summary.creditsCount} ${summary.creditsCount === 1 ? 'registro' : 'registros'}`;
-  document.getElementById('kpiDebitsHours').textContent = formatHHMM(-summary.debitsMinutes, false);
+  document.getElementById('kpiDebitsHours').textContent = formatVisibleHHMM(-summary.debitsMinutes, false);
   document.getElementById('kpiDebitsCount').textContent = `${summary.debitsCount} ${summary.debitsCount === 1 ? 'folga' : 'folgas'}`;
   document.getElementById('kpiJourneyLabel').textContent = `${formatHHMM(settings.dailyMinutes)}/dia`;
 
@@ -537,7 +791,7 @@ function renderAll() {
   const heroRealizedEl = document.getElementById('heroRealizedHours');
   const heroDaysEl = document.getElementById('heroRealizedDays');
   if (heroRealizedEl) {
-    heroRealizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
+    heroRealizedEl.textContent = formatVisibleHHMM(summary.realizedMinutes, true);
     if (summary.realizedMinutes > 0) {
       heroRealizedEl.className = 'text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 tracking-tight';
     } else if (summary.realizedMinutes < 0) {
@@ -547,8 +801,7 @@ function renderAll() {
     }
   }
   if (heroDaysEl) {
-    const daysText = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
-    heroDaysEl.textContent = summary.realizedMinutes >= 0 ? `${daysText} de folga` : daysText;
+    heroDaysEl.textContent = formatVisibleDays(summary.realizedMinutes, settings.dailyMinutes, true);
     heroDaysEl.className = summary.realizedMinutes < 0
       ? 'text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 tabular-nums'
       : 'text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums';
@@ -558,17 +811,17 @@ function renderAll() {
   if (heroProjRow && heroProjHoursEl) {
     const hasProjectedDiff = summary.projectedMinutes !== summary.realizedMinutes;
     heroProjRow.classList.toggle('hidden', !hasProjectedDiff);
-    heroProjHoursEl.textContent = formatHHMM(summary.projectedMinutes, true);
+    heroProjHoursEl.textContent = formatVisibleHHMM(summary.projectedMinutes, true);
   }
   const heroCreditsEl = document.getElementById('heroCreditsHours');
   const heroDebitsEl = document.getElementById('heroDebitsHours');
-  if (heroCreditsEl) heroCreditsEl.textContent = formatHHMM(summary.creditsMinutes, true);
-  if (heroDebitsEl) heroDebitsEl.textContent = formatHHMM(-summary.debitsMinutes, false);
+  if (heroCreditsEl) heroCreditsEl.textContent = formatVisibleHHMM(summary.creditsMinutes, true);
+  if (heroDebitsEl) heroDebitsEl.textContent = formatVisibleHHMM(-summary.debitsMinutes, false);
 
   const secHoursEl = document.getElementById('mobileSecondaryBalanceHours');
   const secDaysEl = document.getElementById('mobileSecondaryBalanceDays');
   if (secHoursEl) {
-    secHoursEl.textContent = formatHHMM(summary.realizedMinutes, true);
+    secHoursEl.textContent = formatVisibleHHMM(summary.realizedMinutes, true);
     secHoursEl.className = summary.realizedMinutes > 0
       ? 'font-mono font-bold text-emerald-600 dark:text-emerald-400'
       : summary.realizedMinutes < 0
@@ -576,7 +829,7 @@ function renderAll() {
         : 'font-mono font-bold text-slate-900 dark:text-white';
   }
   if (secDaysEl) {
-    secDaysEl.textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
+    secDaysEl.textContent = formatVisibleDays(summary.realizedMinutes, settings.dailyMinutes);
   }
 
   const alertSummary = buildExpiryAlertSummary(urgentItems, {
@@ -604,7 +857,11 @@ function renderAll() {
       iconWrap.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4 ${iconColor}"></i>`;
     }
     const textEl = document.getElementById('expiryAlertText');
-    if (textEl) textEl.textContent = alertSummary.text;
+    if (textEl) {
+      textEl.textContent = privacyMode
+        ? alertSummary.text.replace(/\d{2,}:\d{2}/g, '••:••')
+        : alertSummary.text;
+    }
     const actionEl = document.getElementById('expiryAlertActionLabel');
     if (actionEl) {
       actionEl.textContent = alertSummary.actionLabel;
@@ -655,6 +912,9 @@ function renderAll() {
       const isRealized = item.status === 'realized';
       const remMins = remainingMap.get(item.id) ?? item.minutes;
       const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins, todayISO, item.minutes) : { label: '—', badgeClass: 'text-slate-400' };
+      const expLabel = privacyMode && item.expiry
+        ? `${formatDateBR(item.expiry)}${expInfo.isExpired ? ' (Vencido)' : ''}`
+        : expInfo.label;
       const multTag = isCredit && item.multiplier && Number(item.multiplier) !== 1
         ? `<span class="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 ml-1">(${item.multiplier}x)</span>`
         : '';
@@ -677,15 +937,15 @@ function renderAll() {
             </span>
           </td>
           <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-            <div>${formatHHMM(item.deltaMinutes, true)}${multTag}</div>
+            <div>${formatVisibleHHMM(item.deltaMinutes, true)}${multTag}</div>
             ${workedSub}
           </td>
           <td class="py-3.5 px-4 text-right font-mono text-xs font-bold tabular-nums whitespace-nowrap text-slate-800 dark:text-slate-200">
-            ${formatHHMM(item.runningMinutes, true)}
+            ${formatVisibleHHMM(item.runningMinutes, true)}
           </td>
           <td class="py-3.5 px-4 whitespace-nowrap">
             ${isCredit && item.expiry
-          ? `<span class="inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${expInfo.badgeClass}">${expInfo.label}</span>`
+          ? `<span class="inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${expInfo.badgeClass}">${escapeHtml(expLabel)}</span>`
           : '<span class="text-xs text-slate-400">—</span>'}
           </td>
           <td class="py-3.5 px-4 text-right whitespace-nowrap">
@@ -713,10 +973,13 @@ function renderAll() {
       const plannedPill = isRealized
         ? ''
         : '<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 shrink-0">Previsto</span>';
+      const urgentDisplayText = urgentNote
+        ? (privacyMode ? urgentNote.text.replace(/\d{2,}:\d{2}/g, '••:••') : urgentNote.text)
+        : '';
       const urgentLineHtml = urgentNote
         ? `<div class="mt-1 flex items-center gap-1.5 text-[11px] font-medium ${urgentNote.isExpired ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'} min-w-0">
              <span class="w-1.5 h-1.5 rounded-full ${urgentNote.isExpired ? 'bg-rose-500' : 'bg-amber-500'} shrink-0"></span>
-             <span class="truncate">${escapeHtml(urgentNote.text)}</span>
+             <span class="truncate">${escapeHtml(urgentDisplayText)}</span>
            </div>`
         : '';
 
@@ -733,12 +996,17 @@ function renderAll() {
             ${urgentLineHtml}
           </div>
           <div class="font-mono text-sm font-extrabold tabular-nums whitespace-nowrap shrink-0 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-            ${formatHHMM(item.deltaMinutes, true)}
+            ${formatVisibleHHMM(item.deltaMinutes, true)}
           </div>
         </button>
       `;
     }).join('');
   }
+
+  const hasAnyEntries = chrono.length > 0;
+  document.getElementById('commEmptyState')?.classList.toggle('hidden', hasAnyEntries);
+  document.getElementById('commChannelTabs')?.classList.toggle('hidden', !hasAnyEntries);
+  document.getElementById('commChannelsGrid')?.classList.toggle('hidden', !hasAnyEntries);
 
   updateSimulator(summary.projectedMinutes);
   const { emailText, whatsappText } = buildCommunicationTemplates(chrono, settings);
@@ -775,19 +1043,73 @@ async function handleConfirmRealized(id, btn) {
   const snapshot = [...entries];
   const updated = { ...target, status: 'realized' };
   entries = entries.map((e) => (e.id === id ? updated : e));
-  renderAll();
+  persistCurrentUserSnapshot();
 
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    enqueueLocalSync({ kind: 'upsert', entry: updated });
+    setSyncStatus('offline');
+    renderAll();
+    showToast(`"${updated.title}" confirmado no aparelho!`);
+    delete btn.dataset.busy;
+    btn.disabled = false;
+    return;
+  }
+
+  renderAll();
   try {
     await upsertEntryToCloud(currentUser.id, updated, setSyncStatus);
+    clearSyncedQueueOps((op) => op.kind !== 'settings' && (op.id === updated.id || op.entry?.id === updated.id));
     showToast(`"${updated.title}" marcado como realizado!`);
-  } catch {
-    entries = snapshot;
-    renderAll();
-    showToast('Erro ao confirmar na nuvem — alteração revertida');
+    void flushPendingSyncQueue({ showSyncedToast: false });
+  } catch (err) {
+    if (isLikelyNetworkError(err)) {
+      enqueueLocalSync({ kind: 'upsert', entry: updated });
+      setSyncStatus('offline');
+      showToast('Sem conexão — confirmação salva na fila local');
+    } else {
+      entries = snapshot;
+      persistCurrentUserSnapshot();
+      renderAll();
+      showToast('Erro ao confirmar na nuvem — alteração revertida');
+    }
   } finally {
     if (btn) {
       delete btn.dataset.busy;
       btn.disabled = false;
+    }
+  }
+}
+
+async function restoreDeletedEntry(deletedItem) {
+  if (!currentUser) return;
+  if (!entries.some((x) => x.id === deletedItem.id)) {
+    entries.push(deletedItem);
+    persistCurrentUserSnapshot();
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    enqueueLocalSync({ kind: 'upsert', entry: deletedItem });
+    setSyncStatus('offline');
+    renderAll();
+    showToast('Lançamento restaurado no aparelho!');
+    return;
+  }
+
+  renderAll();
+  try {
+    await upsertEntryToCloud(currentUser.id, deletedItem, setSyncStatus);
+    clearSyncedQueueOps((op) => op.kind !== 'settings' && (op.id === deletedItem.id || op.entry?.id === deletedItem.id));
+    showToast('Lançamento restaurado!');
+  } catch (err) {
+    if (isLikelyNetworkError(err)) {
+      enqueueLocalSync({ kind: 'upsert', entry: deletedItem });
+      setSyncStatus('offline');
+      showToast('Sem conexão — restauração salva localmente!');
+    } else {
+      entries = entries.filter((x) => x.id !== deletedItem.id);
+      persistCurrentUserSnapshot();
+      renderAll();
+      showToast('Erro ao restaurar lançamento na nuvem');
     }
   }
 }
@@ -798,7 +1120,7 @@ async function handleDeleteEntry(id) {
 
   const confirmed = await modals.confirmDialog({
     title: 'Excluir lançamento?',
-    message: `Deseja realmente excluir "${item.title}" (${formatDateBR(item.date)} • ${formatHHMM(item.minutes)}) da nuvem?`,
+    message: `Deseja realmente excluir "${item.title}" (${formatDateBR(item.date)} • ${formatHHMM(item.minutes)})?`,
     confirmText: 'Sim, excluir',
     cancelText: 'Cancelar',
     variant: 'danger'
@@ -808,33 +1130,39 @@ async function handleDeleteEntry(id) {
   const deletedItem = { ...item };
   const snapshot = [...entries];
   entries = entries.filter((e) => e.id !== id);
-  renderAll();
+  persistCurrentUserSnapshot();
 
+  const undoToastOpts = {
+    actionLabel: 'Desfazer',
+    duration: 5500,
+    onAction: () => restoreDeletedEntry(deletedItem)
+  };
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    enqueueLocalSync({ kind: 'delete', id });
+    setSyncStatus('offline');
+    renderAll();
+    showToast(`"${deletedItem.title}" excluído (offline)`, undoToastOpts);
+    return;
+  }
+
+  renderAll();
   try {
     await deleteEntryFromCloud(currentUser.id, id, setSyncStatus);
-    showToast(`"${deletedItem.title}" excluído`, {
-      actionLabel: 'Desfazer',
-      duration: 5500,
-      async onAction() {
-        if (!currentUser) return;
-        if (!entries.some((x) => x.id === deletedItem.id)) {
-          entries.push(deletedItem);
-          renderAll();
-        }
-        try {
-          await upsertEntryToCloud(currentUser.id, deletedItem, setSyncStatus);
-          showToast('Lançamento restaurado!');
-        } catch {
-          entries = entries.filter((x) => x.id !== deletedItem.id);
-          renderAll();
-          showToast('Erro ao restaurar lançamento na nuvem');
-        }
-      }
-    });
-  } catch {
-    entries = snapshot;
-    renderAll();
-    showToast('Erro ao excluir — registro restaurado');
+    clearSyncedQueueOps((op) => op.kind !== 'settings' && (op.id === id || op.entry?.id === id));
+    showToast(`"${deletedItem.title}" excluído`, undoToastOpts);
+    void flushPendingSyncQueue({ showSyncedToast: false });
+  } catch (err) {
+    if (isLikelyNetworkError(err)) {
+      enqueueLocalSync({ kind: 'delete', id });
+      setSyncStatus('offline');
+      showToast(`"${deletedItem.title}" excluído (na fila local)`, undoToastOpts);
+    } else {
+      entries = snapshot;
+      persistCurrentUserSnapshot();
+      renderAll();
+      showToast('Erro ao excluir — registro restaurado');
+    }
   }
 }
 
@@ -899,10 +1227,10 @@ function openEntryDetailModal(item) {
 
   document.getElementById('entryDetailTypeLabel').textContent = isCredit ? 'Crédito no banco' : 'Folga / saída';
   const deltaEl = document.getElementById('entryDetailDelta');
-  deltaEl.textContent = formatHHMM(deltaMins, true);
+  deltaEl.textContent = formatVisibleHHMM(deltaMins, true);
   deltaEl.className = `text-2xl font-extrabold font-mono tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`;
 
-  document.getElementById('entryDetailRunning').textContent = formatHHMM(item.runningMinutes ?? 0, true);
+  document.getElementById('entryDetailRunning').textContent = formatVisibleHHMM(item.runningMinutes ?? 0, true);
   document.getElementById('entryDetailDate').textContent = formatDateBR(item.date);
   document.getElementById('entryDetailCategory').textContent = fullCategory;
 
@@ -910,19 +1238,22 @@ function openEntryDetailModal(item) {
   if (isCredit) {
     const worked = Number(item.workedMinutes) > 0 ? Number(item.workedMinutes) : Number(item.minutes);
     const mult = Number(item.multiplier || 1);
-    calcTextEl.textContent = `Trabalhado ${formatHHMM(worked)} × ${mult}x`;
+    calcTextEl.textContent = `Trabalhado ${formatVisibleHHMM(worked)} × ${mult}x`;
   } else {
-    calcTextEl.textContent = `${formatHHMM(item.minutes)} (${formatDaysFromMinutes(item.minutes, settings.dailyMinutes)})`;
+    calcTextEl.textContent = `${formatVisibleHHMM(item.minutes)} (${formatVisibleDays(item.minutes, settings.dailyMinutes)})`;
   }
 
   const expiryRow = document.getElementById('entryDetailExpiryRow');
   const expiryText = document.getElementById('entryDetailExpiryText');
   const showExpiry = isCredit && Boolean(item.expiry);
+  const expInfo = showExpiry ? getExpiryBadge(item.expiry, remMins, todayISO, item.minutes) : null;
   expiryRow.classList.toggle('hidden', !showExpiry);
   expiryRow.classList.toggle('flex', showExpiry);
-  if (showExpiry) {
-    const expInfo = getExpiryBadge(item.expiry, remMins, todayISO, item.minutes);
-    expiryText.textContent = `${formatDateBR(item.expiry)} (${expInfo.label})`;
+  if (showExpiry && expInfo) {
+    const expBadgeLabel = privacyMode
+      ? (expInfo.isExpired ? 'Vencido' : 'Prazo ativo')
+      : expInfo.label;
+    expiryText.textContent = `${formatDateBR(item.expiry)} (${expBadgeLabel})`;
   }
 
   const notesRow = document.getElementById('entryDetailNotesRow');
@@ -934,6 +1265,13 @@ function openEntryDetailModal(item) {
   const plannedBox = document.getElementById('entryDetailPlannedActions');
   plannedBox.classList.toggle('hidden', isRealized);
   plannedBox.classList.toggle('grid', !isRealized);
+
+  const canWriteOff = Boolean(isCredit && remMins > 0 && (expInfo?.isExpired || expInfo?.isAlert));
+  const writeOffBtn = document.getElementById('entryDetailWriteOffBtn');
+  if (writeOffBtn) {
+    writeOffBtn.classList.toggle('hidden', !canWriteOff);
+    writeOffBtn.classList.toggle('flex', canWriteOff);
+  }
 
   modal.classList.remove('hidden');
   window.lucide?.createIcons();
@@ -981,6 +1319,14 @@ document.getElementById('entryDetailDeleteBtn')?.addEventListener('click', () =>
   if (!id) return;
   closeEntryDetailModal();
   handleDeleteEntry(id);
+});
+
+document.getElementById('entryDetailWriteOffBtn')?.addEventListener('click', () => {
+  const target = entries.find((item) => item.id === activeDetailEntryId);
+  if (!target) return;
+  const rem = renderedRemainingMap.get(target.id) ?? target.minutes;
+  closeEntryDetailModal();
+  modals.openWriteOffModal(target, rem);
 });
 
 // ==================== FILTROS, ABAS & ATALHOS ====================
@@ -1130,6 +1476,15 @@ document.querySelectorAll('.ratio-mode-btn').forEach((btn) => {
 });
 
 document.getElementById('expiryBreakdownContainer')?.addEventListener('click', (e) => {
+  const woBtn = e.target.closest('.writeoff-bucket-btn');
+  if (woBtn) {
+    const bucketId = woBtn.dataset.bucketId;
+    const target = entries.find((item) => item.id === bucketId);
+    const rem = renderedRemainingMap.get(bucketId) ?? (target ? target.minutes : 0);
+    if (target) modals.openWriteOffModal(target, rem);
+    return;
+  }
+
   const btn = e.target.closest('.sim-from-bucket-btn');
   if (!btn) return;
   const remMins = Number(btn.dataset.simMinutes) || 0;
@@ -1140,7 +1495,7 @@ document.getElementById('expiryBreakdownContainer')?.addEventListener('click', (
   slider.value = String(suggestedDays);
   updateSimulator();
   slider.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  showToast(`Simulador ajustado para ${formatSimulatedDaysLabel(suggestedDays)} (${formatHHMM(remMins)} a vencer)`);
+  showToast(`Simulador ajustado para ${formatSimulatedDaysLabel(suggestedDays)} (${formatVisibleHHMM(remMins)} a vencer)`);
 });
 
 function resetAllFilters() {
@@ -1160,9 +1515,21 @@ document.getElementById('expiryAlertBanner')?.addEventListener('click', () => {
 });
 document.getElementById('clearFiltersBtn').addEventListener('click', resetAllFilters);
 document.getElementById('emptyClearFiltersBtn')?.addEventListener('click', resetAllFilters);
-document.getElementById('onboardingSettingsBtn')?.addEventListener('click', () => modals.openSettingsModal());
-document.getElementById('onboardingHolidaysBtn')?.addEventListener('click', () => modals.openHolidaysModal());
 document.getElementById('onboardingNewEntryBtn')?.addEventListener('click', () => modals.openEntryIntentModal());
+document.getElementById('mobilePrivacyToggleBtn')?.addEventListener('click', togglePrivacyMode);
+document.getElementById('desktopPrivacyToggleBtn')?.addEventListener('click', togglePrivacyMode);
+document.getElementById('openInitialBalanceBtn')?.addEventListener('click', () => {
+  closeUserMenu();
+  modals.openInitialSetupModal({ startStep: 2, adjustOnly: true });
+});
+document.getElementById('emptySetInitialBalanceBtn')?.addEventListener('click', () => {
+  modals.openInitialSetupModal({ startStep: 2, adjustOnly: true });
+});
+document.getElementById('analyticsEmptyInitialBtn')?.addEventListener('click', () => {
+  modals.openInitialSetupModal({ startStep: 2, adjustOnly: true });
+});
+document.getElementById('analyticsEmptyNewBtn')?.addEventListener('click', () => modals.openEntryIntentModal());
+document.getElementById('commEmptyNewBtn')?.addEventListener('click', () => modals.openEntryIntentModal());
 
 document.getElementById('searchInput').addEventListener('input', renderAll);
 document.getElementById('yearFilter').addEventListener('change', renderAll);
@@ -1581,19 +1948,49 @@ function handleJsonImportChange(event) {
         else entries.push(clean);
       });
 
+      persistCurrentUserSnapshot();
+
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        if (parsed.settings) enqueueLocalSync({ kind: 'settings', settings });
+        validEntries.forEach((clean) => enqueueLocalSync({ kind: 'upsert', entry: clean }));
+        setSyncStatus('offline');
+        updateHeaderUserInfo();
+        modals.closeSettingsModal();
+        exportModal.closeExportModal();
+        renderAll();
+        showToast(`Backup aplicado localmente (${validEntries.length} registros)!`);
+        return;
+      }
+
       try {
         if (parsed.settings) {
           await saveSettingsToCloud(currentUser.id, settings, setSyncStatus);
+          clearSyncedQueueOps((op) => op.kind === 'settings');
         }
         await upsertEntriesBatchToCloud(currentUser.id, validEntries, setSyncStatus);
+        const importedIds = new Set(validEntries.map((clean) => clean.id));
+        clearSyncedQueueOps((op) => op.kind !== 'settings' && importedIds.has(op.id || op.entry?.id));
         updateHeaderUserInfo();
         modals.closeSettingsModal();
         exportModal.closeExportModal();
         renderAll();
         showToast(`Backup importado (${validEntries.length} registros)!`);
-      } catch {
+        void flushPendingSyncQueue({ showSyncedToast: false });
+      } catch (err) {
+        if (isLikelyNetworkError(err)) {
+          if (parsed.settings) enqueueLocalSync({ kind: 'settings', settings });
+          validEntries.forEach((clean) => enqueueLocalSync({ kind: 'upsert', entry: clean }));
+          setSyncStatus('offline');
+          updateHeaderUserInfo();
+          modals.closeSettingsModal();
+          exportModal.closeExportModal();
+          renderAll();
+          showToast(`Sem conexão — backup salvo na fila local (${validEntries.length} registros)`);
+          return;
+        }
         settings = prevSettings;
         entries = prevEntries;
+        persistCurrentUserSnapshot();
         updateHeaderUserInfo();
         renderAll();
         showToast('Erro ao importar na nuvem — alteração revertida');
@@ -1700,9 +2097,12 @@ authController = setupAuth({
   onSignedOut() {
     currentUser = null;
     entries = [];
+    isFlushingQueue = false;
+    syncAlertDismissedState = null;
     destroyCharts();
     closeUserMenu();
     closeExportMenu();
+    syncPrivacyButtonsUI();
     const avatarEl = document.getElementById('headerProfileAvatar');
     const labelEl = document.getElementById('headerProfileLabel');
     const menuFullName = document.getElementById('userMenuFullName');
@@ -1715,22 +2115,52 @@ authController = setupAuth({
   async onSessionReady(user) {
     currentUser = user;
     setSyncStatus('saving');
+    let loadedSuccessfully = false;
     try {
       const data = await loadUserDataFromCloud(user);
-      settings = data.settings;
-      entries = data.entries;
+      const pendingQueue = loadSyncQueue(user.id);
+      const merged = pendingQueue.length > 0
+        ? applyQueueToState({ settings: data.settings, entries: data.entries }, pendingQueue)
+        : data;
+      settings = merged.settings;
+      entries = merged.entries;
+      persistCurrentUserSnapshot();
       try {
         if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
       } catch { /* ignore */ }
       updateHeaderUserInfo();
-      setSyncStatus('ok');
       renderAll();
+      loadedSuccessfully = true;
+
+      if (pendingQueue.length > 0 && navigator.onLine !== false) {
+        await flushPendingSyncQueue({ showSyncedToast: true });
+      } else {
+        setSyncStatus('ok');
+      }
     } catch (err) {
-      console.error('Erro ao carregar dados do Supabase:', err);
-      setSyncStatus('error');
-      showToast('Erro ao sincronizar com o Supabase');
+      const cached = loadUserCache(user.id);
+      if (cached) {
+        const merged = applyQueueToState(cached, loadSyncQueue(user.id));
+        if (merged.settings) settings = merged.settings;
+        if (Array.isArray(merged.entries)) entries = merged.entries;
+        try {
+          if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
+        } catch { /* ignore */ }
+        updateHeaderUserInfo();
+        setSyncStatus(navigator.onLine === false ? 'offline' : 'pending');
+        renderAll();
+        loadedSuccessfully = true;
+        showToast('Modo offline — exibindo os dados salvos neste aparelho.');
+      } else {
+        console.error('Erro ao carregar dados do Supabase:', err);
+        setSyncStatus('error');
+        showToast('Erro ao sincronizar com o Supabase');
+      }
     } finally {
       document.getElementById('loadingOverlay').classList.add('hidden');
+      if (loadedSuccessfully && entries.length === 0 && !hasCompletedOnboarding(user.id) && !modals.hasOpenModal()) {
+        modals.openInitialSetupModal({ startStep: 1, adjustOnly: false });
+      }
     }
   }
 });
@@ -1768,9 +2198,13 @@ pwaDismissBtn?.addEventListener('click', () => {
   } catch { /* ignore */ }
 });
 
-window.addEventListener('online', () => {
-  setSyncStatus('ok');
-  showToast('Conexão restabelecida — nuvem sincronizada');
+window.addEventListener('online', async () => {
+  const synced = await flushPendingSyncQueue({ showSyncedToast: true });
+  if (synced === 0) {
+    const hasPending = currentUser?.id ? loadSyncQueue(currentUser.id).length > 0 : false;
+    setSyncStatus(hasPending ? 'pending' : 'ok');
+    if (!hasPending) showToast('Conexão restabelecida — nuvem sincronizada');
+  }
 });
 
 window.addEventListener('offline', () => {
@@ -1792,6 +2226,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 initTheme();
+syncPrivacyButtonsUI();
 syncSearchPlaceholder();
 window.addEventListener('resize', () => {
   syncSearchPlaceholder();

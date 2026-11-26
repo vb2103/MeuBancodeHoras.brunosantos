@@ -4,7 +4,11 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_nClSbvyd31jCHu1qpz4t-w_tUJ0RzUh
 export const STORAGE_KEYS = {
   THEME: 'saldohoras_theme',
   HOLIDAY_UF: 'saldohoras_holiday_uf',
-  HOLIDAY_CACHE_PREFIX: 'saldohoras_holidays_v2_'
+  HOLIDAY_CACHE_PREFIX: 'saldohoras_holidays_v2_',
+  PRIVACY: 'saldohoras_privacy_v1',
+  CACHE_PREFIX: 'saldohoras_cache_v1_',
+  QUEUE_PREFIX: 'saldohoras_queue_v1_',
+  ONBOARDING_PREFIX: 'saldohoras_onboarding_v1_'
 };
 
 export const BRAZIL_UFS = [

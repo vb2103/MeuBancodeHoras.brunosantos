@@ -10,7 +10,16 @@ import {
   sanitizePdfText
 } from './config.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
-import { applyMultiplierToMinutes, computeAnalyticsSummary, formatDaysFromMinutes, formatHHMM, getExpiryBadge, minutesToDecimalHours } from './time.js';
+import {
+  applyMultiplierToMinutes,
+  computeAnalyticsSummary,
+  formatDaysFromMinutes,
+  formatHHMM,
+  getExpiryBadge,
+  isInitialBalanceEntry,
+  isWriteOffEntry,
+  minutesToDecimalHours
+} from './time.js';
 
 function triggerDownload(content, mimeType, filename) {
   const blob = new Blob([content], { type: mimeType });
@@ -113,7 +122,9 @@ function formatCleanEntryTitle(item) {
 
 function getEntryTypeDisplayLabel(item, includePlannedTag = false) {
   let base = 'Manual';
-  if (item?.category === 'holiday') base = 'Feriado Trabalhado';
+  if (isInitialBalanceEntry(item)) base = 'Saldo Inicial';
+  else if (isWriteOffEntry(item)) base = 'Encerramento / Baixa';
+  else if (item?.category === 'holiday') base = 'Feriado Trabalhado';
   else if (item?.category === 'overtime') base = 'Hora Extra';
   else if (item?.category === 'time_off') base = 'Folga Compensatória';
   else if (item?.category === 'adjustment') base = 'Ajuste de Saldo';

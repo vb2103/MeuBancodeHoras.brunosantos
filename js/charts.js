@@ -1,5 +1,5 @@
 import { escapeHtml, formatDateBR } from './config.js';
-import { computeAnalyticsSummary, formatDaysFromMinutes, formatHHMM } from './time.js';
+import { computeAnalyticsSummary, formatDaysFromMinutes, formatHHMM, maskPrivacyHours } from './time.js';
 
 let balanceChartInstance = null;
 let monthlyChartInstance = null;
@@ -42,22 +42,26 @@ function createCenterTextPlugin(centerTitle, centerValue, isDark) {
   };
 }
 
-function renderInsightsCards(analytics, _chronoEntries, _dailyMinutes) {
+function renderInsightsCards(analytics, _chronoEntries, _dailyMinutes, privacyMode = false) {
+  const fmtH = (mins, plus = false) => {
+    const raw = formatHHMM(mins, plus);
+    return privacyMode ? maskPrivacyHours(raw) : raw;
+  };
   const expTitle = document.getElementById('analyticsExpiryTitle');
   const expText = document.getElementById('analyticsExpiryText');
   if (expTitle && expText) {
     if (analytics.expiredMinutes > 0) {
-      expTitle.textContent = `${formatHHMM(analytics.expiredMinutes)} com prazo vencido`;
+      expTitle.textContent = `${fmtH(analytics.expiredMinutes)} com prazo vencido`;
       expText.textContent =
-        'Existem créditos que passaram da data limite sem uso em folga. Confira na lista de prazos abaixo.';
+        'Existem créditos que passaram da data limite sem uso em folga. Você pode encerrar ou dar baixa nos prazos abaixo.';
     } else if (analytics.expiringSoonMinutes > 0) {
-      expTitle.textContent = `${formatHHMM(analytics.expiringSoonMinutes)} vencendo em breve`;
+      expTitle.textContent = `${fmtH(analytics.expiringSoonMinutes)} vencendo em breve`;
       expText.textContent =
         'Suas folgas descontam primeiro as horas mais antigas que vencem antes. Vale planejar uma folga antes do prazo.';
     } else if (analytics.nextCriticalBucket) {
       expTitle.textContent = 'Prazos em dia';
       expText.textContent =
-        `Nenhuma hora perto de vencer. O próximo crédito a vencer é ${formatHHMM(analytics.nextCriticalBucket.remainingMinutes)} em ${formatDateBR(analytics.nextCriticalBucket.expiry)}.`;
+        `Nenhuma hora perto de vencer. O próximo crédito a vencer é ${fmtH(analytics.nextCriticalBucket.remainingMinutes)} em ${formatDateBR(analytics.nextCriticalBucket.expiry)}.`;
     } else {
       expTitle.textContent = 'Tudo já compensado';
       expText.textContent = 'Não há horas antigas pendentes aguardando folga no seu extrato.';
@@ -71,20 +75,24 @@ function renderInsightsCards(analytics, _chronoEntries, _dailyMinutes) {
       originTitle.textContent = 'Sem créditos registrados';
       originText.textContent = 'Quando você trabalhar em feriados ou fizer horas extras, o bônus em HH:MM aparecerá aqui.';
     } else if (analytics.bonusMinutes > 0) {
-      originTitle.textContent = `+${formatHHMM(analytics.bonusMinutes)} de bônus gerados`;
+      originTitle.textContent = `${fmtH(analytics.bonusMinutes, true)} de bônus gerados`;
       originText.textContent =
-        `Você trabalhou ${formatHHMM(analytics.workedMinutesTotal)} e acumulou ${formatHHMM(analytics.creditedMinutesTotal)} no banco graças aos multiplicadores (ex.: feriado 1.4x).`;
+        `Você trabalhou ${fmtH(analytics.workedMinutesTotal)} e acumulou ${fmtH(analytics.creditedMinutesTotal)} no banco graças aos multiplicadores (ex.: feriado 1.4x).`;
     } else {
-      originTitle.textContent = `${formatHHMM(analytics.creditedMinutesTotal)} acumulados`;
+      originTitle.textContent = `${fmtH(analytics.creditedMinutesTotal)} acumulados`;
       originText.textContent =
-        `Feriados somam ${formatHHMM(analytics.holidayCreditsMinutes)} e horas extras somam ${formatHHMM(analytics.overtimeCreditsMinutes)} no período.`;
+        `Feriados somam ${fmtH(analytics.holidayCreditsMinutes)} e horas extras somam ${fmtH(analytics.overtimeCreditsMinutes)} no período.`;
     }
   }
 }
 
-function renderFifoExpiryTimeline(analytics) {
+function renderFifoExpiryTimeline(analytics, privacyMode = false) {
   const container = document.getElementById('expiryBreakdownContainer');
   if (!container) return;
+  const fmtH = (mins) => {
+    const raw = formatHHMM(mins);
+    return privacyMode ? maskPrivacyHours(raw) : raw;
+  };
 
   if (!analytics.openBuckets.length) {
     container.innerHTML = `
@@ -103,6 +111,10 @@ function renderFifoExpiryTimeline(analytics) {
         ? 'bg-amber-500'
         : 'bg-indigo-600';
     const openPct = Math.max(4, 100 - bucket.usedPct);
+    const canWriteOff = Boolean(bucket.badge?.isExpired || bucket.badge?.isAlert);
+    const badgeText = privacyMode && bucket.expiry
+      ? `${formatDateBR(bucket.expiry)}${bucket.badge.isExpired ? ' (Vencido)' : ''}`
+      : bucket.badge.label;
 
     return `
       <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-col gap-2.5 min-w-0">
@@ -111,20 +123,24 @@ function renderFifoExpiryTimeline(analytics) {
             <span class="block font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(bucket.date)}</span>
             <h4 class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug mt-0.5 break-words">${escapeHtml(bucket.title)}</h4>
           </div>
-          <span class="px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums whitespace-nowrap shrink-0 ${bucket.badge.badgeClass}">${escapeHtml(bucket.badge.label)}</span>
+          <span class="px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums whitespace-nowrap shrink-0 ${bucket.badge.badgeClass}">${escapeHtml(badgeText)}</span>
         </div>
 
         <div class="space-y-1.5">
           <p class="text-xs text-slate-600 dark:text-slate-300 tabular-nums leading-relaxed">
-            Resta compensar <strong class="font-mono text-slate-900 dark:text-white">${formatHHMM(bucket.remainingMinutes)}</strong> de ${formatHHMM(bucket.totalMinutes)}
-            ${bucket.usedMinutes > 0 ? `• ${formatHHMM(bucket.usedMinutes)} abatidos` : '• 100% disponível'}
+            Resta compensar <strong class="font-mono text-slate-900 dark:text-white">${fmtH(bucket.remainingMinutes)}</strong> de ${fmtH(bucket.totalMinutes)}
+            ${bucket.usedMinutes > 0 ? `• ${fmtH(bucket.usedMinutes)} abatidos` : '• 100% disponível'}
           </p>
           <div class="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden" aria-label="Proporção restante deste crédito">
             <div class="h-full rounded-full ${barColor} transition-all duration-300" style="width: ${openPct}%"></div>
           </div>
         </div>
 
-        <div class="flex justify-end">
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          ${canWriteOff ? `
+          <button type="button" data-bucket-id="${escapeHtml(bucket.id)}" class="writeoff-bucket-btn min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition">
+            Encerrar / Dar baixa
+          </button>` : ''}
           <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn min-h-[40px] px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition">
             Simular folga
           </button>
@@ -134,7 +150,8 @@ function renderFifoExpiryTimeline(analytics) {
   }).join('');
 }
 
-function formatChartAxisTick(hoursVal, showPlus, isCompact) {
+function formatChartAxisTick(hoursVal, showPlus, isCompact, privacyMode = false) {
+  if (privacyMode) return '••h';
   const mins = Math.round(Number(hoursVal) * 60);
   if (isCompact && mins % 60 === 0) {
     const h = Math.trunc(mins / 60);
@@ -144,7 +161,7 @@ function formatChartAxisTick(hoursVal, showPlus, isCompact) {
   return formatHHMM(mins, showPlus);
 }
 
-function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, gridColor, textColor, isCompact) {
+function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, gridColor, textColor, isCompact, privacyMode = false) {
   const canvas = document.getElementById('balanceChart');
   const emptyBox = document.getElementById('balanceChartEmpty');
   const filtered = scope === 'realized'
@@ -219,6 +236,7 @@ function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, grid
           labels: { color: textColor, boxWidth: isCompact ? 10 : 12, font: { size: isCompact ? 10 : 11 } }
         },
         tooltip: {
+          enabled: !privacyMode,
           filter: (item) => item.datasetIndex === 0,
           callbacks: {
             title: (items) => {
@@ -256,7 +274,7 @@ function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, grid
             color: textColor,
             font: { size: isCompact ? 10 : 11 },
             maxTicksLimit: isCompact ? 6 : 8,
-            callback: (val) => formatChartAxisTick(val, true, isCompact)
+            callback: (val) => formatChartAxisTick(val, true, isCompact, privacyMode)
           }
         }
       }
@@ -264,7 +282,7 @@ function renderBalanceLineChart(chronoEntries, dailyMinutes, scope, isDark, grid
   });
 }
 
-function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompact) {
+function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompact, privacyMode = false) {
   const canvas = document.getElementById('monthlyChart');
   const emptyBox = document.getElementById('monthlyChartEmpty');
   if (!canvas) return;
@@ -320,6 +338,7 @@ function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompa
           labels: { color: textColor, boxWidth: isCompact ? 10 : 12, font: { size: isCompact ? 10 : 11 } }
         },
         tooltip: {
+          enabled: !privacyMode,
           callbacks: {
             label: (ctx) => {
               const m = analytics.monthlySeries[ctx.dataIndex];
@@ -350,7 +369,7 @@ function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompa
             color: textColor,
             font: { size: isCompact ? 10 : 11 },
             maxTicksLimit: isCompact ? 6 : 8,
-            callback: (val) => formatChartAxisTick(val, false, isCompact)
+            callback: (val) => formatChartAxisTick(val, false, isCompact, privacyMode)
           }
         }
       }
@@ -358,10 +377,14 @@ function renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompa
   });
 }
 
-function renderRatioDonutChart(analytics, mode, isDark, textColor) {
+function renderRatioDonutChart(analytics, mode, isDark, textColor, privacyMode = false) {
   const canvas = document.getElementById('ratioChart');
   const emptyBox = document.getElementById('ratioChartEmpty');
   const legendBox = document.getElementById('ratioLegendDetails');
+  const fmtH = (mins) => {
+    const raw = formatHHMM(mins);
+    return privacyMode ? maskPrivacyHours(raw) : raw;
+  };
 
   const rawItems = mode === 'origin'
     ? [
@@ -395,8 +418,8 @@ function renderRatioDonutChart(analytics, mode, isDark, textColor) {
 
   const centerTitle = mode === 'origin' ? 'Total ganho' : 'Saldo aberto';
   const centerValue = mode === 'origin'
-    ? formatHHMM(analytics.creditedMinutesTotal)
-    : formatHHMM(analytics.openRemainingMinutes);
+    ? fmtH(analytics.creditedMinutesTotal)
+    : fmtH(analytics.openRemainingMinutes);
 
   if (ratioChartInstance) ratioChartInstance.destroy();
   ratioChartInstance = new window.Chart(canvas.getContext('2d'), {
@@ -417,6 +440,7 @@ function renderRatioDonutChart(analytics, mode, isDark, textColor) {
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: !privacyMode,
           callbacks: {
             label: (ctx) => {
               const pct = Math.round((Number(ctx.raw) / total) * 100);
@@ -437,7 +461,7 @@ function renderRatioDonutChart(analytics, mode, isDark, textColor) {
             <span class="w-2.5 h-2.5 rounded-full ${i.dot} shrink-0"></span>
             <span class="truncate">${escapeHtml(i.label)}</span>
           </span>
-          <span class="font-mono font-semibold text-slate-900 dark:text-white tabular-nums shrink-0">${formatHHMM(i.mins)} (${pct}%)</span>
+          <span class="font-mono font-semibold text-slate-900 dark:text-white tabular-nums shrink-0">${fmtH(i.mins)} (${pct}%)</span>
         </div>
       `;
     }).join('');
@@ -446,10 +470,11 @@ function renderRatioDonutChart(analytics, mode, isDark, textColor) {
 
 export function renderCharts(chronoEntries, remainingMap = new Map(), settings = {}, options = {}) {
   const dailyMinutes = Number(settings?.dailyMinutes) || 480;
+  const privacyMode = Boolean(options.privacyMode);
   const analytics = computeAnalyticsSummary(chronoEntries, remainingMap, dailyMinutes);
 
-  renderInsightsCards(analytics, chronoEntries, dailyMinutes);
-  renderFifoExpiryTimeline(analytics);
+  renderInsightsCards(analytics, chronoEntries, dailyMinutes, privacyMode);
+  renderFifoExpiryTimeline(analytics, privacyMode);
 
   if (typeof window.Chart !== 'function') return;
 
@@ -460,7 +485,7 @@ export function renderCharts(chronoEntries, remainingMap = new Map(), settings =
   const balanceScope = options.balanceScope || 'all';
   const ratioMode = options.ratioMode || 'composition';
 
-  renderBalanceLineChart(chronoEntries, dailyMinutes, balanceScope, isDark, gridColor, textColor, isCompact);
-  renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompact);
-  renderRatioDonutChart(analytics, ratioMode, isDark, textColor);
+  renderBalanceLineChart(chronoEntries, dailyMinutes, balanceScope, isDark, gridColor, textColor, isCompact, privacyMode);
+  renderMonthlyBarsChart(analytics, isDark, gridColor, textColor, isCompact, privacyMode);
+  renderRatioDonutChart(analytics, ratioMode, isDark, textColor, privacyMode);
 }

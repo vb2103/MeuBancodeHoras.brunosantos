@@ -461,42 +461,50 @@ export function parseClockToMinutes(clockStr) {
 }
 
 /**
- * Calcula duração líquida trabalhada pelo ponto (Entrada, Almoço, Saída) e
- * compara opcionalmente com a jornada diária para sugerir crédito ou débito em HH:MM.
+ * Calcula duração líquida trabalhada pelo ponto (Entrada, Intervalo ou Almoço, Saída),
+ * com suporte automático a turno noturno que cruza a meia-noite.
  */
 export function computePunchBalance({
   entryTime,
   breakStart = '',
   breakEnd = '',
   exitTime,
+  breakMinutes = null,
   dailyMinutes = 480,
-  compareWithJourney = true
+  compareWithJourney = false
 } = {}) {
   const start = parseClockToMinutes(entryTime);
-  let end = parseClockToMinutes(exitTime);
-  if (start === null || end === null) return null;
-  if (end <= start) end += 24 * 60;
+  const rawEnd = parseClockToMinutes(exitTime);
+  if (start === null || rawEnd === null) return null;
 
+  const crossesMidnight = rawEnd <= start;
+  const end = crossesMidnight ? rawEnd + 24 * 60 : rawEnd;
   const totalSpan = end - start;
-  let breakMinutes = 0;
-  if (breakStart && breakEnd) {
+
+  let resolvedBreakMinutes = 0;
+  if (breakMinutes !== null && breakMinutes !== undefined && Number.isFinite(Number(breakMinutes))) {
+    resolvedBreakMinutes = Math.max(0, Math.round(Number(breakMinutes)));
+    if (resolvedBreakMinutes >= totalSpan) return null;
+  } else if (breakStart && breakEnd) {
     const bStart = parseClockToMinutes(breakStart);
     let bEnd = parseClockToMinutes(breakEnd);
     if (bStart === null || bEnd === null) return null;
     if (bEnd <= bStart) bEnd += 24 * 60;
-    breakMinutes = bEnd - bStart;
-    if (breakMinutes < 0 || breakMinutes >= totalSpan) return null;
+    resolvedBreakMinutes = bEnd - bStart;
+    if (resolvedBreakMinutes < 0 || resolvedBreakMinutes >= totalSpan) return null;
   }
 
-  const workedMinutes = totalSpan - breakMinutes;
+  const workedMinutes = totalSpan - resolvedBreakMinutes;
   if (workedMinutes <= 0) return null;
 
   const journeyMinutes = Math.max(1, Math.round(Number(dailyMinutes) || 480));
   const diffMinutes = compareWithJourney ? (workedMinutes - journeyMinutes) : workedMinutes;
 
   return {
+    crossesMidnight,
+    totalSpan,
     workedMinutes,
-    breakMinutes,
+    breakMinutes: resolvedBreakMinutes,
     journeyMinutes,
     diffMinutes,
     suggestedType: diffMinutes >= 0 ? 'credit' : 'debit',
@@ -514,4 +522,38 @@ export function isHolidayEntry(entry) {
   const title = (entry.title || '').toLowerCase();
   const notes = (entry.notes || '').toLowerCase();
   return /feriado|carnaval|tiradentes|finados|natal|confraterniza|corpus|independ|aparecida|república|consciência|sexta-feira santa|paixão de cristo|revolução/i.test(`${title} ${notes}`);
+}
+
+/**
+ * Identifica lançamentos especiais de Saldo Inicial (armazenados com category 'adjustment').
+ */
+export function isInitialBalanceEntry(entry) {
+  return Boolean(entry?.category === 'adjustment' && /^Saldo inicial/i.test(String(entry.title || '').trim()));
+}
+
+/**
+ * Identifica lançamentos de baixa/encerramento de créditos expirados ou fechamento de ciclo.
+ */
+export function isWriteOffEntry(entry) {
+  return Boolean(entry?.category === 'adjustment' && /^(?:Baixa por vencimento|Fechamento de ciclo)/i.test(String(entry.title || '').trim()));
+}
+
+/**
+ * Mascara exibição de horas mantendo o sinal para o Modo Privacidade.
+ */
+export function maskPrivacyHours(hhmmStr) {
+  const s = String(hhmmStr ?? '');
+  if (s.startsWith('+')) return '+••:••';
+  if (s.startsWith('-')) return '-••:••';
+  return '••:••';
+}
+
+/**
+ * Mascara exibição de dias para o Modo Privacidade.
+ */
+export function maskPrivacyDays(daysStr, includeSuffix = false) {
+  const raw = String(daysStr ?? '');
+  const hasNegative = raw.startsWith('-');
+  const prefix = hasNegative ? '-' : '';
+  return includeSuffix ? `${prefix}•• dias de folga` : `${prefix}•• dias`;
 }

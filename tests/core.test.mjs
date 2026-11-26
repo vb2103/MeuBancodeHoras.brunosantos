@@ -18,6 +18,17 @@ import { computeEasterISO, computeOfflineHolidays, getHolidayBridgeOpportunity, 
 import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
 import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
 import {
+  applyQueueToState,
+  enqueueSyncOp,
+  hasCompletedOnboarding,
+  isLikelyNetworkError,
+  loadSyncQueue,
+  loadUserCache,
+  markOnboardingCompleted,
+  saveSyncQueue,
+  saveUserCache
+} from '../js/sync-queue.js';
+import {
   applyMultiplierToMinutes,
   buildExpiryAlertSummary,
   computeAnalyticsSummary,
@@ -28,6 +39,10 @@ import {
   formatUrgentExpiryCardNote,
   getExpiryBadge,
   isHolidayEntry,
+  isInitialBalanceEntry,
+  isWriteOffEntry,
+  maskPrivacyDays,
+  maskPrivacyHours,
   parseDurationToMinutes
 } from '../js/time.js';
 
@@ -447,4 +462,84 @@ test('buildCommunicationTemplates adapta saldo, bloco de folgas e fechamento con
   assert.match(tplWithPlanned.whatsappText, /\*Saldo projetado:\* \+03:12/);
   assert.match(tplWithPlanned.whatsappText, /04\/12\/2026: Folga Ponte/);
   assert.match(tplWithPlanned.whatsappText, /Podemos confirmar essas datas\? — _Vitor Bruno_$/);
+});
+
+test('ponto noturno (cruzando meia-noite), breakMinutes, privacidade e lançamentos especiais', () => {
+  const nightWithBreak = computePunchBalance({
+    entryTime: '22:00',
+    exitTime: '06:00',
+    breakMinutes: 60,
+    dailyMinutes: 480
+  });
+  assert.equal(nightWithBreak.crossesMidnight, true);
+  assert.equal(nightWithBreak.workedMinutes, 420);
+  assert.equal(nightWithBreak.durationMinutes, 420);
+
+  const nightNoBreak = computePunchBalance({
+    entryTime: '22:00',
+    exitTime: '02:30',
+    breakMinutes: 0
+  });
+  assert.equal(nightNoBreak.crossesMidnight, true);
+  assert.equal(nightNoBreak.workedMinutes, 270);
+
+  assert.equal(maskPrivacyHours('+08:00'), '+••:••');
+  assert.equal(maskPrivacyHours('-01:30'), '-••:••');
+  assert.equal(maskPrivacyHours('00:00'), '••:••');
+  assert.equal(maskPrivacyDays('-1,5 dias'), '-•• dias');
+  assert.equal(maskPrivacyDays('3,2 dias', true), '•• dias de folga');
+
+  assert.equal(isInitialBalanceEntry({ category: 'adjustment', title: 'Saldo inicial informado' }), true);
+  assert.equal(isInitialBalanceEntry({ category: 'adjustment', title: 'Outro ajuste' }), false);
+  assert.equal(isWriteOffEntry({ category: 'adjustment', title: 'Baixa por vencimento — Feriado' }), true);
+  assert.equal(isWriteOffEntry({ category: 'adjustment', title: 'Fechamento de ciclo — Plantão' }), true);
+  assert.equal(isWriteOffEntry({ category: 'overtime', title: 'Baixa por vencimento — Teste' }), false);
+});
+
+test('fila offline (sync-queue.js) mescla operações, aplica estado e persiste cache/onboarding', () => {
+  let queue = [];
+  queue = enqueueSyncOp(queue, { kind: 'settings', settings: { dailyMinutes: 480 } });
+  queue = enqueueSyncOp(queue, { kind: 'settings', settings: { dailyMinutes: 440 } });
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].settings.dailyMinutes, 440);
+
+  queue = enqueueSyncOp(queue, { kind: 'upsert', entry: { id: 'e1', title: 'Plantão', minutes: 120, type: 'credit', status: 'realized', date: '2026-11-26' } });
+  queue = enqueueSyncOp(queue, { kind: 'upsert', entry: { id: 'e2', title: 'Folga', minutes: 60, type: 'debit', status: 'realized', date: '2026-11-26' } });
+  queue = enqueueSyncOp(queue, { kind: 'delete', id: 'e1' });
+  assert.equal(queue.length, 3); // settings + upsert(e2) + delete(e1)
+
+  const baseState = {
+    settings: { dailyMinutes: 480, stateUf: 'SP' },
+    entries: [{ id: 'e1', title: 'Plantão', minutes: 120, type: 'credit', status: 'realized', date: '2026-11-26' }]
+  };
+  const merged = applyQueueToState(baseState, queue);
+  assert.equal(merged.settings.dailyMinutes, 440);
+  assert.equal(merged.settings.stateUf, 'SP');
+  assert.equal(merged.entries.length, 1);
+  assert.equal(merged.entries[0].id, 'e2');
+
+  // Estado original permanece intacto
+  assert.equal(baseState.entries.length, 1);
+  assert.equal(baseState.entries[0].id, 'e1');
+
+  assert.equal(isLikelyNetworkError(new Error('Failed to fetch')), true);
+  assert.equal(isLikelyNetworkError(new Error('Invalid JWT')), false);
+
+  const memStore = new Map();
+  const mockStorage = {
+    getItem: (k) => (memStore.has(k) ? memStore.get(k) : null),
+    setItem: (k, v) => memStore.set(k, String(v)),
+    removeItem: (k) => memStore.delete(k)
+  };
+
+  saveUserCache('u1', merged, mockStorage);
+  assert.equal(loadUserCache('u1', mockStorage)?.entries?.length, 1);
+  saveSyncQueue('u1', queue, mockStorage);
+  assert.equal(loadSyncQueue('u1', mockStorage).length, 3);
+  saveSyncQueue('u1', [], mockStorage);
+  assert.equal(loadSyncQueue('u1', mockStorage).length, 0);
+
+  assert.equal(hasCompletedOnboarding('u1', mockStorage), false);
+  markOnboardingCompleted('u1', mockStorage);
+  assert.equal(hasCompletedOnboarding('u1', mockStorage), true);
 });
