@@ -65,7 +65,7 @@ export function createModalManager(ctx) {
   }
 
   function getOpenModalElement() {
-    const ids = ['confirmModal', 'shortcutsModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
+    const ids = ['confirmModal', 'shortcutsModal', 'entryIntentModal', 'entryModal', 'holidaysModal', 'settingsModal', ...externalModals.map((m) => m.id)];
     return ids.map((id) => document.getElementById(id)).find((el) => el && !el.classList.contains('hidden')) || null;
   }
 
@@ -177,7 +177,61 @@ export function createModalManager(ctx) {
     if (e.target.id === 'shortcutsModal') closeShortcutsModal();
   });
 
-  // ==================== MODAL DE LANÇAMENTO (HH:MM) ====================
+  // ==================== MENU RÁPIDO DE INTENÇÃO + MODAL DE LANÇAMENTO (HH:MM) ====================
+  let entryModalContext = { source: 'intent', isEditing: false };
+
+  function getActiveEntryType() {
+    return document.getElementById('entryTypeValue')?.value === 'debit' ? 'debit' : 'credit';
+  }
+
+  function setActiveEntryType(typeVal) {
+    const type = typeVal === 'debit' ? 'debit' : 'credit';
+    const hiddenEl = document.getElementById('entryTypeValue');
+    if (hiddenEl) hiddenEl.value = type;
+    const editTypeSel = document.getElementById('entryEditTypeSelect');
+    if (editTypeSel) editTypeSel.value = type;
+    return type;
+  }
+
+  function resolveEntryModalTitle(type, isEditing, source) {
+    if (isEditing) return 'Editar Lançamento';
+    if (source === 'holiday') return 'Lançar Feriado Trabalhado';
+    if (source === 'simulator' || source === 'bridge') return 'Agendar Folga';
+    return type === 'debit' ? 'Registrar Folga' : 'Registrar Horas Ganhas';
+  }
+
+  function openEntryIntentModal() {
+    lastFocusedEl = document.activeElement;
+    const modal = document.getElementById('entryIntentModal');
+    if (!modal) {
+      openEntryModal(null, false, { source: 'intent' });
+      return;
+    }
+    modal.classList.remove('hidden');
+    window.lucide?.createIcons();
+    focusDesktopOnly(document.getElementById('intentCreditBtn'));
+  }
+
+  function closeEntryIntentModal({ restoreFocus = true } = {}) {
+    const modal = document.getElementById('entryIntentModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    if (restoreFocus) restoreLastFocus();
+  }
+
+  document.getElementById('closeEntryIntentBtn')?.addEventListener('click', () => closeEntryIntentModal({ restoreFocus: true }));
+  document.getElementById('entryIntentModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'entryIntentModal') closeEntryIntentModal({ restoreFocus: true });
+  });
+  document.getElementById('intentCreditBtn')?.addEventListener('click', () => {
+    closeEntryIntentModal({ restoreFocus: false });
+    openEntryModal({ type: 'credit' }, false, { source: 'intent' });
+  });
+  document.getElementById('intentDebitBtn')?.addEventListener('click', () => {
+    closeEntryIntentModal({ restoreFocus: false });
+    openEntryModal({ type: 'debit', category: 'time_off' }, false, { source: 'intent' });
+  });
+
   function syncCategoryOptionsForType(type, preferredCategory = null) {
     const catSel = document.getElementById('entryCategory');
     const options = Object.entries(ENTRY_CATEGORIES)
@@ -192,8 +246,55 @@ export function createModalManager(ctx) {
     }
   }
 
+  function syncFocusedFormModeUI(type, { isEditing = false, source = 'intent', date = '' } = {}) {
+    const isCredit = type === 'credit';
+    const isHolidayLocked = !isEditing && source === 'holiday';
+
+    document.getElementById('entryModalTitle').textContent = resolveEntryModalTitle(type, isEditing, source);
+
+    const backBtn = document.getElementById('backToEntryIntentBtn');
+    const showBack = !isEditing && source === 'intent';
+    if (backBtn) {
+      backBtn.classList.toggle('hidden', !showBack);
+      backBtn.classList.toggle('inline-flex', showBack);
+    }
+
+    const ctxBadge = document.getElementById('entryContextBadge');
+    const ctxText = document.getElementById('entryContextBadgeText');
+    if (ctxBadge && ctxText) {
+      ctxBadge.classList.toggle('hidden', !isHolidayLocked);
+      ctxBadge.classList.toggle('flex', isHolidayLocked);
+      if (isHolidayLocked) {
+        const dStr = date || document.getElementById('entryDate')?.value || getLocalDateISO();
+        ctxText.textContent = `${formatDateBR(dStr)} • ${ENTRY_CATEGORIES.holiday.label}`;
+      }
+    }
+
+    const dateCatGrid = document.getElementById('entryDateCatGrid');
+    const dateShortcutsRow = document.getElementById('entryDateShortcutsRow');
+    const dateWrapper = document.getElementById('entryDateWrapper');
+    const catWrapper = document.getElementById('entryCategoryWrapper');
+    if (dateCatGrid) dateCatGrid.classList.toggle('hidden', isHolidayLocked);
+    if (dateShortcutsRow) dateShortcutsRow.classList.toggle('hidden', isHolidayLocked);
+
+    // No modo Folga novo/agendado, mantém apenas categoria padrão time_off ocultando o select; em Edição/Crédito exibe
+    const showCategoryField = !isHolidayLocked && (isCredit || isEditing);
+    if (catWrapper) catWrapper.classList.toggle('hidden', !showCategoryField);
+    if (dateWrapper) dateWrapper.classList.toggle('sm:col-span-2', !showCategoryField);
+
+    document.getElementById('expiryFieldWrapper').classList.toggle('hidden', !isCredit);
+    document.getElementById('entryEditTypeWrapper')?.classList.toggle('hidden', !isEditing);
+
+    const advToggleLabel = document.getElementById('entryAdvancedToggleLabel');
+    if (advToggleLabel) {
+      advToggleLabel.textContent = isCredit
+        ? 'Mais opções (bônus, status, prazo e notas)'
+        : (isEditing ? 'Mais opções (tipo, status e notas)' : 'Mais opções (status e observações)');
+    }
+  }
+
   function getActiveMultiplierForForm() {
-    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const type = getActiveEntryType();
     if (type !== 'credit') return 1.0;
 
     const settings = ctx.getSettings();
@@ -223,7 +324,7 @@ export function createModalManager(ctx) {
   function syncEntryTitlePlaceholder(typeVal = null) {
     const titleInput = document.getElementById('entryTitle');
     if (!titleInput) return;
-    const type = typeVal || document.querySelector('input[name="entryType"]:checked')?.value || 'credit';
+    const type = typeVal || getActiveEntryType();
     titleInput.placeholder = type === 'debit'
       ? 'Ex.: Consulta médica ou emenda de feriado'
       : 'Ex.: Plantão de feriado ou hora extra';
@@ -275,7 +376,7 @@ export function createModalManager(ctx) {
   }
 
   function updateEntryComputedPreview() {
-    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const type = getActiveEntryType();
     const multWrapper = document.getElementById('multiplierWrapper');
     const customBox = document.getElementById('customMultiplierBox');
     const preset = document.getElementById('entryRulePreset').value;
@@ -345,26 +446,27 @@ export function createModalManager(ctx) {
     chevron?.classList.toggle('rotate-180', Boolean(isOpen));
   }
 
-  function openEntryModal(data = null, isEditing = false) {
+  function openEntryModal(data = null, isEditing = false, context = {}) {
     lastFocusedEl = document.activeElement;
     const settings = ctx.getSettings();
+    const source = isEditing ? 'edit' : (context?.source || (data?.category === 'holiday' ? 'holiday' : 'intent'));
+    const typeVal = setActiveEntryType(data?.type || 'credit');
+    entryModalContext = { source, isEditing };
 
     document.getElementById('entryForm').reset();
     document.getElementById('entryId').value = isEditing && data?.id ? data.id : '';
-    document.getElementById('entryModalTitle').textContent = isEditing ? 'Editar Lançamento' : 'Novo Lançamento';
+    setActiveEntryType(typeVal);
 
     const today = getLocalDateISO();
-    document.getElementById('entryDate').value = data?.date || today;
+    const targetDate = data?.date || today;
+    document.getElementById('entryDate').value = targetDate;
     document.getElementById('entryTitle').value = data?.title || '';
     document.getElementById('entryStatus').value = data?.status || 'realized';
     document.getElementById('entryNotes').value = data?.notes || '';
 
-    const typeVal = data?.type || 'credit';
-    document.querySelector(`input[name="entryType"][value="${typeVal}"]`).checked = true;
-    document.getElementById('expiryFieldWrapper').classList.toggle('hidden', typeVal !== 'credit');
     syncEntryTitlePlaceholder(typeVal);
-
     syncCategoryOptionsForType(typeVal, data?.category || null);
+    syncFocusedFormModeUI(typeVal, { isEditing, source, date: targetDate });
 
     const totalMins = isEditing
       ? (Number(data?.workedMinutes) || Number(data?.minutes) || settings.dailyMinutes)
@@ -414,38 +516,44 @@ export function createModalManager(ctx) {
     focusDesktopOnly(document.getElementById('entryTitle'));
   }
 
-  function closeEntryModal() {
+  function closeEntryModal({ restoreFocus = true } = {}) {
     document.getElementById('entryModal').classList.add('hidden');
-    restoreLastFocus();
+    if (restoreFocus) restoreLastFocus();
   }
 
-  document.getElementById('closeEntryModalBtn').addEventListener('click', closeEntryModal);
+  document.getElementById('closeEntryModalBtn').addEventListener('click', () => closeEntryModal({ restoreFocus: true }));
+  document.getElementById('backToEntryIntentBtn')?.addEventListener('click', () => {
+    closeEntryModal({ restoreFocus: false });
+    openEntryIntentModal();
+  });
   document.getElementById('entryModal').addEventListener('click', (e) => {
-    if (e.target.id === 'entryModal') closeEntryModal();
+    if (e.target.id === 'entryModal') closeEntryModal({ restoreFocus: true });
   });
 
-  document.querySelectorAll('input[name="entryType"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      const type = document.querySelector('input[name="entryType"]:checked').value;
-      const settings = ctx.getSettings();
-      document.getElementById('expiryFieldWrapper').classList.toggle('hidden', type !== 'credit');
-      syncEntryTitlePlaceholder(type);
-      syncCategoryOptionsForType(type);
-      if (type === 'credit') {
-        if (!document.getElementById('entryExpiry').value) {
-          const baseDate = document.getElementById('entryDate').value || getLocalDateISO();
-          document.getElementById('entryExpiry').value = addDaysToISO(baseDate, settings.expiryDays);
-        }
-        document.getElementById('entryRulePreset').value =
-          document.getElementById('entryCategory').value === 'holiday' ? 'union_holiday' : 'union_overtime';
+  function applyEntryTypeSwitch(nextType) {
+    const type = setActiveEntryType(nextType);
+    const settings = ctx.getSettings();
+    syncEntryTitlePlaceholder(type);
+    syncCategoryOptionsForType(type);
+    syncFocusedFormModeUI(type, entryModalContext);
+    if (type === 'credit') {
+      if (!document.getElementById('entryExpiry').value) {
+        const baseDate = document.getElementById('entryDate').value || getLocalDateISO();
+        document.getElementById('entryExpiry').value = addDaysToISO(baseDate, settings.expiryDays);
       }
-      updateEntryComputedPreview();
-    });
+      document.getElementById('entryRulePreset').value =
+        document.getElementById('entryCategory').value === 'holiday' ? 'union_holiday' : 'union_overtime';
+    }
+    updateEntryComputedPreview();
+  }
+
+  document.getElementById('entryEditTypeSelect')?.addEventListener('change', (e) => {
+    applyEntryTypeSwitch(e.target.value);
   });
 
   document.getElementById('entryCategory').addEventListener('change', (e) => {
     const cat = e.target.value;
-    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const type = getActiveEntryType();
     if (type !== 'credit') return;
     const presetSel = document.getElementById('entryRulePreset');
     if (cat === 'holiday') presetSel.value = 'union_holiday';
@@ -458,7 +566,7 @@ export function createModalManager(ctx) {
     const dateInput = document.getElementById('entryDate');
     if (!dateInput) return;
     dateInput.value = targetISO;
-    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const type = getActiveEntryType();
     const isNew = !document.getElementById('entryId').value;
     const settings = ctx.getSettings();
     if (type === 'credit' && isNew && targetISO) {
@@ -588,21 +696,7 @@ export function createModalManager(ctx) {
       return;
     }
 
-    const radio = document.querySelector(`input[name="entryType"][value="${res.suggestedType}"]`);
-    if (radio) radio.checked = true;
-    document.getElementById('expiryFieldWrapper').classList.toggle('hidden', res.suggestedType !== 'credit');
-    syncEntryTitlePlaceholder(res.suggestedType);
-    syncCategoryOptionsForType(res.suggestedType);
-
-    if (res.suggestedType === 'credit') {
-      const cat = document.getElementById('entryCategory').value;
-      const presetSel = document.getElementById('entryRulePreset');
-      presetSel.value = cat === 'holiday' ? 'union_holiday' : 'union_overtime';
-      const dateVal = document.getElementById('entryDate').value || getLocalDateISO();
-      if (!document.getElementById('entryExpiry').value) {
-        document.getElementById('entryExpiry').value = addDaysToISO(dateVal, ctx.getSettings().expiryDays);
-      }
-    }
+    applyEntryTypeSwitch(res.suggestedType);
 
     setDurationParts(res.durationMinutes);
     updateEntryComputedPreview();
@@ -624,7 +718,7 @@ export function createModalManager(ctx) {
     const existingId = document.getElementById('entryId').value;
     const existingItem = existingId ? ctx.getEntries().find((x) => x.id === existingId) : null;
     const id = existingId || generateUUID();
-    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const type = getActiveEntryType();
     const category = document.getElementById('entryCategory').value || (type === 'debit' ? 'time_off' : 'manual');
     const multiplier = type === 'credit' ? getActiveMultiplierForForm() : 1.0;
     const finalMinutes = type === 'credit' ? applyMultiplierToMinutes(workedMinutes, multiplier) : workedMinutes;
@@ -1089,7 +1183,7 @@ export function createModalManager(ctx) {
         title: `Folga Ponte — ${holidayName}`,
         status: bridgeDate <= getLocalDateISO() ? 'realized' : 'planned',
         notes: `Emenda do feriado de ${formatDateBR(holidayDate)}`
-      }, false);
+      }, false, { source: 'bridge' });
       return;
     }
     if (e.target.id === 'holidaysModal') closeHolidaysModal();
@@ -1197,12 +1291,12 @@ export function createModalManager(ctx) {
       type: 'credit',
       category: 'holiday',
       date: h.date,
-      title: `${h.name} (Plantão/Feriado)`,
+      title: h.name,
       minutes: workedMins,
       status: h.date <= getLocalDateISO() ? 'realized' : 'planned',
       expiry: addDaysToISO(h.date, settings.expiryDays),
       notes: `Feriado ${h.scope}`
-    }, false);
+    }, false, { source: 'holiday' });
   });
 
   document.getElementById('importSelectedHolidaysBtn').addEventListener('click', async () => {
@@ -1236,7 +1330,7 @@ export function createModalManager(ctx) {
       type: 'credit',
       category: 'holiday',
       date: h.date,
-      title: `${h.name} (Feriado)`,
+      title: h.name,
       minutes: creditedMins,
       workedMinutes: workedMins,
       multiplier: mult,
@@ -1262,6 +1356,8 @@ export function createModalManager(ctx) {
     resolveConfirm,
     openShortcutsModal,
     closeShortcutsModal,
+    openEntryIntentModal,
+    closeEntryIntentModal,
     openEntryModal,
     closeEntryModal,
     openSettingsModal,
@@ -1283,6 +1379,10 @@ export function createModalManager(ctx) {
       }
       if (!document.getElementById('shortcutsModal').classList.contains('hidden')) {
         closeShortcutsModal();
+        return true;
+      }
+      if (!document.getElementById('entryIntentModal')?.classList.contains('hidden')) {
+        closeEntryIntentModal({ restoreFocus: true });
         return true;
       }
       if (!document.getElementById('entryModal').classList.contains('hidden')) {

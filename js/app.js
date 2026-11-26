@@ -1083,7 +1083,7 @@ document.getElementById('clearFiltersBtn').addEventListener('click', resetAllFil
 document.getElementById('emptyClearFiltersBtn')?.addEventListener('click', resetAllFilters);
 document.getElementById('onboardingSettingsBtn')?.addEventListener('click', () => modals.openSettingsModal());
 document.getElementById('onboardingHolidaysBtn')?.addEventListener('click', () => modals.openHolidaysModal());
-document.getElementById('onboardingNewEntryBtn')?.addEventListener('click', () => modals.openEntryModal());
+document.getElementById('onboardingNewEntryBtn')?.addEventListener('click', () => modals.openEntryIntentModal());
 
 document.getElementById('searchInput').addEventListener('input', renderAll);
 document.getElementById('yearFilter').addEventListener('change', renderAll);
@@ -1143,8 +1143,8 @@ document.querySelectorAll('.mobile-nav-tab-btn').forEach((btn) => {
 });
 
 // Botões de abertura de modais
-document.getElementById('openNewEntryBtn').addEventListener('click', () => modals.openEntryModal());
-document.getElementById('mobileNavNewEntryBtn')?.addEventListener('click', () => modals.openEntryModal());
+document.getElementById('openNewEntryBtn').addEventListener('click', () => modals.openEntryIntentModal());
+document.getElementById('mobileNavNewEntryBtn')?.addEventListener('click', () => modals.openEntryIntentModal());
 document.getElementById('openSettingsBtn').addEventListener('click', () => {
   closeUserMenu();
   modals.openSettingsModal();
@@ -1165,8 +1165,8 @@ document.getElementById('scheduleFromSimBtn').addEventListener('click', () => {
     date: targetDate,
     minutes: simMins,
     title: `Folga Compensatória (${formatSimulatedDaysLabel(simDays)})`,
-    status: targetDate <= getLocalDateISO() ? 'realized' : 'planned'
-  }, false);
+    status: 'planned'
+  }, false, { source: 'simulator' });
 });
 
 document.getElementById('downloadSimIcsBtn')?.addEventListener('click', () => {
@@ -1560,7 +1560,7 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (key === 'n') {
     e.preventDefault();
-    modals.openEntryModal();
+    modals.openEntryIntentModal();
   } else if (key === 'e') {
     e.preventDefault();
     exportModal.openExportModal();

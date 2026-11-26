@@ -14,7 +14,7 @@
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=19" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=20" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=19" />
+  <link rel="stylesheet" href="./assets/app.css?v=20" />
 
   <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -925,51 +925,82 @@
     </section>
   </main>
 
+  <!-- ==================== BOTTOM SHEET: INTENÇÃO DE NOVO LANÇAMENTO ==================== -->
+  <div id="entryIntentModal" role="dialog" aria-modal="true" aria-labelledby="entryIntentTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 modal-animate my-auto">
+      <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
+      <div class="sh-sheet-header flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
+        <h2 id="entryIntentTitle" class="text-base font-bold text-slate-900 dark:text-white">O que você quer registrar?</h2>
+        <button type="button" id="closeEntryIntentBtn" aria-label="Fechar seleção" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="sh-sheet-body space-y-3 py-1">
+        <button type="button" id="intentCreditBtn" data-intent-type="credit" class="w-full min-h-[76px] p-4 rounded-2xl border border-emerald-500/40 bg-emerald-50/70 hover:bg-emerald-100/70 dark:border-emerald-500/40 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/60 flex items-center gap-3.5 text-left active:scale-[0.99] transition">
+          <span class="w-11 h-11 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </span>
+          <span class="min-w-0 flex-1">
+            <strong class="block text-sm font-bold text-emerald-700 dark:text-emerald-400">+ Ganhei Horas</strong>
+            <span class="block text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">Hora extra, plantão ou feriado trabalhado</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-emerald-600/70 dark:text-emerald-400/70 shrink-0"></i>
+        </button>
+
+        <button type="button" id="intentDebitBtn" data-intent-type="debit" class="w-full min-h-[76px] p-4 rounded-2xl border border-rose-500/40 bg-rose-50/70 hover:bg-rose-100/70 dark:border-rose-500/40 dark:bg-rose-950/35 dark:hover:bg-rose-950/60 flex items-center gap-3.5 text-left active:scale-[0.99] transition">
+          <span class="w-11 h-11 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0">
+            <i data-lucide="minus" class="w-5 h-5"></i>
+          </span>
+          <span class="min-w-0 flex-1">
+            <strong class="block text-sm font-bold text-rose-700 dark:text-rose-400">- Tirei Folga</strong>
+            <span class="block text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">Folga de dia inteiro, meio período ou saída</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-rose-600/70 dark:text-rose-400/70 shrink-0"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO (HH:MM) ==================== -->
   <div id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
     <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate my-auto">
       <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
-      <div class="sh-sheet-header flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-        <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Novo Lançamento</h2>
-        <button type="button" id="closeEntryModalBtn" aria-label="Fechar modal de lançamento" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+      <div class="sh-sheet-header flex items-center justify-between gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <button type="button" id="backToEntryIntentBtn" aria-label="Voltar para escolha de tipo" class="hidden min-w-[40px] min-h-[40px] -ml-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 items-center justify-center transition shrink-0">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          </button>
+          <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white truncate">Registrar Horas Ganhas</h2>
+        </div>
+        <button type="button" id="closeEntryModalBtn" aria-label="Fechar modal de lançamento" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <form id="entryForm" class="sh-sheet-form mt-4 space-y-4">
         <input type="hidden" id="entryId" />
+        <input type="hidden" id="entryTypeValue" value="credit" />
 
         <div class="sh-sheet-body space-y-4">
-          <!-- Tipo: Crédito ou Débito -->
-          <div class="grid grid-cols-2 gap-2.5">
-            <label class="cursor-pointer">
-              <input type="radio" name="entryType" value="credit" checked class="peer sr-only" />
-              <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-emerald-500 peer-checked:bg-emerald-50/70 dark:peer-checked:bg-emerald-950/40 text-center transition">
-                <span class="block text-xs font-bold text-emerald-700 dark:text-emerald-400">+ Ganhei Horas</span>
-                <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Feriado / Hora Extra</span>
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="entryType" value="debit" class="peer sr-only" />
-              <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:border-rose-500 peer-checked:bg-rose-50/70 dark:peer-checked:bg-rose-950/40 text-center transition">
-                <span class="block text-xs font-bold text-rose-700 dark:text-rose-400">- Tirei Folga</span>
-                <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Compensação / Saída</span>
-              </div>
-            </label>
+          <!-- Selo discreto de contexto (exibido quando vem direto de um feriado travado) -->
+          <div id="entryContextBadge" class="hidden items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+            <i data-lucide="calendar-days" class="w-4 h-4 text-indigo-500 shrink-0"></i>
+            <span id="entryContextBadgeText" class="truncate">—</span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 sm:items-end gap-4">
-            <div>
+          <div id="entryDateCatGrid" class="grid grid-cols-1 sm:grid-cols-2 sm:items-end gap-4">
+            <div id="entryDateWrapper">
               <div class="flex items-center justify-between gap-2 mb-1.5">
                 <label for="entryDate" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Data</label>
-                <div class="flex items-center gap-1.5">
+                <div id="entryDateShortcutsRow" class="flex items-center gap-1.5">
                   <button type="button" id="entryDateTodayBtn" data-date-shortcut="today" aria-pressed="false" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hoje</button>
                   <button type="button" id="entryDateYesterdayBtn" data-date-shortcut="yesterday" aria-pressed="false" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Ontem</button>
                 </div>
               </div>
               <input type="date" id="entryDate" required class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
-            <div>
+            <div id="entryCategoryWrapper">
               <label for="entryCategory" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Categoria</label>
               <select id="entryCategory" class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
             </div>
@@ -1057,12 +1088,21 @@
               <p id="entryLiveRuleSub" class="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums"></p>
             </div>
             <button type="button" id="toggleEntryAdvancedBtn" aria-expanded="false" aria-controls="entryAdvancedBox" class="min-h-[40px] -mb-1 inline-flex items-center justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400 pt-2 border-t border-slate-200/80 dark:border-slate-700/70">
-              <span>Mais opções (bônus, status, prazo e notas)</span>
+              <span id="entryAdvancedToggleLabel">Mais opções (bônus, status, prazo e notas)</span>
               <i data-lucide="chevron-down" id="entryAdvancedChevron" class="w-4 h-4 transition-transform"></i>
             </button>
           </div>
 
           <div id="entryAdvancedBox" class="sh-entry-adv space-y-4">
+            <!-- Troca de tipo intencional exclusiva do modo Edição -->
+            <div id="entryEditTypeWrapper" class="hidden">
+              <label for="entryEditTypeSelect" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tipo de lançamento</label>
+              <select id="entryEditTypeSelect" class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="credit">+ Ganhei Horas (Crédito)</option>
+                <option value="debit">- Tirei Folga (Débito)</option>
+              </select>
+            </div>
+
             <!-- Regra de Multiplicador (para créditos) -->
             <div id="multiplierWrapper" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
