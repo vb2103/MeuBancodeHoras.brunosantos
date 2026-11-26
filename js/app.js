@@ -697,13 +697,13 @@ function switchMainTab(tabName) {
     const mobBtn = document.getElementById(`mobileNavBtn-${t}`);
     if (mobBtn) {
       mobBtn.className = t === tabName
-        ? 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 min-w-0'
-        : 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0';
+        ? 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-1 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 min-w-0'
+        : 'mobile-nav-tab-btn flex flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 min-w-0';
       const pill = mobBtn.querySelector('.mobile-nav-pill');
       if (pill) {
         pill.className = t === tabName
-          ? 'mobile-nav-pill px-3 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 flex items-center justify-center transition'
-          : 'mobile-nav-pill px-3 py-0.5 rounded-full flex items-center justify-center transition';
+          ? 'mobile-nav-pill h-7 px-3.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 flex items-center justify-center transition'
+          : 'mobile-nav-pill h-7 px-3.5 rounded-full flex items-center justify-center transition';
       }
     }
   });
