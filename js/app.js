@@ -122,24 +122,25 @@ function setSyncStatus(state) {
 }
 
 // ==================== TEMA CLARO / ESCURO ====================
-function syncThemeMobileLabel() {
-  const lbl = document.getElementById('profileMobileThemeLabel');
-  if (!lbl) return;
+function syncThemeUiLabels() {
   const isDark = document.documentElement.classList.contains('dark');
-  lbl.textContent = isDark ? 'Tema Claro' : 'Tema Escuro';
+  const mobileLbl = document.getElementById('profileMobileThemeLabel');
+  if (mobileLbl) mobileLbl.textContent = isDark ? 'Tema Claro' : 'Tema Escuro';
+  const menuBadge = document.getElementById('userMenuThemeBadge');
+  if (menuBadge) menuBadge.textContent = isDark ? 'Escuro' : 'Claro';
 }
 
 function initTheme() {
   const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.documentElement.classList.toggle('dark', savedTheme === 'dark' || (!savedTheme && prefersDark));
-  syncThemeMobileLabel();
+  syncThemeUiLabels();
 }
 
 function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
   localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
-  syncThemeMobileLabel();
+  syncThemeUiLabels();
   if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
     renderAnalyticsTab();
   }
@@ -223,6 +224,11 @@ function updateHeaderUserInfo() {
   const labelEl = document.getElementById('headerProfileLabel');
   if (avatarEl) avatarEl.textContent = getUserInitials(displayName, currentUser?.email || '');
   if (labelEl) labelEl.textContent = String(displayName).split(/\s+/)[0] || 'Perfil';
+
+  const menuFullName = document.getElementById('userMenuFullName');
+  const menuSubInfo = document.getElementById('userMenuSubInfo');
+  if (menuFullName) menuFullName.textContent = displayName;
+  if (menuSubInfo) menuSubInfo.textContent = currentUser?.email || `${ruleLabel} (${settings.stateUf || 'SP'})`;
 }
 
 function populateYearFilterOptions() {
@@ -753,7 +759,10 @@ document.querySelectorAll('.mobile-nav-tab-btn').forEach((btn) => {
 // Botões de abertura de modais
 document.getElementById('openNewEntryBtn').addEventListener('click', () => modals.openEntryModal());
 document.getElementById('mobileNavNewEntryBtn')?.addEventListener('click', () => modals.openEntryModal());
-document.getElementById('openSettingsBtn').addEventListener('click', () => modals.openSettingsModal());
+document.getElementById('openSettingsBtn').addEventListener('click', () => {
+  closeUserMenu();
+  modals.openSettingsModal();
+});
 document.getElementById('openHolidaysBtn').addEventListener('click', () => modals.openHolidaysModal());
 document.getElementById('mobileNavHolidaysBtn')?.addEventListener('click', () => modals.openHolidaysModal());
 
@@ -823,19 +832,40 @@ document.getElementById('openWhatsAppBtn').addEventListener('click', () => {
   window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
 });
 
-// Exportações & Backup JSON
+// Exportações, Menu da Conta & Backup JSON
 function closeExportMenu() {
-  document.getElementById('exportDropdown').classList.add('hidden');
+  document.getElementById('exportDropdown')?.classList.add('hidden');
+  document.getElementById('exportMenuBtn')?.setAttribute('aria-expanded', 'false');
+}
+
+function closeUserMenu() {
+  document.getElementById('userDropdown')?.classList.add('hidden');
+  document.getElementById('userMenuBtn')?.setAttribute('aria-expanded', 'false');
 }
 
 document.getElementById('exportMenuBtn').addEventListener('click', (e) => {
   e.stopPropagation();
+  closeUserMenu();
   const dd = document.getElementById('exportDropdown');
+  const opening = dd.classList.contains('hidden');
   dd.classList.toggle('hidden');
-  if (!dd.classList.contains('hidden')) updateQuickExportCountHint();
+  document.getElementById('exportMenuBtn')?.setAttribute('aria-expanded', String(opening));
+  if (opening) updateQuickExportCountHint();
 });
+
+document.getElementById('userMenuBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  closeExportMenu();
+  const dd = document.getElementById('userDropdown');
+  if (!dd) return;
+  const opening = dd.classList.contains('hidden');
+  dd.classList.toggle('hidden');
+  document.getElementById('userMenuBtn')?.setAttribute('aria-expanded', String(opening));
+});
+
 document.addEventListener('click', (e) => {
-  if (!document.getElementById('exportMenuWrapper').contains(e.target)) closeExportMenu();
+  if (!document.getElementById('exportMenuWrapper')?.contains(e.target)) closeExportMenu();
+  if (!document.getElementById('userMenuWrapper')?.contains(e.target)) closeUserMenu();
 });
 
 function getExportDataset() {
@@ -1079,6 +1109,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (modals.handleEscapeKey()) return;
     closeExportMenu();
+    closeUserMenu();
     return;
   }
 
@@ -1134,7 +1165,12 @@ const profile = createProfileManager({
   restoreLastFocus: modals.restoreLastFocus
 });
 
-document.getElementById('openProfileBtn')?.addEventListener('click', () => profile.openProfileModal('perfil'));
+document.getElementById('openProfileBtn')?.addEventListener('click', () => {
+  closeUserMenu();
+  profile.openProfileModal('perfil');
+});
+document.getElementById('openShortcutsBtn')?.addEventListener('click', () => closeUserMenu());
+document.getElementById('logoutBtn')?.addEventListener('click', () => closeUserMenu());
 document.getElementById('openProfileFromSettingsBtn')?.addEventListener('click', () => {
   modals.closeSettingsModal();
   profile.openProfileModal('seguranca');
@@ -1156,10 +1192,16 @@ authController = setupAuth({
     currentUser = null;
     entries = [];
     destroyCharts();
+    closeUserMenu();
+    closeExportMenu();
     const avatarEl = document.getElementById('headerProfileAvatar');
     const labelEl = document.getElementById('headerProfileLabel');
+    const menuFullName = document.getElementById('userMenuFullName');
+    const menuSubInfo = document.getElementById('userMenuSubInfo');
     if (avatarEl) avatarEl.textContent = 'SH';
     if (labelEl) labelEl.textContent = 'Perfil';
+    if (menuFullName) menuFullName.textContent = 'Minha Conta';
+    if (menuSubInfo) menuSubInfo.textContent = 'Sincronizado com Supabase';
   },
   async onSessionReady(user) {
     currentUser = user;
