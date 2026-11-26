@@ -28,9 +28,11 @@ import { createProfileManager } from './profile.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
 import { getUserInitials } from './security.js';
 import {
+  buildExpiryAlertSummary,
   computeChronologicalAndFIFO,
   formatDaysFromMinutes,
   formatHHMM,
+  formatUrgentExpiryCardNote,
   getExpiryBadge,
   isHolidayEntry
 } from './time.js';
@@ -577,15 +579,46 @@ function renderAll() {
     secDaysEl.textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
   }
 
+  const alertSummary = buildExpiryAlertSummary(urgentItems, {
+    isFilteredExpiring: quickFilter === 'expiring',
+    summaryProjectedMinutes: summary.projectedMinutes
+  });
   const alertBanner = document.getElementById('expiryAlertBanner');
-  if (urgentItems.length > 0 && summary.projectedMinutes > 0) {
-    alertBanner.classList.remove('hidden');
-    const totalUrgentMins = urgentItems.reduce((s, i) => s + i.remainingMinutes, 0);
-    document.getElementById('expiryAlertText').textContent =
-      `Atenção: Você possui ${urgentItems.length} ${urgentItems.length === 1 ? 'crédito não compensado' : 'créditos não compensados'} (${formatHHMM(totalUrgentMins)}) com vencimento próximo ou expirado.`;
-  } else {
-    alertBanner.classList.add('hidden');
+  if (alertSummary && alertBanner) {
+    const toneClasses = alertSummary.tone === 'filtered'
+      ? 'min-h-[42px] w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 px-3.5 py-2 flex items-center justify-between gap-2 text-xs font-medium cursor-pointer hover:bg-slate-200/70 dark:hover:bg-slate-800/80 transition'
+      : alertSummary.tone === 'expired'
+        ? 'min-h-[42px] w-full rounded-xl border border-rose-200/80 dark:border-rose-800/60 bg-rose-50/80 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 px-3.5 py-2 flex items-center justify-between gap-2 text-xs font-medium cursor-pointer hover:bg-rose-100/70 dark:hover:bg-rose-950/50 transition'
+        : 'min-h-[42px] w-full rounded-xl border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/25 text-amber-900 dark:text-amber-200 px-3.5 py-2 flex items-center justify-between gap-2 text-xs font-medium cursor-pointer hover:bg-amber-100/70 dark:hover:bg-amber-950/45 transition';
+    alertBanner.className = toneClasses;
+    alertBanner.setAttribute('aria-pressed', String(quickFilter === 'expiring'));
+
+    const iconWrap = document.getElementById('expiryAlertIconWrap');
+    if (iconWrap) {
+      const iconName = alertSummary.tone === 'filtered' ? 'filter' : 'alert-triangle';
+      const iconColor = alertSummary.tone === 'filtered'
+        ? 'text-indigo-500 dark:text-indigo-400'
+        : alertSummary.tone === 'expired'
+          ? 'text-rose-500 dark:text-rose-400'
+          : 'text-amber-500 dark:text-amber-400';
+      iconWrap.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4 ${iconColor}"></i>`;
+    }
+    const textEl = document.getElementById('expiryAlertText');
+    if (textEl) textEl.textContent = alertSummary.text;
+    const actionEl = document.getElementById('expiryAlertActionLabel');
+    if (actionEl) {
+      actionEl.textContent = alertSummary.actionLabel;
+      actionEl.className = alertSummary.tone === 'filtered'
+        ? 'shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap'
+        : alertSummary.tone === 'expired'
+          ? 'shrink-0 text-xs font-semibold text-rose-700 dark:text-rose-300 whitespace-nowrap'
+          : 'shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-300 whitespace-nowrap';
+    }
+  } else if (alertBanner) {
+    alertBanner.className = 'hidden';
   }
+
+  syncExpiringQuickPill(alertSummary);
 
   document.getElementById('clearFiltersBtn').classList.toggle('hidden', !hasActiveFilters);
 
@@ -668,6 +701,8 @@ function renderAll() {
       const safeId = escapeHtml(item.id);
       const isCredit = item.type === 'credit';
       const isRealized = item.status === 'realized';
+      const remMins = remainingMap.get(item.id) ?? item.minutes;
+      const urgentNote = isCredit ? formatUrgentExpiryCardNote(item, remMins, todayISO) : null;
       const borderAccent = !isRealized
         ? 'border-l-4 border-l-amber-500 dark:border-l-amber-500'
         : isCredit
@@ -678,6 +713,12 @@ function renderAll() {
       const plannedPill = isRealized
         ? ''
         : '<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 shrink-0">Previsto</span>';
+      const urgentLineHtml = urgentNote
+        ? `<div class="mt-1 flex items-center gap-1.5 text-[11px] font-medium ${urgentNote.isExpired ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'} min-w-0">
+             <span class="w-1.5 h-1.5 rounded-full ${urgentNote.isExpired ? 'bg-rose-500' : 'bg-amber-500'} shrink-0"></span>
+             <span class="truncate">${escapeHtml(urgentNote.text)}</span>
+           </div>`
+        : '';
 
       return `
         <button type="button" data-entry-id="${safeId}" class="mobile-entry-card w-full min-h-[64px] text-left bg-white dark:bg-slate-900 border-y border-r border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl px-3.5 py-2.5 shadow-sm flex items-center justify-between gap-3 active:scale-[0.99] hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition min-w-0">
@@ -689,6 +730,7 @@ function renderAll() {
               <span class="truncate">${escapeHtml(simpleCat)}</span>
               ${plannedPill}
             </div>
+            ${urgentLineHtml}
           </div>
           <div class="font-mono text-sm font-extrabold tabular-nums whitespace-nowrap shrink-0 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
             ${formatHHMM(item.deltaMinutes, true)}
@@ -942,14 +984,45 @@ document.getElementById('entryDetailDeleteBtn')?.addEventListener('click', () =>
 });
 
 // ==================== FILTROS, ABAS & ATALHOS ====================
-function setQuickPillVisual(filterName) {
-  document.querySelectorAll('.quick-pill').forEach((btn) => {
-    btn.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
-  });
-  const activePill = document.getElementById(`pill-${filterName}`);
-  if (activePill) {
-    activePill.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition';
+function syncExpiringQuickPill(alertSummary) {
+  const expPill = document.getElementById('pill-expiring');
+  const allPill = document.getElementById('pill-all');
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  const labelEl = document.getElementById('pillExpiringLabel');
+  const dotEl = document.getElementById('pillExpiringDot');
+  if (!expPill) return;
+
+  const hasUrgent = Boolean(alertSummary && alertSummary.count > 0);
+  if (hasUrgent) {
+    if (labelEl) labelEl.textContent = `Vencendo (${alertSummary.count})`;
+    expPill.classList.remove('hidden');
+    expPill.classList.add('inline-flex');
+    if (allPill && expPill.previousElementSibling !== allPill) {
+      allPill.after(expPill);
+    }
+    if (dotEl) {
+      const isActive = quickFilter === 'expiring';
+      dotEl.className = alertSummary.hasExpired
+        ? `w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-rose-200' : 'bg-rose-500'}`
+        : `w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-amber-200' : 'bg-amber-500'}`;
+    }
+  } else {
+    expPill.classList.add('hidden');
+    expPill.classList.remove('inline-flex');
+    if (clearBtn && expPill.nextElementSibling !== clearBtn) {
+      clearBtn.before(expPill);
+    }
   }
+}
+
+function setQuickPillVisual(filterName) {
+  const inactiveClasses = ['bg-slate-100', 'text-slate-600', 'hover:bg-slate-200', 'dark:bg-slate-800', 'dark:text-slate-300', 'dark:hover:bg-slate-700'];
+  const activeClasses = ['bg-indigo-600', 'text-white'];
+  document.querySelectorAll('.quick-pill').forEach((btn) => {
+    const isSelected = btn.id === `pill-${filterName}`;
+    btn.classList.remove(...(isSelected ? inactiveClasses : activeClasses));
+    btn.classList.add(...(isSelected ? activeClasses : inactiveClasses));
+  });
 }
 
 function applyQuickFilter(filterName) {
@@ -962,6 +1035,10 @@ function applyQuickFilter(filterName) {
   }
   setQuickPillVisual(filterName);
   renderAll();
+  const activePill = document.getElementById(`pill-${filterName}`);
+  if (activePill && !activePill.classList.contains('hidden')) {
+    activePill.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  }
 }
 
 function switchAnalyticsSubTab(subTab) {
@@ -1078,7 +1155,9 @@ function resetAllFilters() {
 document.querySelectorAll('.quick-pill').forEach((btn) => {
   btn.addEventListener('click', () => applyQuickFilter(btn.dataset.quickFilter));
 });
-document.getElementById('viewExpiringBtn').addEventListener('click', () => applyQuickFilter('expiring'));
+document.getElementById('expiryAlertBanner')?.addEventListener('click', () => {
+  applyQuickFilter(quickFilter === 'expiring' ? 'all' : 'expiring');
+});
 document.getElementById('clearFiltersBtn').addEventListener('click', resetAllFilters);
 document.getElementById('emptyClearFiltersBtn')?.addEventListener('click', resetAllFilters);
 document.getElementById('onboardingSettingsBtn')?.addEventListener('click', () => modals.openSettingsModal());

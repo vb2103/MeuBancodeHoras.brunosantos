@@ -159,6 +159,91 @@ export function getExpiryBadge(expiryIso, remainingMinutes = null, todayIso = ge
 }
 
 /**
+ * Monta mensagem curta e estado visual da faixa compacta de vencimentos/expirados.
+ */
+export function buildExpiryAlertSummary(urgentItems = [], { isFilteredExpiring = false, summaryProjectedMinutes = 0 } = {}) {
+  const validItems = Array.isArray(urgentItems)
+    ? urgentItems.filter((item) => (Number(item?.remainingMinutes) || 0) > 0)
+    : [];
+
+  if (validItems.length === 0 || summaryProjectedMinutes <= 0) {
+    return null;
+  }
+
+  const totalUrgentMinutes = validItems.reduce((sum, item) => sum + item.remainingMinutes, 0);
+  const expiredItems = validItems.filter((item) => item.expiryBadge?.isExpired);
+  const upcomingItems = validItems.filter((item) => !item.expiryBadge?.isExpired);
+  const hasExpired = expiredItems.length > 0;
+  const hasUpcoming = upcomingItems.length > 0;
+
+  if (isFilteredExpiring) {
+    return {
+      totalUrgentMinutes,
+      count: validItems.length,
+      hasExpired,
+      hasUpcoming,
+      tone: 'filtered',
+      actionLabel: 'Mostrar todos ×',
+      text: `${validItems.length === 1 ? '1 item pendente' : `${validItems.length} itens pendentes`} (${formatHHMM(totalUrgentMinutes)})`
+    };
+  }
+
+  let text = '';
+  if (hasExpired && !hasUpcoming) {
+    text = `${formatHHMM(totalUrgentMinutes)} expirados (${expiredItems.length} ${expiredItems.length === 1 ? 'item' : 'itens'})`;
+  } else if (!hasExpired && hasUpcoming) {
+    if (upcomingItems.length === 1) {
+      const days = upcomingItems[0].expiryBadge?.daysRemaining ?? 0;
+      if (days === 0) text = `${formatHHMM(totalUrgentMinutes)} vencem hoje`;
+      else if (days === 1) text = `${formatHHMM(totalUrgentMinutes)} vencem amanhã`;
+      else text = `${formatHHMM(totalUrgentMinutes)} vencem em ${days} dias`;
+    } else {
+      text = `${formatHHMM(totalUrgentMinutes)} vencendo em breve`;
+    }
+  } else {
+    text = `${formatHHMM(totalUrgentMinutes)} vencidos ou vencendo`;
+  }
+
+  return {
+    totalUrgentMinutes,
+    count: validItems.length,
+    hasExpired,
+    hasUpcoming,
+    tone: hasExpired ? 'expired' : 'warning',
+    actionLabel: 'Ver ›',
+    text
+  };
+}
+
+/**
+ * Formata a 3ª linha condicional nos cards mobile apenas para créditos vencidos ou próximos do vencimento.
+ */
+export function formatUrgentExpiryCardNote(item, remainingMinutes, todayIso = getLocalDateISO()) {
+  if (!item || item.type !== 'credit' || !item.expiry || !isValidISODate(item.expiry)) {
+    return null;
+  }
+  const totalMins = Math.max(0, Math.round(Number(item.minutes) || 0));
+  const remMins = Math.max(0, Math.round(Number(remainingMinutes ?? totalMins) || 0));
+  if (remMins <= 0) return null;
+
+  const badge = getExpiryBadge(item.expiry, remMins, todayIso, totalMins);
+  if (!badge.isAlert) return null;
+
+  const dateText = formatDateBR(item.expiry);
+  const statusPhrase = badge.isExpired ? `Venceu em ${dateText}` : `Vence em ${dateText}`;
+  const text = remMins < totalMins
+    ? `Restam ${formatHHMM(remMins)} • ${statusPhrase}`
+    : statusPhrase;
+
+  return {
+    text,
+    isExpired: badge.isExpired,
+    remainingMinutes: remMins,
+    daysRemaining: badge.daysRemaining
+  };
+}
+
+/**
  * Calcula saldo acumulado em minutos inteiros e abate débitos via FIFO
  * nos créditos ordenados pelo vencimento mais próximo.
  */

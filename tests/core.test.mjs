@@ -19,11 +19,13 @@ import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
 import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
 import {
   applyMultiplierToMinutes,
+  buildExpiryAlertSummary,
   computeAnalyticsSummary,
   computeChronologicalAndFIFO,
   computePunchBalance,
   formatDaysFromMinutes,
   formatHHMM,
+  formatUrgentExpiryCardNote,
   getExpiryBadge,
   isHolidayEntry,
   parseDurationToMinutes
@@ -357,6 +359,47 @@ test('filtros rápidos de extrato e detecção de duplicidades operam com precis
     (e) => e.id !== '1' && e.date === '2026-11-02' && e.title.trim().toLowerCase() === 'finados'
   );
   assert.equal(isDuplicateSelf, false);
+});
+
+test('buildExpiryAlertSummary e formatUrgentExpiryCardNote exibem mensagens exatas e linha condicional sem falsos positivos', () => {
+  // 1) Somente expirado parcial (576 min = 09:36 de 672 min)
+  const sample = [
+    { id: 'c1', date: '2026-04-01', title: 'Sexta-feira Santa', type: 'credit', minutes: 672, status: 'realized', expiry: '2026-10-03' },
+    { id: 'd1', date: '2026-05-01', title: 'Saída', type: 'debit', minutes: 96, status: 'realized' },
+    { id: 'c2', date: '2026-09-07', title: 'Independência', type: 'credit', minutes: 672, status: 'realized', expiry: '2027-06-01' }
+  ];
+  const { chrono, remainingMap, urgentItems, summary } = computeChronologicalAndFIFO(sample, '2026-11-26');
+  const alertObj = buildExpiryAlertSummary(urgentItems, { isFilteredExpiring: false, summaryProjectedMinutes: summary.projectedMinutes });
+  assert.equal(alertObj.text, '09:36 expirados (1 item)');
+  assert.equal(alertObj.actionLabel, 'Ver ›');
+  assert.equal(alertObj.tone, 'expired');
+
+  const filteredObj = buildExpiryAlertSummary(urgentItems, { isFilteredExpiring: true, summaryProjectedMinutes: summary.projectedMinutes });
+  assert.equal(filteredObj.actionLabel, 'Mostrar todos ×');
+  assert.equal(filteredObj.tone, 'filtered');
+
+  // Card 1 parcial expirado -> 3a linha mostra Restam 09:36 • Venceu em 03/10/2026
+  const c1Note = formatUrgentExpiryCardNote(chrono[0], remainingMap.get('c1'), '2026-11-26');
+  assert.equal(c1Note.text, 'Restam 09:36 • Venceu em 03/10/2026');
+  assert.equal(c1Note.isExpired, true);
+
+  // Card 2 no prazo longo -> null (mantém card compacto de 2 linhas)
+  const c2Note = formatUrgentExpiryCardNote(chrono[2], remainingMap.get('c2'), '2026-11-26');
+  assert.equal(c2Note, null);
+
+  // 2) Valor igual ao original expirando em breve
+  const soonItem = { id: 's1', date: '2026-06-01', title: 'Corpus Christi', type: 'credit', minutes: 672, status: 'realized', expiry: '2026-12-15' };
+  const soonState = computeChronologicalAndFIFO([soonItem], '2026-11-26');
+  const soonAlert = buildExpiryAlertSummary(soonState.urgentItems, { summaryProjectedMinutes: soonState.summary.projectedMinutes });
+  assert.equal(soonAlert.text, '11:12 vencem em 19 dias');
+  assert.equal(soonAlert.tone, 'warning');
+  const soonCard = formatUrgentExpiryCardNote(soonState.chrono[0], 672, '2026-11-26');
+  assert.equal(soonCard.text, 'Vence em 15/12/2026');
+  assert.equal(soonCard.isExpired, false);
+
+  // 3) Sem alerta quando saldo líquido <= 0 ou lista vazia
+  assert.equal(buildExpiryAlertSummary([], { summaryProjectedMinutes: 600 }), null);
+  assert.equal(buildExpiryAlertSummary(urgentItems, { summaryProjectedMinutes: 0 }), null);
 });
 
 test('buildCommunicationTemplates adapta saldo, bloco de folgas e fechamento conforme agendamentos', () => {
