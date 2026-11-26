@@ -1,4 +1,4 @@
-import { escapeHtml } from './config.js';
+import { escapeHtml, getAppRedirectUrl } from './config.js';
 import { supabaseClient } from './db.js';
 import {
   evaluatePasswordPolicy,
@@ -24,9 +24,13 @@ export function setupAuth({
   onSignedOut,
   onToast,
   onEnterGuestMode,
-  shouldRestoreGuest
+  shouldRestoreGuest,
+  initialMode = null,
+  onAuthModalOpen
 }) {
-  let authMode = 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
+  const requestedInitialMode = initialMode === 'signup' || initialMode === 'login' ? initialMode : null;
+  let authMode = requestedInitialMode || 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
+  let consumedInitialModeRedirect = false;
   let loadedUserId = null;
   let isAuthBusy = false;
   let explicitLogoutInFlight = false;
@@ -260,7 +264,7 @@ export function setupAuth({
     submitBtn.innerHTML = '<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Processando...';
 
     try {
-      const redirectTo = window.location.origin + window.location.pathname;
+      const redirectTo = getAppRedirectUrl();
 
       if (authMode === 'login') {
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -335,7 +339,7 @@ export function setupAuth({
   resendBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     if (!email) return;
-    const redirectTo = window.location.origin + window.location.pathname;
+    const redirectTo = getAppRedirectUrl();
     try {
       const { error } = await supabaseClient.auth.resend({
         type: 'signup',
@@ -388,15 +392,21 @@ export function setupAuth({
     onEnterGuestMode?.();
   });
 
-  function openAuthModal(initialMode = 'login') {
-    switchAuthMode(initialMode);
+  if (requestedInitialMode) {
+    switchAuthMode(requestedInitialMode);
+  }
+
+  function openAuthModal(targetMode = 'login') {
+    switchAuthMode(targetMode);
+    onAuthModalOpen?.({ mode: targetMode });
     openAnimatedModal(authScreen);
-    requestAnimationFrame(() => syncSlidingTabs(authTabs, initialMode === 'signup' ? tabSignup : tabLogin, { animate: false }));
+    requestAnimationFrame(() => syncSlidingTabs(authTabs, targetMode === 'signup' ? tabSignup : tabLogin, { animate: false }));
   }
 
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY' && session?.user) {
       revealLoadingOverlay();
+      onAuthModalOpen?.({ mode: 'update_password' });
       openAnimatedModal(authScreen);
       switchAuthMode('update_password');
       showAuthAlert('Defina sua nova senha forte abaixo para acessar o aplicativo.', 'warning');
@@ -409,14 +419,19 @@ export function setupAuth({
       if (explicitLogoutInFlight) {
         return;
       }
-      if (event !== 'SIGNED_OUT' && shouldRestoreGuest?.()) {
+      if (event !== 'SIGNED_OUT' && shouldRestoreGuest?.() && !requestedInitialMode) {
         onEnterGuestMode?.({ restoring: true });
         return;
+      }
+      if (!consumedInitialModeRedirect && requestedInitialMode) {
+        consumedInitialModeRedirect = true;
+        switchAuthMode(requestedInitialMode);
       }
       emailInput.value = '';
       pwdInput.value = '';
       if (confirmInput) confirmInput.value = '';
       await onSignedOut({ clearStorage: event === 'SIGNED_OUT' });
+      onAuthModalOpen?.({ mode: authMode });
       openAnimatedModal(authScreen);
       requestAnimationFrame(() => syncSlidingTabs(authTabs, authMode === 'signup' ? tabSignup : tabLogin, { animate: false }));
       return;

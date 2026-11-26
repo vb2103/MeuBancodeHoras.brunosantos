@@ -20,6 +20,164 @@ const USER_EXACT_KEYS_TO_CLEAR = new Set([
 
 const FALLBACK_IDB_NAMES = ['saldohoras', 'saldohoras_db', 'saldohoras-offline', 'supabase-auth'];
 
+export const PRESET_RULE_MAP = {
+  sindpd: {
+    presetKey: 'sindpd',
+    unionCode: 'sindpd_sp',
+    sectorCode: 'tecnologia',
+    label: 'SINDPD-SP — Tecnologia (Feriado 1,4x)'
+  },
+  sindpd_sp: {
+    presetKey: 'sindpd',
+    unionCode: 'sindpd_sp',
+    sectorCode: 'tecnologia',
+    label: 'SINDPD-SP — Tecnologia (Feriado 1,4x)'
+  },
+  industria: {
+    presetKey: 'industria',
+    unionCode: 'metalurgicos',
+    sectorCode: 'industria',
+    label: 'Indústria / Metalúrgicos (Feriado 2,0x)'
+  },
+  bancarios: {
+    presetKey: 'bancarios',
+    unionCode: 'bancarios',
+    sectorCode: 'financeiro',
+    label: 'Bancários / Financeiro'
+  },
+  saude: {
+    presetKey: 'saude',
+    unionCode: 'saude',
+    sectorCode: 'saude',
+    label: 'Saúde / Escala 12x36'
+  },
+  comercio: {
+    presetKey: 'comercio',
+    unionCode: 'comerciarios',
+    sectorCode: 'comercio',
+    label: 'Comércio & Varejo (1,0x)'
+  },
+  servicos: {
+    presetKey: 'servicos',
+    unionCode: 'clt_individual',
+    sectorCode: 'servicos',
+    label: 'Serviços / CLT Padrão (1,0x)'
+  }
+};
+
+export function resolvePresetRule(rawPreset) {
+  const key = String(rawPreset || '').trim().toLowerCase();
+  return PRESET_RULE_MAP[key] || null;
+}
+
+/**
+ * Extrai e valida parâmetros de inicialização (?atalho=, ?mode=, ?preset=, ?h=, ?m=)
+ * preservando parâmetros de sessão/PKCE do Supabase e devolvendo a URL limpa.
+ */
+export function parseAndCleanAppLaunchUrl(href) {
+  const empty = {
+    shortcut: null,
+    mode: null,
+    preset: null,
+    hours: null,
+    minutes: null,
+    cleanUrl: './',
+    hadParam: false
+  };
+  if (!href || typeof href !== 'string') return empty;
+  try {
+    const url = new URL(href, 'https://saldohoras.local/');
+    const launchKeys = ['atalho', 'mode', 'preset', 'h', 'm'];
+    const hadParam = launchKeys.some((k) => url.searchParams.has(k));
+
+    const rawShortcut = String(url.searchParams.get('atalho') || '').trim().toLowerCase();
+    const shortcut = rawShortcut === 'ganho' || rawShortcut === 'folga' ? rawShortcut : null;
+
+    const rawMode = String(url.searchParams.get('mode') || '').trim().toLowerCase();
+    const mode = rawMode === 'login' || rawMode === 'signup' ? rawMode : null;
+
+    const preset = resolvePresetRule(url.searchParams.get('preset'));
+
+    const rawH = url.searchParams.get('h');
+    const rawM = url.searchParams.get('m');
+    const parsedH = rawH !== null && rawH !== '' && Number.isFinite(Number(rawH))
+      ? Math.max(0, Math.min(24, Math.trunc(Number(rawH))))
+      : null;
+    const parsedM = rawM !== null && rawM !== '' && Number.isFinite(Number(rawM))
+      ? Math.max(0, Math.min(59, Math.trunc(Number(rawM))))
+      : null;
+
+    if (hadParam) {
+      launchKeys.forEach((k) => url.searchParams.delete(k));
+    }
+    const cleanUrl = `${url.pathname}${url.search}${url.hash}` || './';
+    return {
+      shortcut,
+      mode,
+      preset,
+      hours: parsedH,
+      minutes: parsedM,
+      cleanUrl,
+      hadParam
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export function savePendingRulePreset(data, storageOverride) {
+  const storage = storageOverride || (typeof globalThis.sessionStorage !== 'undefined' ? globalThis.sessionStorage : null);
+  const preset = data?.preset ? data.preset : resolvePresetRule(data?.presetKey || data);
+  if (!storage || !preset) return false;
+  try {
+    storage.setItem(
+      STORAGE_KEYS.PENDING_PRESET,
+      JSON.stringify({
+        presetKey: preset.presetKey,
+        unionCode: preset.unionCode,
+        sectorCode: preset.sectorCode,
+        label: preset.label,
+        hours: Number.isFinite(Number(data?.hours)) ? Number(data.hours) : null,
+        minutes: Number.isFinite(Number(data?.minutes)) ? Number(data.minutes) : null,
+        savedAt: Date.now()
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadPendingRulePreset(storageOverride) {
+  const storage = storageOverride || (typeof globalThis.sessionStorage !== 'undefined' ? globalThis.sessionStorage : null);
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(STORAGE_KEYS.PENDING_PRESET);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const base = resolvePresetRule(parsed?.presetKey || parsed?.unionCode);
+    if (!base && !parsed?.unionCode) return null;
+    return {
+      presetKey: parsed?.presetKey || base?.presetKey || '',
+      unionCode: parsed?.unionCode || base?.unionCode || 'sindpd_sp',
+      sectorCode: parsed?.sectorCode || base?.sectorCode || 'tecnologia',
+      label: parsed?.label || base?.label || '',
+      hours: Number.isFinite(Number(parsed?.hours)) ? Number(parsed.hours) : null,
+      minutes: Number.isFinite(Number(parsed?.minutes)) ? Number(parsed.minutes) : null
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingRulePreset(storageOverride) {
+  const storage = storageOverride || (typeof globalThis.sessionStorage !== 'undefined' ? globalThis.sessionStorage : null);
+  if (!storage) return;
+  try {
+    storage.removeItem(STORAGE_KEYS.PENDING_PRESET);
+  } catch { /* ignore */ }
+}
+
 /**
  * Extrai e valida o atalho PWA (?atalho=ganho | ?atalho=folga) e calcula a URL limpa sem o parâmetro.
  */

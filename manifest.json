@@ -2,7 +2,7 @@
   "name": "SaldoHoras — Banco de Horas & Folgas",
   "short_name": "SaldoHoras",
   "description": "Controle de banco de horas em HH:MM, feriados, regras por sindicato ou área e folgas sincronizadas na nuvem.",
-  "start_url": "./",
+  "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -14,7 +14,7 @@
       "name": "+ Ganhei Horas",
       "short_name": "+ Ganhei Horas",
       "description": "Registrar horas extras ou feriado trabalhado",
-      "url": "./?atalho=ganho",
+      "url": "./app.html?atalho=ganho",
       "icons": [
         {
           "src": "./assets/icons/icon-192.png",
@@ -27,7 +27,7 @@
       "name": "- Tirei Folga",
       "short_name": "- Tirei Folga",
       "description": "Registrar folga ou saída compensatória",
-      "url": "./?atalho=folga",
+      "url": "./app.html?atalho=folga",
       "icons": [
         {
           "src": "./assets/icons/icon-192.png",

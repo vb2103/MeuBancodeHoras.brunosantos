@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.0.1';
+export const APP_VERSION = '1.1.0';
 export const APP_PUBLIC_URL = 'https://vb2103.github.io/MeuBancodeHoras.brunosantos/';
 export const SUPABASE_URL = 'https://opctsxkugbljvghcgnvj.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_nClSbvyd31jCHu1qpz4t-w_tUJ0RzUh';
@@ -14,8 +14,29 @@ export const STORAGE_KEYS = {
   CYCLES_PREFIX: 'saldohoras_cycles_v1_',
   GUEST_STATE: 'saldohoras_guest_v1',
   GUEST_ACTIVE: 'saldohoras_guest_active_v1',
-  GUEST_BANNER_DISMISSED: 'saldohoras_guest_banner_dismissed_v1'
+  GUEST_BANNER_DISMISSED: 'saldohoras_guest_banner_dismissed_v1',
+  PENDING_PRESET: 'saldohoras_pending_preset_v1'
 };
+
+/**
+ * Retorna a URL completa e limpa de app.html para redirectTo / emailRedirectTo do Supabase Auth.
+ */
+export function getAppRedirectUrl(currentHref = globalThis.window?.location?.href) {
+  if (!currentHref || typeof currentHref !== 'string') {
+    return new URL('app.html', APP_PUBLIC_URL).toString();
+  }
+  try {
+    const url = new URL(currentHref);
+    url.search = '';
+    url.hash = '';
+    if (!/\/app\.html$/i.test(url.pathname)) {
+      url.pathname = url.pathname.replace(/\/(?:index\.html)?$/, '/app.html');
+    }
+    return url.toString();
+  } catch {
+    return new URL('app.html', APP_PUBLIC_URL).toString();
+  }
+}
 
 export const BRAZIL_UFS = [
   { code: 'AC', name: 'Acre' },

@@ -1,12 +1,14 @@
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.1.0';
 const CACHE_NAME = `saldohoras-static-${APP_VERSION}`;
 
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
+  './app.html',
   './manifest.json',
-  './assets/app.css?v=26',
-  './assets/tailwind.css?v=26',
+  './assets/app.css?v=27',
+  './assets/tailwind.css?v=27',
+  './assets/og-cover.png',
   './assets/icons/icon.svg',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
@@ -156,9 +158,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin === self.location.origin) {
-    // Navegação (index.html / documentos): Network-First com fallback instantâneo para cache offline
+    // Navegação (landing ./ e app ./app.html): Network-First com fallback para o documento correspondente em cache
     if (request.mode === 'navigate' || request.destination === 'document') {
       const cleanNavUrl = new URL(url.pathname, self.location.origin).toString();
+      const isAppRoute = /\/app\.html$/i.test(url.pathname);
       event.respondWith(
         fetchWithTimeout(new Request(request.url, { cache: 'no-cache' }), 2400)
           .then((response) => {
@@ -172,8 +175,7 @@ self.addEventListener('fetch', (event) => {
             const cache = await caches.open(CACHE_NAME);
             return (await cache.match(cleanNavUrl))
               || (await cache.match(request, { ignoreSearch: true }))
-              || (await cache.match('./index.html'))
-              || (await cache.match('./'))
+              || (isAppRoute ? await cache.match('./app.html') : ((await cache.match('./index.html')) || (await cache.match('./'))))
               || Response.error();
           })
       );

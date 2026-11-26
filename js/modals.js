@@ -11,6 +11,7 @@ import {
   isWeekendISO
 } from './config.js';
 import { fetchHolidaysForYear, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from './holidays.js';
+import { clearPendingRulePreset, loadPendingRulePreset } from './pwa.js';
 import { SECTOR_CATALOG, UNION_CATALOG, findSectorByCode, findUnionByCode } from './rules-catalog.js';
 import { applyMultiplierToMinutes, computePunchBalance, formatHHMM, isInitialBalanceEntry, parseDurationToMinutes } from './time.js';
 import {
@@ -1745,12 +1746,26 @@ export function createModalManager(ctx) {
 
     populateSettingsSelects();
     const s = ctx.getSettings();
-    initSelectedUnion = findUnionByCode(s.unionCode) ? s.unionCode : 'sindpd_sp';
+    const pendingPreset = !adjustOnly && startStep === 1 ? loadPendingRulePreset() : null;
+    initSelectedUnion = pendingPreset?.unionCode && findUnionByCode(pendingPreset.unionCode)
+      ? pendingPreset.unionCode
+      : (findUnionByCode(s.unionCode) ? s.unionCode : 'sindpd_sp');
 
     const unionSel = document.getElementById('initUnionSelect');
     if (unionSel) {
       unionSel.innerHTML = UNION_CATALOG.map((u) => `<option value="${u.code}">${escapeHtml(u.name)}</option>`).join('');
       unionSel.value = initSelectedUnion;
+    }
+
+    const presetBadge = document.getElementById('initPresetAppliedBadge');
+    if (presetBadge) {
+      if (pendingPreset?.label) {
+        presetBadge.textContent = `Sugestão do simulador aplicada: ${pendingPreset.label}. Você pode confirmar ou trocar abaixo.`;
+        presetBadge.classList.remove('hidden');
+      } else {
+        presetBadge.classList.add('hidden');
+        presetBadge.textContent = '';
+      }
     }
 
     const existingInitial = ctx.getEntries().find((e) => isInitialBalanceEntry(e));
@@ -1787,7 +1802,10 @@ export function createModalManager(ctx) {
     const modal = document.getElementById('initialSetupModal');
     if (!modal || !isLayerOpen(modal)) return;
     closeAnimatedModal(modal);
-    if (markDone) ctx.onOnboardingCompleted?.();
+    if (markDone) {
+      clearPendingRulePreset();
+      ctx.onOnboardingCompleted?.();
+    }
     restoreLastFocus();
   }
 
@@ -1813,6 +1831,7 @@ export function createModalManager(ctx) {
         stateUf: u.stateUf || ctx.getSettings().stateUf
       };
       await ctx.saveSettings(nextSettings, { silentToast: true });
+      clearPendingRulePreset();
     }
     document.getElementById('initStep1Box')?.classList.add('hidden');
     document.getElementById('initStep2Box')?.classList.remove('hidden');

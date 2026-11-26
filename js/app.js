@@ -16,9 +16,12 @@ import {
 } from './guest.js';
 import {
   clearClientUserStorage,
+  clearPendingRulePreset,
   formatPendingLogoutWarning,
   initServiceWorkerUpdates,
-  parseAndCleanShortcutUrl
+  loadPendingRulePreset,
+  parseAndCleanAppLaunchUrl,
+  savePendingRulePreset
 } from './pwa.js';
 import {
   createDefaultSettings,
@@ -47,7 +50,7 @@ import {
 import { createExportModalManager } from './export-modal.js';
 import { createModalManager } from './modals.js';
 import { createProfileManager } from './profile.js';
-import { getActiveRuleSummary } from './rules-catalog.js';
+import { findUnionByCode, getActiveRuleSummary } from './rules-catalog.js';
 import { getUserInitials } from './security.js';
 import {
   applyQueueToState,
@@ -116,14 +119,21 @@ let syncAlertDismissedState = null;
 let lastSyncState = 'ok';
 let isFlushingQueue = false;
 let defaultTemplatesCache = { emailTemplate: '', whatsappTemplate: '' };
-let pendingUrlShortcut = (() => {
-  if (typeof window === 'undefined') return null;
-  const parsed = parseAndCleanShortcutUrl(window.location.href);
+const initialAppLaunch = (() => {
+  if (typeof window === 'undefined') {
+    return { shortcut: null, mode: null, preset: null, hours: null, minutes: null };
+  }
+  const parsed = parseAndCleanAppLaunchUrl(window.location.href);
+  if (parsed.preset) {
+    savePendingRulePreset(parsed);
+  }
   if (parsed.hadParam) {
     window.history.replaceState({}, document.title, parsed.cleanUrl);
   }
-  return parsed.shortcut;
+  return parsed;
 })();
+let pendingUrlShortcut = initialAppLaunch.shortcut;
+const pendingAuthMode = initialAppLaunch.mode;
 let privacyMode = (() => {
   try {
     return localStorage.getItem(STORAGE_KEYS.PRIVACY) === '1';
@@ -2753,13 +2763,50 @@ function consumePendingUrlShortcut() {
   return false;
 }
 
+function syncAuthPresetNoticeUI({ mode = 'login' } = {}) {
+  const noticeEl = document.getElementById('authPresetNotice');
+  if (!noticeEl) return;
+  const pendingPreset = loadPendingRulePreset();
+  const shouldShow = Boolean(pendingPreset?.label && (mode === 'login' || mode === 'signup'));
+  noticeEl.classList.toggle('hidden', !shouldShow);
+  if (shouldShow) {
+    noticeEl.textContent = `Regra escolhida no simulador: ${pendingPreset.label} — ficará pré-selecionada ao iniciar seu acesso.`;
+  }
+}
+
 function enterGuestMode() {
   currentUser = null;
   isGuestMode = true;
   setGuestModeActive(true);
+  const hasExistingGuest = (() => {
+    try {
+      return Boolean(localStorage.getItem(STORAGE_KEYS.GUEST_STATE));
+    } catch {
+      return false;
+    }
+  })();
   const saved = loadGuestState();
   settings = saved.settings;
   entries = saved.entries;
+  if (!hasExistingGuest) {
+    const pendingPreset = loadPendingRulePreset();
+    const u = pendingPreset?.unionCode ? findUnionByCode(pendingPreset.unionCode) : null;
+    if (u) {
+      settings = {
+        ...settings,
+        unionMode: 'union',
+        unionCode: u.code,
+        companySector: u.sector || settings.companySector,
+        dailyMinutes: u.dailyMinutes,
+        overtimeMultiplier: u.overtimeMultiplier,
+        holidayMultiplier: u.holidayMultiplier,
+        expiryDays: u.expiryDays,
+        stateUf: u.stateUf || settings.stateUf
+      };
+      saveGuestState({ settings, entries });
+      clearPendingRulePreset();
+    }
+  }
   archivedCycles = loadArchivedCycles('guest');
   try {
     if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
@@ -2894,6 +2941,8 @@ document.getElementById('clearDemoExamplesBtn')?.addEventListener('click', () =>
 
 authController = setupAuth({
   onToast: showToast,
+  initialMode: pendingAuthMode,
+  onAuthModalOpen: (info) => syncAuthPresetNoticeUI(info),
   shouldRestoreGuest: () => isGuestModeActive(),
   onEnterGuestMode: () => enterGuestMode(),
   onUserUpdated(user) {
@@ -2915,6 +2964,7 @@ authController = setupAuth({
   },
   async onSignedOut({ clearStorage = true } = {}) {
     if (clearStorage) {
+      clearPendingRulePreset();
       await clearClientUserStorage();
     }
     currentUser = null;

@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { APP_PUBLIC_URL, APP_VERSION, STORAGE_KEYS, addDaysToISO, escapeXml, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell, sanitizePdfText } from '../js/config.js';
+import { APP_PUBLIC_URL, APP_VERSION, STORAGE_KEYS, addDaysToISO, escapeXml, formatDateBR, getAppRedirectUrl, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell, sanitizePdfText } from '../js/config.js';
 import {
   clearClientUserStorage,
+  clearPendingRulePreset,
   collectUserStorageKeysToClear,
   formatPendingLogoutWarning,
-  parseAndCleanShortcutUrl
+  loadPendingRulePreset,
+  parseAndCleanAppLaunchUrl,
+  parseAndCleanShortcutUrl,
+  savePendingRulePreset
 } from '../js/pwa.js';
 import { submitFeedbackToCloud, validateAndNormalizeImportedEntries } from '../js/db.js';
 import {
@@ -700,15 +704,15 @@ test('PWA offline: sw.js, manifest shortcuts, limpeza de sessão no logout e RLS
   assert.match(swSource, /k !== CACHE_NAME && \(k\.startsWith\('saldohoras-static-'\) \|\| k\.startsWith\('saldohoras-shell-'\)\)/);
   assert.match(swSource, /if \(request\.method !== 'GET'\) return;/);
 
-  // 2. Manifest shortcuts com caminhos relativos
-  assert.equal(manifestJson.start_url, './');
+  // 2. Manifest start_url e shortcuts com caminhos relativos apontando para app.html
+  assert.equal(manifestJson.start_url, './app.html');
   assert.equal(manifestJson.scope, './');
   assert.ok(Array.isArray(manifestJson.shortcuts));
   assert.deepEqual(
     manifestJson.shortcuts.map((s) => ({ name: s.name, url: s.url })),
     [
-      { name: '+ Ganhei Horas', url: './?atalho=ganho' },
-      { name: '- Tirei Folga', url: './?atalho=folga' }
+      { name: '+ Ganhei Horas', url: './app.html?atalho=ganho' },
+      { name: '- Tirei Folga', url: './app.html?atalho=folga' }
     ]
   );
 
@@ -799,21 +803,23 @@ test('PWA offline: sw.js, manifest shortcuts, limpeza de sessão no logout e RLS
 });
 
 test('Open Graph 1200x630, Desktop 1120px/modais 480px, FAQ 5 itens, Feedback e Compartilhar', async () => {
-  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../app.html', import.meta.url), 'utf8');
+  const landingHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../assets/app.css', import.meta.url), 'utf8');
   const feedbackSql = fs.readFileSync(new URL('../supabase/migrations/005_user_feedback.sql', import.meta.url), 'utf8');
-  const ogPng = fs.readFileSync(new URL('../og-image.png', import.meta.url));
+  const ogPng = fs.readFileSync(new URL('../assets/og-cover.png', import.meta.url));
 
-  // 1. og-image.png 1200x630 real + meta tags absolutas https://
+  // 1. assets/og-cover.png 1200x630 real + meta tags absolutas https:// na Landing Page e no App
   assert.equal(ogPng.readUInt32BE(16), 1200);
   assert.equal(ogPng.readUInt32BE(20), 630);
   assert.equal(APP_PUBLIC_URL, 'https://vb2103.github.io/MeuBancodeHoras.brunosantos/');
-  assert.match(html, /property="og:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/og-image\.png"/);
-  assert.match(html, /property="og:image:secure_url" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/og-image\.png"/);
-  assert.match(html, /property="og:image:width" content="1200"/);
-  assert.match(html, /property="og:image:height" content="630"/);
-  assert.match(html, /name="twitter:card" content="summary_large_image"/);
-  assert.match(html, /name="twitter:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/og-image\.png"/);
+  assert.match(landingHtml, /property="og:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/assets\/og-cover\.png"/);
+  assert.match(landingHtml, /property="og:image:secure_url" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/assets\/og-cover\.png"/);
+  assert.match(landingHtml, /property="og:image:width" content="1200"/);
+  assert.match(landingHtml, /property="og:image:height" content="630"/);
+  assert.match(landingHtml, /name="twitter:card" content="summary_large_image"/);
+  assert.match(landingHtml, /name="twitter:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/assets\/og-cover\.png"/);
+  assert.match(html, /property="og:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/assets\/og-cover\.png"/);
 
   // 2. Desktop layout 1120px, 2 colunas, modal centralizado 480px e navegação no header
   assert.match(css, /@media \(min-width: 768px\)[\s\S]*max-width: 480px !important/);
@@ -839,12 +845,13 @@ test('Open Graph 1200x630, Desktop 1120px/modais 480px, FAQ 5 itens, Feedback e 
 });
 
 test('iOS PWA standalone: safe-area-inset-top sem corte, header auto, h-14 interno e botão perfil w-10 h-10 shrink-0', () => {
-  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../app.html', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../assets/app.css', import.meta.url), 'utf8');
 
   // 1. Meta tags obrigatórias para notch / status bar iOS standalone
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1\.0, viewport-fit=cover" \/>/);
   assert.match(html, /<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" \/>/);
+  assert.match(html, /<link rel="manifest" href="\.\/manifest\.json" \/>/);
 
   // 2. <header> sem h-14/h-16 direta; altura fixa apenas no container flex interno e botão w-10 h-10 shrink-0
   const headerTagMatch = html.match(/<header\b[^>]*>/);
@@ -866,4 +873,68 @@ test('iOS PWA standalone: safe-area-inset-top sem corte, header auto, h-14 inter
   assert.ok(privacyBtnMatch, '#desktopPrivacyToggleBtn deve existir no HTML');
   assert.match(privacyBtnMatch[0], /\bw-9 h-9\b/);
   assert.doesNotMatch(privacyBtnMatch[0], /\bsh-touch-44\b/);
+});
+
+test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo Supabase e Service Worker dual', () => {
+  const landingHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const swSource = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const authSource = fs.readFileSync(new URL('../js/auth.js', import.meta.url), 'utf8');
+  const profileSource = fs.readFileSync(new URL('../js/profile.js', import.meta.url), 'utf8');
+
+  // 1. Links e seções essenciais na Landing Page
+  assert.match(landingHtml, /href="app\.html\?mode=login"/);
+  assert.match(landingHtml, /href="app\.html\?mode=signup"/);
+  assert.match(landingHtml, /id="demo-union"/);
+  assert.match(landingHtml, /id="preview-device-mobile"/);
+  assert.match(landingHtml, /id="preview-device-desktop"/);
+  assert.match(landingHtml, /id="desktop-mock-eye-btn"/);
+  assert.match(landingHtml, /web-mock-filter/);
+  assert.match(landingHtml, /Ir para o Painel/);
+  assert.match(landingHtml, /sb\.auth\.getSession/);
+
+  // 2. Parser de parâmetros (?mode=, ?preset=, ?h=, ?m=, ?atalho=) preservando PKCE ?code=
+  const signupWithPreset = parseAndCleanAppLaunchUrl(
+    'https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=signup&preset=industria&h=8&m=48&code=pkce-123'
+  );
+  assert.equal(signupWithPreset.mode, 'signup');
+  assert.equal(signupWithPreset.preset?.unionCode, 'metalurgicos');
+  assert.equal(signupWithPreset.hours, 8);
+  assert.equal(signupWithPreset.minutes, 48);
+  assert.equal(signupWithPreset.cleanUrl, '/MeuBancodeHoras.brunosantos/app.html?code=pkce-123');
+
+  const loginLaunch = parseAndCleanAppLaunchUrl('https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=login');
+  assert.equal(loginLaunch.mode, 'login');
+  assert.equal(loginLaunch.cleanUrl, '/MeuBancodeHoras.brunosantos/app.html');
+
+  // 3. Persistência temporária em sessionStorage do preset do simulador
+  const mockSessionStorage = (() => {
+    const map = new Map();
+    return {
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => map.set(k, String(v)),
+      removeItem: (k) => map.delete(k)
+    };
+  })();
+  assert.equal(savePendingRulePreset(signupWithPreset, mockSessionStorage), true);
+  assert.equal(loadPendingRulePreset(mockSessionStorage)?.unionCode, 'metalurgicos');
+  clearPendingRulePreset(mockSessionStorage);
+  assert.equal(loadPendingRulePreset(mockSessionStorage), null);
+
+  // 4. redirectTo / emailRedirectTo sempre apontando para URL completa de app.html
+  assert.equal(
+    getAppRedirectUrl('https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=signup'),
+    'https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html'
+  );
+  assert.equal(
+    getAppRedirectUrl('https://vb2103.github.io/MeuBancodeHoras.brunosantos/'),
+    'https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html'
+  );
+  assert.match(authSource, /getAppRedirectUrl\(/);
+  assert.match(profileSource, /getAppRedirectUrl\(/);
+
+  // 5. sw.js inclui landing + app.html + assets/og-cover.png e distingue rota app.html no fallback offline
+  assert.match(swSource, /'\.\/app\.html'/);
+  assert.match(swSource, /'\.\/index\.html'/);
+  assert.match(swSource, /'\.\/assets\/og-cover\.png'/);
+  assert.match(swSource, /isAppRoute/);
 });

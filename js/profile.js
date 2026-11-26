@@ -1,4 +1,4 @@
-import { getLocalDateISO } from './config.js';
+import { getAppRedirectUrl, getLocalDateISO } from './config.js';
 import { supabaseClient } from './db.js';
 import { exportJSONBackup } from './export.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
@@ -298,7 +298,7 @@ export function createProfileManager(ctx) {
           return;
         }
 
-        const redirectTo = window.location.origin + window.location.pathname;
+        const redirectTo = getAppRedirectUrl();
         const { error: updateErr } = await supabaseClient.auth.updateUser(
           { email: nextEmail },
           { emailRedirectTo: redirectTo }
@@ -416,7 +416,7 @@ export function createProfileManager(ctx) {
     if (!ok) return;
 
     try {
-      const redirectTo = window.location.origin + window.location.pathname;
+      const redirectTo = getAppRedirectUrl();
       const { error } = await supabaseClient.auth.resetPasswordForEmail(user.email, { redirectTo });
       if (error) {
         showProfileAlert(mapAuthErrorMessage(error), 'error');
