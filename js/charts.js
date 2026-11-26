@@ -71,11 +71,11 @@ function renderInsightsCards(analytics, chronoEntries, dailyMinutes) {
     if (analytics.expiredMinutes > 0) {
       expTitle.textContent = `${formatHHMM(analytics.expiredMinutes)} com prazo vencido`;
       expText.textContent =
-        'Existem créditos que passaram da data limite sem compensação no FIFO. Confira na linha do tempo abaixo.';
+        'Existem créditos que passaram da data limite sem uso em folga. Confira na lista de prazos abaixo.';
     } else if (analytics.expiringSoonMinutes > 0) {
       expTitle.textContent = `${formatHHMM(analytics.expiringSoonMinutes)} vencendo em breve`;
       expText.textContent =
-        'Suas folgas abatem primeiro as horas mais antigas (regra FIFO). Vale planejar uma folga antes do prazo.';
+        'Suas folgas descontam primeiro as horas mais antigas que vencem antes. Vale planejar uma folga antes do prazo.';
     } else if (analytics.nextCriticalBucket) {
       expTitle.textContent = 'Prazos em dia';
       expText.textContent =

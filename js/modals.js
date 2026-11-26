@@ -48,6 +48,12 @@ export function createModalManager(ctx) {
     lastFocusedEl = document.activeElement;
   }
 
+  function focusDesktopOnly(el) {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      el?.focus();
+    }
+  }
+
   function restoreLastFocus() {
     if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
       document.activeElement.blur();
@@ -214,13 +220,29 @@ export function createModalManager(ctx) {
     const hh = Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0);
     const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('entryMinutesPart').value, 10) || 0));
     const baseMins = hh * 60 + mm;
+    const liveSummary = document.getElementById('entryLiveRuleSummary');
 
     if (type === 'credit') {
       const mult = getActiveMultiplierForForm();
       const creditedMins = applyMultiplierToMinutes(baseMins, mult);
       document.getElementById('entryComputedPreview').textContent =
         `Trabalhado ${formatHHMM(baseMins)} × ${mult}x = ${formatHHMM(creditedMins, true)}`;
+      if (liveSummary) {
+        const expVal = document.getElementById('entryExpiry')?.value;
+        const multTxt = mult !== 1 ? ` (${mult}x)` : '';
+        const expTxt = expVal ? ` • vence ${formatDateBR(expVal)}` : '';
+        liveSummary.textContent = `Vai entrar ${formatHHMM(creditedMins, true)} no banco${multTxt}${expTxt}`;
+      }
+    } else if (liveSummary) {
+      liveSummary.textContent = `Vai descontar ${formatHHMM(-baseMins, true)} do seu saldo`;
     }
+  }
+
+  function setEntryAdvancedOpen(isOpen) {
+    const advBox = document.getElementById('entryAdvancedBox');
+    const toggleBtn = document.getElementById('toggleEntryAdvancedBtn');
+    advBox?.classList.toggle('is-open', Boolean(isOpen));
+    toggleBtn?.setAttribute('aria-expanded', String(Boolean(isOpen)));
   }
 
   function openEntryModal(data = null, isEditing = false) {
@@ -278,10 +300,18 @@ export function createModalManager(ctx) {
     }
 
     updateEntryComputedPreview();
+    const shouldOpenAdv = Boolean(
+      isEditing && (
+        data?.notes
+        || data?.status === 'planned'
+        || presetSel.value === 'custom'
+      )
+    );
+    setEntryAdvancedOpen(shouldOpenAdv);
     document.getElementById('punchCalcPanel')?.classList.add('hidden');
     document.getElementById('entryModal').classList.remove('hidden');
     window.lucide?.createIcons();
-    document.getElementById('entryTitle').focus();
+    focusDesktopOnly(document.getElementById('entryTitle'));
   }
 
   function closeEntryModal() {
@@ -332,6 +362,7 @@ export function createModalManager(ctx) {
       document.getElementById('entryExpiry').value =
         addDaysToISO(document.getElementById('entryDate').value, settings.expiryDays);
     }
+    updateEntryComputedPreview();
   });
 
   document.getElementById('fillJourneyBtn').addEventListener('click', () => {
@@ -363,6 +394,11 @@ export function createModalManager(ctx) {
   });
   document.getElementById('entryRulePreset').addEventListener('change', updateEntryComputedPreview);
   document.getElementById('entryCustomMultiplier').addEventListener('input', updateEntryComputedPreview);
+  document.getElementById('entryExpiry')?.addEventListener('change', updateEntryComputedPreview);
+  document.getElementById('toggleEntryAdvancedBtn')?.addEventListener('click', () => {
+    const isOpen = document.getElementById('entryAdvancedBox')?.classList.contains('is-open');
+    setEntryAdvancedOpen(!isOpen);
+  });
 
   function getPunchCalcResult() {
     const dailyMinutes = Number(ctx.getSettings().dailyMinutes) || 480;
@@ -528,6 +564,40 @@ export function createModalManager(ctx) {
     document.getElementById('holidayUfSelect').innerHTML = `<option value="NONE">Apenas Nacionais</option>${ufOptions}`;
   }
 
+  function setSettingsAdvancedOpen(isOpen) {
+    const box = document.getElementById('settingsAdvancedBox');
+    const btn = document.getElementById('toggleSettingsAdvancedBtn');
+    const chevron = document.getElementById('settingsAdvancedChevron');
+    box?.classList.toggle('hidden', !isOpen);
+    btn?.setAttribute('aria-expanded', String(Boolean(isOpen)));
+    chevron?.classList.toggle('rotate-180', Boolean(isOpen));
+  }
+
+  function updateSettingsRuleSummaryCard() {
+    const parsedDaily = parseDurationToMinutes(document.getElementById('settingDailyHHMM')?.value || '', { min: 60, max: 1440 });
+    const dailyMins = parsedDaily || Number(ctx.getSettings().dailyMinutes) || 480;
+    const otMult = parseFloat(document.getElementById('settingOvertimeMult')?.value) || 1.0;
+    const holMult = parseFloat(document.getElementById('settingHolidayMult')?.value) || 1.0;
+    const expDays = parseInt(document.getElementById('settingExpiryDays')?.value, 10) || 180;
+
+    const otOneHour = applyMultiplierToMinutes(60, otMult);
+    const holOneDay = applyMultiplierToMinutes(dailyMins, holMult);
+
+    const elJourney = document.getElementById('ruleSummaryJourney');
+    const elExpiry = document.getElementById('ruleSummaryExpiry');
+    const elOvertime = document.getElementById('ruleSummaryOvertime');
+    const elHoliday = document.getElementById('ruleSummaryHoliday');
+    const otHint = document.getElementById('overtimeMultHint');
+    const holHint = document.getElementById('holidayMultHint');
+
+    if (elJourney) elJourney.textContent = `${formatHHMM(dailyMins)}/dia`;
+    if (elExpiry) elExpiry.textContent = `${expDays} dias`;
+    if (elOvertime) elOvertime.textContent = `1h → ${formatHHMM(otOneHour, true)}`;
+    if (elHoliday) elHoliday.textContent = `${formatHHMM(dailyMins)} → ${formatHHMM(holOneDay, true)}`;
+    if (otHint) otHint.textContent = `1h extra = ${formatHHMM(otOneHour, true)} no banco (${otMult}x)`;
+    if (holHint) holHint.textContent = `${formatHHMM(dailyMins)} trabalhadas = ${formatHHMM(holOneDay, true)} (${holMult}x)`;
+  }
+
   function setSettingsUnionModeUI(mode) {
     const unionBtn = document.getElementById('unionModeBtn');
     const sectorBtn = document.getElementById('sectorModeBtn');
@@ -535,8 +605,8 @@ export function createModalManager(ctx) {
     const unionBox = document.getElementById('unionSelectBox');
     const sectorBox = document.getElementById('sectorSelectBox');
 
-    const activeCls = 'px-2.5 py-1 rounded-md bg-indigo-600 text-white transition';
-    const inactiveCls = 'px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+    const activeCls = 'px-2.5 py-2 rounded-lg bg-indigo-600 text-white transition text-center';
+    const inactiveCls = 'px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-center';
 
     unionBtn.className = mode === 'union' ? activeCls : inactiveCls;
     sectorBtn.className = mode === 'sector' ? activeCls : inactiveCls;
@@ -544,6 +614,7 @@ export function createModalManager(ctx) {
 
     unionBox.classList.toggle('hidden', mode !== 'union');
     sectorBox.classList.toggle('hidden', mode !== 'sector');
+    setSettingsAdvancedOpen(mode === 'custom');
   }
 
   function getActiveUnionModeFromUI() {
@@ -574,8 +645,9 @@ export function createModalManager(ctx) {
       document.getElementById('unionRuleHint').textContent = sector.desc;
     } else {
       document.getElementById('unionRuleHint').textContent =
-        'Modo manual ativo: configure livremente sua jornada em HH:MM, multiplicadores e prazo de validade.';
+        'Modo personalizado ativo: ajuste abaixo sua jornada (HH:MM), bônus e validade.';
     }
+    updateSettingsRuleSummaryCard();
   }
 
   function openSettingsModal() {
@@ -583,7 +655,6 @@ export function createModalManager(ctx) {
     populateSettingsSelects();
     const settings = ctx.getSettings();
 
-    document.getElementById('settingUserName').value = settings.userName || '';
     const unionSel = document.getElementById('settingUnionCode');
     unionSel.value = findUnionByCode(settings.unionCode) ? settings.unionCode : 'sindpd_sp';
 
@@ -596,8 +667,6 @@ export function createModalManager(ctx) {
     document.getElementById('settingOvertimeMult').value = settings.overtimeMultiplier ?? 1.5;
     document.getElementById('settingHolidayMult').value = settings.holidayMultiplier ?? 1.4;
     document.getElementById('settingExpiryDays').value = settings.expiryDays || 180;
-    document.getElementById('settingManagerEmail').value = settings.managerEmail || '';
-    document.getElementById('settingManagerPhone').value = settings.managerPhone || '';
 
     if (settings.unionMode === 'union') {
       document.getElementById('unionRuleHint').textContent = findUnionByCode(settings.unionCode)?.note || '';
@@ -605,12 +674,16 @@ export function createModalManager(ctx) {
       document.getElementById('unionRuleHint').textContent = findSectorByCode(settings.companySector)?.desc || '';
     } else {
       document.getElementById('unionRuleHint').textContent =
-        'Modo manual ativo: os parâmetros abaixo refletem sua configuração personalizada.';
+        'Modo personalizado ativo: ajuste abaixo sua jornada (HH:MM), bônus e validade.';
     }
 
+    updateSettingsRuleSummaryCard();
     document.getElementById('settingsModal').classList.remove('hidden');
     window.lucide?.createIcons();
-    document.getElementById('settingUserName').focus();
+    const firstSelect = settings.unionMode === 'union'
+      ? document.getElementById('settingUnionCode')
+      : document.getElementById('settingCompanySector');
+    focusDesktopOnly(firstSelect);
   }
 
   function closeSettingsModal() {
@@ -638,11 +711,19 @@ export function createModalManager(ctx) {
   });
   document.getElementById('settingUnionCode').addEventListener('change', () => applyPresetFromSelection('union'));
   document.getElementById('settingCompanySector').addEventListener('change', () => applyPresetFromSelection('sector'));
+  document.getElementById('toggleSettingsAdvancedBtn')?.addEventListener('click', () => {
+    const isHidden = document.getElementById('settingsAdvancedBox')?.classList.contains('hidden');
+    setSettingsAdvancedOpen(Boolean(isHidden));
+  });
+  ['settingDailyHHMM', 'settingOvertimeMult', 'settingHolidayMult', 'settingExpiryDays'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', updateSettingsRuleSummaryCard);
+  });
 
   document.getElementById('settingsForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const parsedMins = parseDurationToMinutes(document.getElementById('settingDailyHHMM').value, { min: 60, max: 1440 });
     if (parsedMins === null) {
+      setSettingsAdvancedOpen(true);
       ctx.showToast('Jornada inválida. Use HH:MM (ex.: 08:00 ou 07:20)');
       return;
     }
@@ -650,7 +731,6 @@ export function createModalManager(ctx) {
     const btn = document.getElementById('settingsSubmitBtn');
     const nextSettings = {
       ...ctx.getSettings(),
-      userName: document.getElementById('settingUserName').value.trim(),
       unionMode: getActiveUnionModeFromUI(),
       unionCode: document.getElementById('settingUnionCode').value,
       companySector: document.getElementById('settingCompanySector').value,
@@ -658,9 +738,7 @@ export function createModalManager(ctx) {
       dailyMinutes: parsedMins,
       overtimeMultiplier: parseFloat(document.getElementById('settingOvertimeMult').value) || 1.0,
       holidayMultiplier: parseFloat(document.getElementById('settingHolidayMult').value) || 1.0,
-      expiryDays: parseInt(document.getElementById('settingExpiryDays').value, 10) || 180,
-      managerEmail: document.getElementById('settingManagerEmail').value.trim(),
-      managerPhone: document.getElementById('settingManagerPhone').value.replace(/\D/g, '')
+      expiryDays: parseInt(document.getElementById('settingExpiryDays').value, 10) || 180
     };
 
     await runWithButtonLoading(btn, 'Salvando...', async () => {
@@ -843,7 +921,7 @@ export function createModalManager(ctx) {
     document.getElementById('holidayUfSelect').value = uf;
     document.getElementById('holidaysModal').classList.remove('hidden');
     window.lucide?.createIcons();
-    document.getElementById('holidayUfSelect').focus();
+    focusDesktopOnly(document.getElementById('holidayUfSelect'));
     await refreshHolidaysView(false);
   }
 

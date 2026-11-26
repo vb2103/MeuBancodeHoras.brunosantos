@@ -246,10 +246,10 @@ body {
     font-size: 0.6875rem !important;
   }
 
-  /* Área de toque confortável nos botões de ação dos cards mobile */
+  /* Área de toque confortável (>= 44px) nos botões de ação mobile */
   .sh-mobile-card-actions button {
-    min-width: 38px;
-    min-height: 38px;
+    min-width: 44px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -288,7 +288,7 @@ body {
     gap: 0.5rem !important;
   }
 
-  /* Modais no mobile: largura total, max 90dvh, scroll interno suave */
+  /* Modais centralizados pequenos no mobile (Auth & Confirmação) */
   .sh-modal-backdrop {
     padding: 0.75rem !important;
   }
@@ -301,6 +301,79 @@ body {
     padding: 1rem !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+  }
+
+  /* Padrão Bottom Sheet Mobile-First para telas de fluxo e edição (< 768px) */
+  .sh-sheet-backdrop {
+    padding: 0 !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+  }
+
+  .sh-sheet-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 1.25rem 1.25rem 0 0 !important;
+    border-bottom: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .sh-sheet-panel .sh-sheet-header {
+    padding: 0.75rem 1rem !important;
+    flex-shrink: 0 !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .sh-sheet-panel .sh-sheet-form {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .sh-sheet-panel .sh-sheet-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.875rem 1rem !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .sh-sheet-panel .sh-sheet-footer {
+    flex-shrink: 0 !important;
+    margin-top: 0 !important;
+    padding: 0.75rem 1rem max(0.875rem, env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .sh-sheet-close-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .sh-entry-adv:not(.is-open) {
+    display: none !important;
+  }
+
+  .sh-comm-textarea {
+    min-height: 170px !important;
+    max-height: 230px !important;
+  }
+
+  .sh-mobile-hidden-panel {
+    display: none !important;
   }
 
   .sh-rule-preset {

@@ -124,8 +124,6 @@ function setSyncStatus(state) {
 // ==================== TEMA CLARO / ESCURO ====================
 function syncThemeUiLabels() {
   const isDark = document.documentElement.classList.contains('dark');
-  const mobileLbl = document.getElementById('profileMobileThemeLabel');
-  if (mobileLbl) mobileLbl.textContent = isDark ? 'Tema Claro' : 'Tema Escuro';
   const menuBadge = document.getElementById('userMenuThemeBadge');
   if (menuBadge) menuBadge.textContent = isDark ? 'Escuro' : 'Claro';
 }
@@ -222,7 +220,21 @@ function updateHeaderUserInfo() {
   if (mobileRuleEl) {
     mobileRuleEl.textContent = `${ruleLabel} (${settings.stateUf || 'SP'}) • Jornada ${formatHHMM(settings.dailyMinutes)}/dia`;
   }
-  document.getElementById('settingsUserEmail').textContent = currentUser?.email || '—';
+
+  const mgrEmailEl = document.getElementById('settingManagerEmail');
+  const mgrPhoneEl = document.getElementById('settingManagerPhone');
+  const mgrSummaryEl = document.getElementById('commManagerSummaryText');
+  if (mgrEmailEl) mgrEmailEl.value = settings.managerEmail || '';
+  if (mgrPhoneEl) mgrPhoneEl.value = settings.managerPhone || '';
+  if (mgrSummaryEl) {
+    const parts = [
+      settings.managerEmail ? settings.managerEmail : '',
+      settings.managerPhone ? `WhatsApp ${settings.managerPhone}` : ''
+    ].filter(Boolean);
+    mgrSummaryEl.textContent = parts.length
+      ? `Gestor / RH: ${parts.join(' • ')}`
+      : 'Contato do Gestor / RH não configurado';
+  }
 
   const avatarEl = document.getElementById('headerProfileAvatar');
   const labelEl = document.getElementById('headerProfileLabel');
@@ -370,7 +382,10 @@ function buildActionButtonsHtml(item) {
 }
 
 function syncMobileFilterIndicators() {
-  const activeCount = ['yearFilter', 'typeFilter', 'statusFilter']
+  const fieldsToCheck = (typeof window !== 'undefined' && window.innerWidth < 768)
+    ? ['yearFilter']
+    : ['yearFilter', 'typeFilter', 'statusFilter'];
+  const activeCount = fieldsToCheck
     .filter((id) => (document.getElementById(id)?.value || 'all') !== 'all').length;
   const badge = document.getElementById('mobileFilterBadge');
   const toggleBtn = document.getElementById('mobileFilterToggleBtn');
@@ -673,8 +688,7 @@ document.getElementById('entriesTableBody').addEventListener('click', handleEntr
 document.getElementById('mobileCardsContainer').addEventListener('click', handleEntryActionClick);
 
 // ==================== FILTROS, ABAS & ATALHOS ====================
-function applyQuickFilter(filterName) {
-  quickFilter = filterName;
+function setQuickPillVisual(filterName) {
   document.querySelectorAll('.quick-pill').forEach((btn) => {
     btn.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
   });
@@ -682,6 +696,17 @@ function applyQuickFilter(filterName) {
   if (activePill) {
     activePill.className = 'quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition';
   }
+}
+
+function applyQuickFilter(filterName) {
+  quickFilter = filterName;
+  if (filterName !== 'all') {
+    const tf = document.getElementById('typeFilter');
+    const sf = document.getElementById('statusFilter');
+    if (tf) tf.value = 'all';
+    if (sf) sf.value = 'all';
+  }
+  setQuickPillVisual(filterName);
   renderAll();
 }
 
@@ -772,8 +797,16 @@ document.getElementById('onboardingNewEntryBtn')?.addEventListener('click', () =
 
 document.getElementById('searchInput').addEventListener('input', renderAll);
 document.getElementById('yearFilter').addEventListener('change', renderAll);
-document.getElementById('typeFilter').addEventListener('change', renderAll);
-document.getElementById('statusFilter').addEventListener('change', renderAll);
+document.getElementById('typeFilter').addEventListener('change', () => {
+  quickFilter = 'all';
+  setQuickPillVisual('all');
+  renderAll();
+});
+document.getElementById('statusFilter').addEventListener('change', () => {
+  quickFilter = 'all';
+  setQuickPillVisual('all');
+  renderAll();
+});
 
 function toggleSortOrder() {
   sortAscending = !sortAscending;
@@ -877,6 +910,48 @@ document.getElementById('openMailClientBtn').addEventListener('click', () => {
   const to = settings.managerEmail || '';
   const subject = encodeURIComponent(`Alinhamento Banco de Horas — ${settings.userName || getLocalDateISO().slice(0, 4)}`);
   window.open(`mailto:${to}?subject=${subject}&body=${encodeURIComponent(body)}`, '_blank');
+});
+
+function switchCommChannel(channel) {
+  const emailCard = document.getElementById('commCardEmail');
+  const waCard = document.getElementById('commCardWhatsapp');
+  const emailBtn = document.getElementById('commTabBtn-email');
+  const waBtn = document.getElementById('commTabBtn-whatsapp');
+  const activeCls = 'px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
+  const inactiveCls = 'px-3 py-2 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+
+  const isEmail = channel === 'email';
+  emailCard?.classList.toggle('sh-mobile-hidden-panel', !isEmail);
+  waCard?.classList.toggle('sh-mobile-hidden-panel', isEmail);
+  if (emailBtn) emailBtn.className = isEmail ? activeCls : inactiveCls;
+  if (waBtn) waBtn.className = isEmail ? inactiveCls : activeCls;
+}
+
+document.getElementById('commTabBtn-whatsapp')?.addEventListener('click', () => switchCommChannel('whatsapp'));
+document.getElementById('commTabBtn-email')?.addEventListener('click', () => switchCommChannel('email'));
+
+document.getElementById('toggleCommManagerBtn')?.addEventListener('click', () => {
+  const form = document.getElementById('commManagerForm');
+  const btn = document.getElementById('toggleCommManagerBtn');
+  if (!form) return;
+  const willOpen = form.classList.contains('hidden');
+  form.classList.toggle('hidden', !willOpen);
+  btn?.setAttribute('aria-expanded', String(willOpen));
+});
+
+document.getElementById('commManagerForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nextSettings = {
+    ...settings,
+    managerEmail: document.getElementById('settingManagerEmail')?.value.trim() || '',
+    managerPhone: document.getElementById('settingManagerPhone')?.value.replace(/\D/g, '') || ''
+  };
+  const ok = await persistSettings(nextSettings, { silentToast: true });
+  if (ok) {
+    document.getElementById('commManagerForm')?.classList.add('hidden');
+    document.getElementById('toggleCommManagerBtn')?.setAttribute('aria-expanded', 'false');
+    showToast('Contato do gestor atualizado!');
+  }
 });
 
 document.getElementById('openWhatsAppBtn').addEventListener('click', () => {
@@ -1019,12 +1094,6 @@ document.getElementById('exportIcsBtn')?.addEventListener('click', () => {
   }
 });
 
-document.getElementById('exportJsonBtn').addEventListener('click', async () => {
-  const { chrono } = computeChronologicalAndFIFO(entries);
-  const code = await computeIntegrityDigest(chrono, settings, 'Backup JSON Completo');
-  exportJSONBackup(settings, entries, code);
-  showToast('Backup JSON baixado!');
-});
 document.getElementById('exportJsonMenuBtn').addEventListener('click', async () => {
   const { chrono } = computeChronologicalAndFIFO(entries);
   const code = await computeIntegrityDigest(chrono, settings, 'Backup JSON Completo');
@@ -1155,8 +1224,6 @@ const exportModal = createExportModalManager({
   restoreLastFocus: modals.restoreLastFocus
 });
 
-document.getElementById('importJsonInput').addEventListener('change', handleJsonImportChange);
-
 // Atalhos de teclado globais
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -1224,15 +1291,6 @@ document.getElementById('openProfileBtn')?.addEventListener('click', () => {
 });
 document.getElementById('openShortcutsBtn')?.addEventListener('click', () => closeUserMenu());
 document.getElementById('logoutBtn')?.addEventListener('click', () => closeUserMenu());
-document.getElementById('openProfileFromSettingsBtn')?.addEventListener('click', () => {
-  modals.closeSettingsModal();
-  profile.openProfileModal('seguranca');
-});
-document.getElementById('profileMobileSettingsBtn')?.addEventListener('click', () => {
-  profile.closeProfileModal();
-  modals.openSettingsModal();
-});
-document.getElementById('profileMobileThemeBtn')?.addEventListener('click', toggleTheme);
 
 authController = setupAuth({
   onToast: showToast,
@@ -1337,5 +1395,8 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 initTheme();
 syncSearchPlaceholder();
-window.addEventListener('resize', syncSearchPlaceholder);
+window.addEventListener('resize', () => {
+  syncSearchPlaceholder();
+  syncMobileFilterIndicators();
+});
 window.lucide?.createIcons();

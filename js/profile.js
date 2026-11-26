@@ -144,7 +144,7 @@ export function createProfileManager(ctx) {
     document.getElementById('profileCreatedAt').textContent = formatAuthTimestampBR(user?.created_at);
     document.getElementById('profileLastLoginAt').textContent = formatAuthTimestampBR(user?.last_sign_in_at);
     document.getElementById('profileRuleSummary').textContent =
-      `${getActiveRuleSummary(settings)} (${settings.stateUf || 'SP'}) • Jornada ${formatHHMM(settings.dailyMinutes)}/dia`;
+      `${getActiveRuleSummary(settings)} (${settings.stateUf || 'SP'}) • ${formatHHMM(settings.dailyMinutes)}/dia`;
   }
 
   function openProfileModal(defaultTab = 'perfil') {
@@ -157,8 +157,10 @@ export function createProfileManager(ctx) {
     switchTab(defaultTab);
     modal.classList.remove('hidden');
     window.lucide?.createIcons();
-    if (defaultTab === 'seguranca') curPwdInput.focus();
-    else nameInput.focus();
+    if (window.innerWidth >= 768) {
+      if (defaultTab === 'seguranca') curPwdInput.focus();
+      else nameInput.focus();
+    }
   }
 
   function closeProfileModal() {

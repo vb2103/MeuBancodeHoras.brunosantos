@@ -308,11 +308,7 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
     }
   }
 
-  document.getElementById('logoutBtn').addEventListener('click', () => performLogout('local'));
-  document.getElementById('settingsLogoutBtn')?.addEventListener('click', () => {
-    document.getElementById('settingsModal')?.classList.add('hidden');
-    performLogout('local');
-  });
+  document.getElementById('logoutBtn')?.addEventListener('click', () => performLogout('local'));
 
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY' && session?.user) {
