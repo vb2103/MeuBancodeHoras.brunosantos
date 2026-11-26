@@ -9,6 +9,34 @@
   "background_color": "#090d16",
   "theme_color": "#4f46e5",
   "lang": "pt-BR",
+  "shortcuts": [
+    {
+      "name": "+ Ganhei Horas",
+      "short_name": "+ Ganhei Horas",
+      "description": "Registrar horas extras ou feriado trabalhado",
+      "url": "./?atalho=ganho",
+      "icons": [
+        {
+          "src": "./assets/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "- Tirei Folga",
+      "short_name": "- Tirei Folga",
+      "description": "Registrar folga ou saída compensatória",
+      "url": "./?atalho=folga",
+      "icons": [
+        {
+          "src": "./assets/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "./assets/icons/icon.svg",

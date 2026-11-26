@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
-import { addDaysToISO, escapeXml, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell, sanitizePdfText } from '../js/config.js';
-import { validateAndNormalizeImportedEntries } from '../js/db.js';
+import { APP_PUBLIC_URL, APP_VERSION, STORAGE_KEYS, addDaysToISO, escapeXml, formatDateBR, getLocalDateISO, isValidISODate, isValidUUID, sanitizeCsvCell, sanitizePdfText } from '../js/config.js';
+import {
+  clearClientUserStorage,
+  collectUserStorageKeysToClear,
+  formatPendingLogoutWarning,
+  parseAndCleanShortcutUrl
+} from '../js/pwa.js';
+import { submitFeedbackToCloud, validateAndNormalizeImportedEntries } from '../js/db.js';
 import {
   buildCalendarEventsFromEntries,
   buildCommunicationTemplates,
@@ -16,7 +23,18 @@ import {
 } from '../js/export.js';
 import { computeEasterISO, computeOfflineHolidays, getHolidayBridgeOpportunity, isHolidayAlreadyInEntries } from '../js/holidays.js';
 import { findSectorByCode, findUnionByCode } from '../js/rules-catalog.js';
-import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials } from '../js/security.js';
+import { evaluatePasswordPolicy, formatAuthTimestampBR, getUserInitials, mapAuthErrorMessage } from '../js/security.js';
+import {
+  clearGuestState,
+  computeGuestMigrationPlan,
+  createDemoEntries,
+  isGuestModeActive,
+  loadGuestState,
+  mergeGuestWithCloudEntries,
+  partitionGuestEntries,
+  saveGuestState,
+  setGuestModeActive
+} from '../js/guest.js';
 import {
   applyQueueToState,
   enqueueSyncOp,
@@ -30,6 +48,7 @@ import {
 } from '../js/sync-queue.js';
 import { prefersReducedMotion, readCssMs } from '../js/ui-motion.js';
 import { PINNED_VENDORS } from '../js/vendor-loader.js';
+import { computeCycleCarryOver, mergeArchivedCycles } from '../js/cycles.js';
 import {
   applyMultiplierToMinutes,
   buildExpiryAlertSummary,
@@ -555,4 +574,266 @@ test('dependências CDN v25 têm versão fixa, SRI SHA-384 e helpers de motion s
   }
   assert.equal(prefersReducedMotion(), false);
   assert.equal(readCssMs('--modal-open-dur', 250), 250);
+});
+
+test('computeCycleCarryOver preserva créditos em aberto por FIFO com vencimentos originais, saldo negativo e modo zerado', () => {
+  const settings = { dailyMinutes: 480, unionMode: 'union', unionCode: 'sindpd_sp', stateUf: 'SP' };
+  const sampleEntries = [
+    { id: 'c1', date: '2026-08-01', type: 'credit', minutes: 480, category: 'holiday', title: 'Feriado Agosto', status: 'realized', expiry: '2027-01-28', createdAt: '2026-08-01T10:00:00Z' },
+    { id: 'd1', date: '2026-09-10', type: 'debit', minutes: 240, category: 'time_off', title: 'Meia Folga', status: 'realized', createdAt: '2026-09-10T10:00:00Z' },
+    { id: 'c2', date: '2026-10-12', type: 'credit', minutes: 672, category: 'holiday', title: 'Feriado Outubro', status: 'realized', expiry: '2027-04-10', createdAt: '2026-10-12T10:00:00Z' }
+  ];
+
+  // Cenário 1: Continuar com minhas horas (+15:12 = 240 + 672)
+  const carryRes = computeCycleCarryOver(sampleEntries, settings, { mode: 'carry', cycleName: 'Ciclo 2026', closingDate: '2026-11-26' });
+  assert.equal(carryRes.archivedCycle.name, 'Ciclo 2026');
+  assert.equal(carryRes.archivedCycle.finalBalanceMinutes, 912);
+  assert.equal(carryRes.archivedCycle.entriesCount, 3);
+  assert.equal(carryRes.nextEntries.length, 2);
+  assert.equal(carryRes.nextEntries[0].minutes, 240);
+  assert.equal(carryRes.nextEntries[0].expiry, '2027-01-28');
+  assert.equal(carryRes.nextEntries[0].notes, 'Do ciclo anterior');
+  assert.equal(carryRes.nextEntries[1].minutes, 672);
+  assert.equal(carryRes.nextEntries[1].expiry, '2027-04-10');
+
+  // Cenário 2: Começar zerado
+  const zeroRes = computeCycleCarryOver(sampleEntries, settings, { mode: 'zero', cycleName: 'Empresa Antiga', closingDate: '2026-11-26' });
+  assert.equal(zeroRes.nextEntries.length, 0);
+  assert.equal(zeroRes.archivedCycle.finalBalanceMinutes, 912);
+
+  // Cenário 3: Saldo negativo transportado
+  const negEntries = [{ id: 'n1', date: '2026-11-20', type: 'debit', minutes: 180, category: 'time_off', title: 'Consulta', status: 'realized' }];
+  const negRes = computeCycleCarryOver(negEntries, settings, { mode: 'carry', closingDate: '2026-11-26' });
+  assert.equal(negRes.nextEntries.length, 1);
+  assert.equal(negRes.nextEntries[0].type, 'debit');
+  assert.equal(negRes.nextEntries[0].minutes, 180);
+  assert.equal(negRes.nextEntries[0].title, 'Saldo anterior (-03:00)');
+
+  // Cenário 4: Fluxo 3 folgas independentes -> exclusão de 1 -> recálculo FIFO e exportação Excel do ciclo arquivado
+  const multiLeaves = ['2026-11-16', '2026-11-17', '2026-11-19'].map((d, idx) => ({
+    id: `leave-${idx}`,
+    date: d,
+    type: 'debit',
+    minutes: 480,
+    category: 'time_off',
+    title: 'Folga Compensatória',
+    status: 'realized'
+  }));
+  const with3 = computeChronologicalAndFIFO([sampleEntries[0], ...multiLeaves], '2026-11-26');
+  assert.equal(with3.summary.debitsCount, 3);
+  assert.equal(with3.summary.realizedMinutes, -960);
+
+  const afterDel1 = computeChronologicalAndFIFO([sampleEntries[0], multiLeaves[0], multiLeaves[2]], '2026-11-26');
+  assert.equal(afterDel1.summary.debitsCount, 2);
+  assert.equal(afterDel1.summary.realizedMinutes, -480);
+
+  const mergedCycles = mergeArchivedCycles([carryRes.archivedCycle], [carryRes.archivedCycle, zeroRes.archivedCycle]);
+  assert.equal(mergedCycles.length, 2);
+  const xlsxArchived = generateExcelXlsxBytes(carryRes.archivedCycle.entries, new Map(), settings, {
+    scopeLabel: `Arquivo: ${carryRes.archivedCycle.name}`
+  });
+  assert.equal(xlsxArchived[0], 0x50); // PK zip header
+});
+
+test('modo teste local (guest), exemplos isDemo, migração inteligente e erros auth em PT-BR', () => {
+  // 1. Erros Supabase nunca vazam em inglês
+  assert.match(mapAuthErrorMessage({ message: 'Invalid login credentials' }), /incorretos/);
+  assert.match(mapAuthErrorMessage({ message: 'Email not confirmed' }), /confirmado/);
+  assert.match(mapAuthErrorMessage({ message: 'User already registered' }), /Já existe/);
+  assert.match(mapAuthErrorMessage({ message: 'Unable to validate email address: invalid format' }), /e-mail válido/);
+  assert.match(mapAuthErrorMessage({ message: 'Some unknown English error' }), /Não foi possível/);
+
+  // 2. Storage isolado do modo teste + persistência entre recargas
+  const store = new Map();
+  const mockStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+  setGuestModeActive(true, mockStorage);
+  assert.equal(isGuestModeActive(mockStorage), true);
+
+  const demoList = createDemoEntries({ dailyMinutes: 480, overtimeMultiplier: 1.5, holidayMultiplier: 1.4, expiryDays: 180 }, '2026-11-26');
+  assert.equal(demoList.length, 5);
+  assert.equal(demoList.every((e) => e.isDemo === true), true);
+  assert.equal(partitionGuestEntries(demoList).hasOnlyDemo, true);
+
+  // Cenário A: só exemplos -> migração silenciosa
+  assert.equal(computeGuestMigrationPlan({ guestEntries: demoList, cloudEntries: [] }).action, 'silent');
+
+  // Cenário B: 2 lançamentos reais -> prompt para conta nova com contagem e saldo exatos
+  const realEntries = [
+    { id: 'r1', date: '2026-11-10', type: 'credit', minutes: 240, title: 'Extra', status: 'realized' },
+    { id: 'r2', date: '2026-11-12', type: 'debit', minutes: 60, title: 'Saída', status: 'realized' }
+  ];
+  saveGuestState({ settings: { dailyMinutes: 440 }, entries: [...demoList, ...realEntries] }, mockStorage);
+  assert.equal(loadGuestState(mockStorage).entries.length, 7);
+
+  const newAccPlan = computeGuestMigrationPlan({ guestEntries: [...demoList, ...realEntries], cloudEntries: [], isNewAccount: true });
+  assert.equal(newAccPlan.action, 'new_account_prompt');
+  assert.equal(newAccPlan.realEntries.length, 2);
+  assert.equal(newAccPlan.balanceMinutes, 180);
+
+  // Cenário C: conta existente com 1 duplicado -> mescla evitando duplicata
+  const cloudExisting = [{ id: 'cloud-1', date: '2026-11-10', type: 'credit', minutes: 240, title: 'Extra', status: 'realized' }];
+  const mergePlan = computeGuestMigrationPlan({ guestEntries: realEntries, cloudEntries: cloudExisting, isNewAccount: false });
+  assert.equal(mergePlan.action, 'merge_prompt');
+  const toInsert = mergeGuestWithCloudEntries(cloudExisting, mergePlan.realEntries);
+  assert.equal(toInsert.length, 1);
+  assert.equal(toInsert[0].id, 'r2');
+
+  clearGuestState(mockStorage);
+  assert.equal(isGuestModeActive(mockStorage), false);
+});
+
+test('PWA offline: sw.js, manifest shortcuts, limpeza de sessão no logout e RLS estrito', async () => {
+  const swSource = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const manifestJson = JSON.parse(fs.readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
+  const rlsSql = fs.readFileSync(new URL('../supabase/migrations/004_archived_cycles_and_strict_rls.sql', import.meta.url), 'utf8');
+
+  // 1. Versão sincronizada entre config.js e sw.js + estrutura de cache segura
+  assert.match(swSource, new RegExp(`const APP_VERSION = '${APP_VERSION.replace(/\./g, '\\.')}'`));
+  assert.match(swSource, /const CACHE_NAME = `saldohoras-static-\$\{APP_VERSION\}`/);
+  assert.match(swSource, /'\.\/js\/pwa\.js'/);
+  assert.match(swSource, /type === 'SKIP_WAITING'/);
+  assert.doesNotMatch(swSource, /skipWaiting\(\);\s*\}\);\s*self\.addEventListener\('activate'/);
+  assert.match(swSource, /k !== CACHE_NAME && \(k\.startsWith\('saldohoras-static-'\) \|\| k\.startsWith\('saldohoras-shell-'\)\)/);
+  assert.match(swSource, /if \(request\.method !== 'GET'\) return;/);
+
+  // 2. Manifest shortcuts com caminhos relativos
+  assert.equal(manifestJson.start_url, './');
+  assert.equal(manifestJson.scope, './');
+  assert.ok(Array.isArray(manifestJson.shortcuts));
+  assert.deepEqual(
+    manifestJson.shortcuts.map((s) => ({ name: s.name, url: s.url })),
+    [
+      { name: '+ Ganhei Horas', url: './?atalho=ganho' },
+      { name: '- Tirei Folga', url: './?atalho=folga' }
+    ]
+  );
+
+  // 3. Parser e limpeza de parâmetro ?atalho= na URL
+  assert.deepEqual(parseAndCleanShortcutUrl('https://vb2103.github.io/MeuBancodeHoras.brunosantos/?atalho=ganho'), {
+    shortcut: 'ganho',
+    cleanUrl: '/MeuBancodeHoras.brunosantos/',
+    hadParam: true
+  });
+  assert.deepEqual(parseAndCleanShortcutUrl('https://vb2103.github.io/?atalho=FOLGA&aba=extrato#topo'), {
+    shortcut: 'folga',
+    cleanUrl: '/?aba=extrato#topo',
+    hadParam: true
+  });
+  assert.deepEqual(parseAndCleanShortcutUrl('https://vb2103.github.io/?atalho=invalido'), {
+    shortcut: null,
+    cleanUrl: '/',
+    hadParam: true
+  });
+  assert.deepEqual(parseAndCleanShortcutUrl('https://vb2103.github.io/'), {
+    shortcut: null,
+    cleanUrl: '/',
+    hadParam: false
+  });
+
+  // 4. Mensagem de proteção contra perda de alterações offline no logout
+  assert.match(formatPendingLogoutWarning(1), /1 alteração ainda não enviada para a nuvem.*ela será perdida/);
+  assert.match(formatPendingLogoutWarning(3), /3 alterações ainda não enviadas para a nuvem.*elas serão perdidas/);
+
+  // 5. Higiene total de sessão em localStorage/sessionStorage e IndexedDB no logout
+  const createMockWebStorage = (initialEntries) => {
+    const map = new Map(Object.entries(initialEntries));
+    return {
+      get length() { return map.size; },
+      key: (i) => Array.from(map.keys())[i] ?? null,
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => map.set(k, String(v)),
+      removeItem: (k) => map.delete(k),
+      _map: map
+    };
+  };
+
+  const mockLocal = createMockWebStorage({
+    [STORAGE_KEYS.THEME]: 'dark',
+    [STORAGE_KEYS.PRIVACY]: '1',
+    [STORAGE_KEYS.HOLIDAY_UF]: 'RJ',
+    [`${STORAGE_KEYS.CACHE_PREFIX}user-a`]: '{"entries":[1]}',
+    [`${STORAGE_KEYS.QUEUE_PREFIX}user-a`]: '[{"kind":"upsert"}]',
+    [`${STORAGE_KEYS.CYCLES_PREFIX}user-a`]: '[{"id":"c1"}]',
+    [`${STORAGE_KEYS.ONBOARDING_PREFIX}user-a`]: '1',
+    [STORAGE_KEYS.GUEST_STATE]: '{"entries":[]}',
+    'sb-opctsxkugbljvghcgnvj-auth-token': '{"access_token":"secret"}',
+    'saldohoras_draft_entry': '{"title":"rascunho"}'
+  });
+  const mockSession = createMockWebStorage({
+    'sb-opctsxkugbljvghcgnvj-code-verifier': 'xyz'
+  });
+  const deletedIdbs = [];
+  const mockIdb = {
+    databases: async () => [{ name: 'saldohoras_local' }, { name: 'supabase_session' }],
+    deleteDatabase: (name) => {
+      deletedIdbs.push(name);
+      const req = {};
+      queueMicrotask(() => req.onsuccess?.());
+      return req;
+    }
+  };
+
+  assert.equal(collectUserStorageKeysToClear(mockLocal).includes(STORAGE_KEYS.THEME), false);
+  const cleanupRes = await clearClientUserStorage({ local: mockLocal, session: mockSession, idb: mockIdb });
+  assert.equal(mockLocal.getItem(STORAGE_KEYS.THEME), 'dark');
+  assert.equal(mockLocal.length, 1); // Somente o tema do aparelho permanece
+  assert.equal(mockSession.length, 0);
+  assert.equal(cleanupRes.removedLocal, 9);
+  assert.equal(deletedIdbs.includes('saldohoras_local'), true);
+  assert.equal(deletedIdbs.includes('supabase_session'), true);
+
+  // 6. Auditoria SQL RLS (004)
+  assert.match(rlsSql, /ADD COLUMN IF NOT EXISTS archived_cycles jsonb/);
+  assert.match(rlsSql, /ALTER TABLE public\.bh_params FORCE ROW LEVEL SECURITY/);
+  assert.match(rlsSql, /ALTER TABLE public\.bh_entries FORCE ROW LEVEL SECURITY/);
+  assert.match(rlsSql, /bh_params_owner_select[\s\S]*FOR SELECT/);
+  assert.match(rlsSql, /bh_params_owner_insert[\s\S]*FOR INSERT/);
+  assert.match(rlsSql, /bh_params_owner_update[\s\S]*FOR UPDATE/);
+  assert.match(rlsSql, /bh_params_owner_delete[\s\S]*FOR DELETE/);
+  assert.match(rlsSql, /bh_entries_owner_select[\s\S]*FOR SELECT/);
+  assert.match(rlsSql, /bh_entries_owner_delete[\s\S]*FOR DELETE/);
+});
+
+test('Open Graph 1200x630, Desktop 1120px/modais 480px, FAQ 5 itens, Feedback e Compartilhar', async () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../assets/app.css', import.meta.url), 'utf8');
+  const feedbackSql = fs.readFileSync(new URL('../supabase/migrations/005_user_feedback.sql', import.meta.url), 'utf8');
+  const ogPng = fs.readFileSync(new URL('../og-image.png', import.meta.url));
+
+  // 1. og-image.png 1200x630 real + meta tags absolutas https://
+  assert.equal(ogPng.readUInt32BE(16), 1200);
+  assert.equal(ogPng.readUInt32BE(20), 630);
+  assert.equal(APP_PUBLIC_URL, 'https://vb2103.github.io/MeuBancodeHoras.brunosantos/');
+  assert.match(html, /property="og:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/og-image\.png"/);
+  assert.match(html, /property="og:image:secure_url" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/og-image\.png"/);
+  assert.match(html, /property="og:image:width" content="1200"/);
+  assert.match(html, /property="og:image:height" content="630"/);
+  assert.match(html, /name="twitter:card" content="summary_large_image"/);
+  assert.match(html, /name="twitter:image" content="https:\/\/vb2103\.github\.io\/MeuBancodeHoras\.brunosantos\/og-image\.png"/);
+
+  // 2. Desktop layout 1120px, 2 colunas, modal centralizado 480px e navegação no header
+  assert.match(css, /@media \(min-width: 768px\)[\s\S]*max-width: 480px !important/);
+  assert.match(css, /@media \(min-width: 1024px\)[\s\S]*max-width: 1120px !important/);
+  assert.match(css, /38fr[\s\S]*62fr/);
+  assert.match(html, /id="desktopHeaderNav"/);
+  assert.match(html, /id="desktopNavBtn-extrato"/);
+  assert.match(html, /id="desktopNavHolidaysBtn"/);
+  assert.match(html, /id="desktopNavBtn-graficos"/);
+  assert.match(html, /id="desktopNavBtn-comunicacao"/);
+
+  // 3. FAQ 5 dúvidas + canal feedback + botão compartilhar no menu Perfil
+  assert.match(html, /id="openHelpFeedbackBtn"/);
+  assert.match(html, /id="shareAppMenuBtn"/);
+  assert.match(html, /id="faqAccBody5"/);
+  assert.match(html, /id="feedbackForm"/);
+  await assert.rejects(() => submitFeedbackToCloud({ message: 'cur' }), /5 caracteres/);
+
+  // 4. SQL feedback com RLS INSERT-only
+  assert.match(feedbackSql, /CREATE TABLE IF NOT EXISTS public\.bh_feedback/);
+  assert.match(feedbackSql, /FORCE ROW LEVEL SECURITY/);
+  assert.match(feedbackSql, /GRANT INSERT ON TABLE public\.bh_feedback TO anon, authenticated/);
 });

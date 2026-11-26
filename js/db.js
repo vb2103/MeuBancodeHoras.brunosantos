@@ -172,13 +172,21 @@ export function validateAndNormalizeImportedEntries(rawList) {
   return { validEntries, skippedCount };
 }
 
+function assertAuthenticatedUserId(userId) {
+  if (!isValidUUID(userId)) {
+    throw new Error('Sessão de usuário inválida ou não autenticada.');
+  }
+  return userId;
+}
+
 export async function loadUserDataFromCloud(user) {
+  const userId = assertAuthenticatedUserId(user?.id);
   const metaName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Colaborador';
 
   const { data: paramsData, error: paramsErr } = await supabaseClient
     .from('bh_params')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle();
 
   if (paramsErr) throw paramsErr;
@@ -190,28 +198,52 @@ export async function loadUserDataFromCloud(user) {
     settings = createDefaultSettings(metaName);
     const { error: insertParamErr } = await supabaseClient
       .from('bh_params')
-      .upsert(buildParamsPayload(settings, user.id));
+      .upsert(buildParamsPayload(settings, userId));
     if (insertParamErr) throw insertParamErr;
   }
 
   const { data: entriesData, error: entriesErr } = await supabaseClient
     .from('bh_entries')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('date', { ascending: true })
     .order('created_at', { ascending: true });
 
   if (entriesErr) throw entriesErr;
 
   const entries = (entriesData || []).map(normalizeEntryRow);
-  return { settings, entries };
+  const archivedCycles = Array.isArray(paramsData?.archived_cycles) ? paramsData.archived_cycles : [];
+  return { settings, entries, archivedCycles };
 }
 
-export async function saveSettingsToCloud(userId, settings, onStatus) {
+export async function saveArchivedCyclesToCloud(userId, archivedCycles, onStatus) {
+  const uid = assertAuthenticatedUserId(userId);
   onStatus?.('saving');
   const { error } = await supabaseClient
     .from('bh_params')
-    .upsert(buildParamsPayload(settings, userId));
+    .update({ archived_cycles: Array.isArray(archivedCycles) ? archivedCycles : [] })
+    .eq('user_id', uid);
+
+  if (error) {
+    const msg = String(error.message || '').toLowerCase();
+    const code = String(error.code || '');
+    if (code === '42703' || code === 'PGRST204' || msg.includes('archived_cycles')) {
+      onStatus?.('ok');
+      return { cloudSynced: false, schemaPending: true };
+    }
+    onStatus?.('error');
+    throw error;
+  }
+  onStatus?.('ok');
+  return { cloudSynced: true, schemaPending: false };
+}
+
+export async function saveSettingsToCloud(userId, settings, onStatus) {
+  const uid = assertAuthenticatedUserId(userId);
+  onStatus?.('saving');
+  const { error } = await supabaseClient
+    .from('bh_params')
+    .upsert(buildParamsPayload(settings, uid));
 
   if (error) {
     onStatus?.('error');
@@ -221,10 +253,11 @@ export async function saveSettingsToCloud(userId, settings, onStatus) {
 }
 
 export async function upsertEntryToCloud(userId, entry, onStatus) {
+  const uid = assertAuthenticatedUserId(userId);
   onStatus?.('saving');
   const { error } = await supabaseClient
     .from('bh_entries')
-    .upsert(buildEntryPayload(entry, userId));
+    .upsert(buildEntryPayload(entry, uid));
 
   if (error) {
     onStatus?.('error');
@@ -237,9 +270,10 @@ export async function upsertEntryToCloud(userId, entry, onStatus) {
  * Grava múltiplos lançamentos em uma única requisição HTTP (evita N+1).
  */
 export async function upsertEntriesBatchToCloud(userId, entriesList, onStatus) {
+  const uid = assertAuthenticatedUserId(userId);
   if (!entriesList || entriesList.length === 0) return;
   onStatus?.('saving');
-  const payloads = entriesList.map((entry) => buildEntryPayload(entry, userId));
+  const payloads = entriesList.map((entry) => buildEntryPayload(entry, uid));
   const { error } = await supabaseClient
     .from('bh_entries')
     .upsert(payloads);
@@ -252,11 +286,12 @@ export async function upsertEntriesBatchToCloud(userId, entriesList, onStatus) {
 }
 
 export async function deleteEntryFromCloud(userId, entryId, onStatus) {
+  const uid = assertAuthenticatedUserId(userId);
   onStatus?.('saving');
   const { error } = await supabaseClient
     .from('bh_entries')
     .delete()
-    .eq('user_id', userId)
+    .eq('user_id', uid)
     .eq('id', entryId);
 
   if (error) {
@@ -264,4 +299,58 @@ export async function deleteEntryFromCloud(userId, entryId, onStatus) {
     throw error;
   }
   onStatus?.('ok');
+}
+
+export async function deleteAllEntriesFromCloud(userId, onStatus) {
+  const uid = assertAuthenticatedUserId(userId);
+  onStatus?.('saving');
+  const { error } = await supabaseClient
+    .from('bh_entries')
+    .delete()
+    .eq('user_id', uid);
+
+  if (error) {
+    onStatus?.('error');
+    throw error;
+  }
+  onStatus?.('ok');
+}
+
+/**
+ * Envia feedback ou relato de problema para o Supabase (permite usuário autenticado ou anônimo).
+ */
+export async function submitFeedbackToCloud({
+  userId = null,
+  type = 'sugestao',
+  message = '',
+  appVersion = '1.0.0',
+  platform = 'desktop'
+}) {
+  const cleanMsg = String(message || '').trim();
+  if (cleanMsg.length < 5) {
+    throw new Error('Escreva pelo menos 5 caracteres para enviar seu feedback.');
+  }
+  if (!supabaseClient) {
+    throw Object.assign(new Error('Serviço offline'), { code: 'OFFLINE' });
+  }
+  const normalizedType = type === 'problema' ? 'problema' : 'sugestao';
+  const normalizedPlatform = platform === 'mobile' ? 'mobile' : 'desktop';
+  const payload = {
+    tipo: normalizedType,
+    mensagem: cleanMsg.slice(0, 2000),
+    versao_app: String(appVersion || '1.0.0').slice(0, 24),
+    plataforma: normalizedPlatform
+  };
+  if (isValidUUID(userId)) {
+    payload.user_id = userId;
+  }
+
+  const { error } = await supabaseClient
+    .from('bh_feedback')
+    .insert(payload);
+
+  if (error) {
+    throw error;
+  }
+  return { ok: true };
 }

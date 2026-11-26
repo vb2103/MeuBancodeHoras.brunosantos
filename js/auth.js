@@ -17,10 +17,19 @@ import {
   triggerInlineFieldError
 } from './ui-motion.js';
 
-export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast }) {
+export function setupAuth({
+  onSessionReady,
+  onUserUpdated,
+  onBeforeLogout,
+  onSignedOut,
+  onToast,
+  onEnterGuestMode,
+  shouldRestoreGuest
+}) {
   let authMode = 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
   let loadedUserId = null;
   let isAuthBusy = false;
+  let explicitLogoutInFlight = false;
 
   const authScreen = document.getElementById('authScreen');
   const authAlert = document.getElementById('authAlert');
@@ -292,7 +301,7 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
         if (error) {
           showAuthAlert(mapAuthErrorMessage(error), 'error');
         } else {
-          showAuthAlert(`Se existir uma conta para <strong>${escapeHtml(email)}</strong>, enviaremos um link seguro de redefinição.`, 'success');
+          showAuthAlert(`Enviamos um link de redefinição para <strong>${escapeHtml(email)}</strong>. Confira também a caixa de spam.`, 'success');
         }
       } else if (authMode === 'update_password') {
         const { data, error } = await supabaseClient.auth.updateUser({ password });
@@ -345,37 +354,71 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
   });
 
   async function performLogout(scope = 'local') {
+    if (explicitLogoutInFlight) return false;
+    if (typeof onBeforeLogout === 'function') {
+      const allowed = await onBeforeLogout(scope);
+      if (allowed === false) return false;
+    }
+
+    explicitLogoutInFlight = true;
     try {
       await supabaseClient.auth.signOut({ scope });
+    } catch {
+      await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => null);
     } finally {
       loadedUserId = null;
+      emailInput.value = '';
+      const authNameEl = document.getElementById('authName');
+      if (authNameEl) authNameEl.value = '';
       pwdInput.value = '';
       if (confirmInput) confirmInput.value = '';
       switchAuthMode('login');
+      await onSignedOut({ clearStorage: true });
       openAnimatedModal(authScreen);
       requestAnimationFrame(() => syncSlidingTabs(authTabs, tabLogin, { animate: false }));
-      onSignedOut();
       onToast(scope === 'global' ? 'Todas as sessões foram encerradas' : 'Sessão encerrada');
+      explicitLogoutInFlight = false;
     }
+    return true;
   }
 
   document.getElementById('logoutBtn')?.addEventListener('click', () => performLogout('local'));
+  document.getElementById('startGuestModeBtn')?.addEventListener('click', () => {
+    closeAnimatedModal(authScreen);
+    onEnterGuestMode?.();
+  });
+
+  function openAuthModal(initialMode = 'login') {
+    switchAuthMode(initialMode);
+    openAnimatedModal(authScreen);
+    requestAnimationFrame(() => syncSlidingTabs(authTabs, initialMode === 'signup' ? tabSignup : tabLogin, { animate: false }));
+  }
 
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY' && session?.user) {
       revealLoadingOverlay();
       openAnimatedModal(authScreen);
       switchAuthMode('update_password');
-      showAuthAlert('Defina sua nova senha forte abaixo para acessar o <strong>SaldoHoras</strong>.', 'warning');
+      showAuthAlert('Defina sua nova senha forte abaixo para acessar o aplicativo.', 'warning');
       return;
     }
 
     if (event === 'SIGNED_OUT' || !session?.user) {
       loadedUserId = null;
       revealLoadingOverlay();
+      if (explicitLogoutInFlight) {
+        return;
+      }
+      if (event !== 'SIGNED_OUT' && shouldRestoreGuest?.()) {
+        onEnterGuestMode?.({ restoring: true });
+        return;
+      }
+      emailInput.value = '';
+      pwdInput.value = '';
+      if (confirmInput) confirmInput.value = '';
+      await onSignedOut({ clearStorage: event === 'SIGNED_OUT' });
       openAnimatedModal(authScreen);
       requestAnimationFrame(() => syncSlidingTabs(authTabs, authMode === 'signup' ? tabSignup : tabLogin, { animate: false }));
-      onSignedOut();
       return;
     }
 
@@ -395,8 +438,8 @@ export function setupAuth({ onSessionReady, onUserUpdated, onSignedOut, onToast 
 
     loadedUserId = session.user.id;
     closeAnimatedModal(authScreen);
-    await onSessionReady(session.user);
+    await onSessionReady(session.user, { event });
   });
 
-  return { switchAuthMode, performLogout, revealLoadingOverlay };
+  return { switchAuthMode, openAuthModal, performLogout, revealLoadingOverlay };
 }

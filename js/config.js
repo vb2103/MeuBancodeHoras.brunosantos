@@ -1,3 +1,5 @@
+export const APP_VERSION = '1.0.0';
+export const APP_PUBLIC_URL = 'https://vb2103.github.io/MeuBancodeHoras.brunosantos/';
 export const SUPABASE_URL = 'https://opctsxkugbljvghcgnvj.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_nClSbvyd31jCHu1qpz4t-w_tUJ0RzUh';
 
@@ -8,7 +10,11 @@ export const STORAGE_KEYS = {
   PRIVACY: 'saldohoras_privacy_v1',
   CACHE_PREFIX: 'saldohoras_cache_v1_',
   QUEUE_PREFIX: 'saldohoras_queue_v1_',
-  ONBOARDING_PREFIX: 'saldohoras_onboarding_v1_'
+  ONBOARDING_PREFIX: 'saldohoras_onboarding_v1_',
+  CYCLES_PREFIX: 'saldohoras_cycles_v1_',
+  GUEST_STATE: 'saldohoras_guest_v1',
+  GUEST_ACTIVE: 'saldohoras_guest_active_v1',
+  GUEST_BANNER_DISMISSED: 'saldohoras_guest_banner_dismissed_v1'
 };
 
 export const BRAZIL_UFS = [

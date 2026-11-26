@@ -54,6 +54,11 @@ export function createModalManager(ctx) {
   let currentHolidayList = [];
   const selectedHolidayDates = new Set();
   const externalModals = [];
+  let entryDateMode = 'single'; // 'single' | 'multi'
+  const multiDaySelected = new Set();
+  let calViewYear = new Date().getFullYear();
+  let calViewMonth = new Date().getMonth();
+  let calHolidayDates = new Set();
 
   function captureLastFocus() {
     lastFocusedEl = document.activeElement;
@@ -302,6 +307,129 @@ export function createModalManager(ctx) {
         ? 'Mais opções (bônus, status, prazo e notas)'
         : (isEditing ? 'Mais opções (tipo, status e notas)' : 'Mais opções (status e observações)');
     }
+
+    const modeToggle = document.getElementById('entryDateModeToggle');
+    const allowMulti = !isCredit && !isEditing;
+    modeToggle?.classList.toggle('hidden', !allowMulti);
+    if (!allowMulti) {
+      setEntryDateMode('single', { animate: false });
+    } else if (entryDateMode === 'multi') {
+      requestAnimationFrame(() => {
+        const multiBtn = document.getElementById('entryMultiDayBtn');
+        if (modeToggle && multiBtn) syncSlidingTabs(modeToggle, multiBtn, { animate: false });
+      });
+    } else {
+      requestAnimationFrame(() => {
+        const singleBtn = document.getElementById('entrySingleDayBtn');
+        if (modeToggle && singleBtn) syncSlidingTabs(modeToggle, singleBtn, { animate: false });
+      });
+    }
+  }
+
+  async function ensureCalendarMonthHolidays() {
+    try {
+      const uf = ctx.getSettings().stateUf || localStorage.getItem(STORAGE_KEYS.HOLIDAY_UF) || 'SP';
+      const res = await fetchHolidaysForYear(calViewYear, uf, false);
+      calHolidayDates = new Set((res?.items || []).map((h) => h.date));
+    } catch {
+      calHolidayDates = new Set();
+    }
+    if (entryDateMode === 'multi') {
+      renderMultiDayCalendar();
+    }
+  }
+
+  function renderMultiDayCalendar() {
+    const grid = document.getElementById('multiDayCalendarGrid');
+    const label = document.getElementById('calMonthLabel');
+    const chipsContainer = document.getElementById('multiDayChipsContainer');
+    if (!grid || !label || !chipsContainer) return;
+
+    const refDate = new Date(calViewYear, calViewMonth, 1);
+    label.textContent = refDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+    const firstWeekday = refDate.getDay();
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+    const cells = [];
+
+    for (let i = 0; i < firstWeekday; i += 1) {
+      cells.push('<span aria-hidden="true"></span>');
+    }
+
+    const mmStr = String(calViewMonth + 1).padStart(2, '0');
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const ddStr = String(day).padStart(2, '0');
+      const iso = `${calViewYear}-${mmStr}-${ddStr}`;
+      const dow = new Date(calViewYear, calViewMonth, day).getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      const isSelected = multiDaySelected.has(iso);
+      const isHoliday = calHolidayDates.has(iso);
+
+      const btnCls = isSelected
+        ? 'min-h-[40px] w-full rounded-xl bg-rose-600 text-white font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition'
+        : isWeekend
+          ? 'min-h-[40px] w-full rounded-xl bg-white/80 dark:bg-slate-900/70 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 dark:text-slate-500 font-medium text-xs flex flex-col items-center justify-center gap-0.5 transition'
+          : 'min-h-[40px] w-full rounded-xl bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-800 dark:text-slate-100 font-semibold text-xs flex flex-col items-center justify-center gap-0.5 border border-slate-200/70 dark:border-slate-700/70 transition';
+
+      const dotHtml = isHoliday
+        ? `<span aria-hidden="true" class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-amber-500'}"></span>`
+        : '<span aria-hidden="true" class="w-1.5 h-1.5"></span>';
+
+      cells.push(`
+        <button type="button" data-cal-iso="${iso}" aria-pressed="${isSelected}" aria-label="${formatDateBR(iso)}" class="${btnCls}">
+          <span>${day}</span>
+          ${dotHtml}
+        </button>
+      `);
+    }
+    grid.innerHTML = cells.join('');
+
+    const sortedDates = [...multiDaySelected].sort();
+    chipsContainer.innerHTML = sortedDates.map((iso) => {
+      const shortLabel = `${getWeekdayShortBR(iso)} ${formatDateBR(iso).slice(0, 5)}`;
+      return `
+        <button type="button" data-remove-cal-iso="${iso}" aria-label="Remover ${shortLabel}" class="inline-flex items-center gap-1 min-h-[32px] px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-950/60 transition">
+          <span>${escapeHtml(shortLabel)}</span>
+          <span aria-hidden="true" class="font-bold">×</span>
+        </button>
+      `;
+    }).join('');
+  }
+
+  function setEntryDateMode(mode, { animate = true } = {}) {
+    const nextMode = (mode === 'multi' && !entryModalContext.isEditing && getActiveEntryType() === 'debit')
+      ? 'multi'
+      : 'single';
+    entryDateMode = nextMode;
+    const isMulti = nextMode === 'multi';
+
+    document.getElementById('entryDateFieldWrap')?.classList.toggle('hidden', isMulti);
+    document.getElementById('entryMultiDayBox')?.classList.toggle('hidden', !isMulti);
+    const dateInput = document.getElementById('entryDate');
+    if (dateInput) dateInput.required = !isMulti;
+
+    const toggleBar = document.getElementById('entryDateModeToggle');
+    const singleBtn = document.getElementById('entrySingleDayBtn');
+    const multiBtn = document.getElementById('entryMultiDayBtn');
+    if (singleBtn && multiBtn) {
+      singleBtn.setAttribute('aria-selected', String(!isMulti));
+      multiBtn.setAttribute('aria-selected', String(isMulti));
+      singleBtn.className = !isMulti
+        ? 't-tab min-h-[38px] py-1.5 rounded-lg text-slate-900 dark:text-white font-semibold text-center'
+        : 't-tab min-h-[38px] py-1.5 rounded-lg text-slate-600 dark:text-slate-300 font-medium text-center';
+      multiBtn.className = isMulti
+        ? 't-tab min-h-[38px] py-1.5 rounded-lg text-slate-900 dark:text-white font-semibold text-center'
+        : 't-tab min-h-[38px] py-1.5 rounded-lg text-slate-600 dark:text-slate-300 font-medium text-center';
+      if (toggleBar && !toggleBar.classList.contains('hidden')) {
+        requestAnimationFrame(() => syncSlidingTabs(toggleBar, isMulti ? multiBtn : singleBtn, { animate }));
+      }
+    }
+
+    if (isMulti) {
+      renderMultiDayCalendar();
+      void ensureCalendarMonthHolidays();
+    }
+    updateEntryComputedPreview();
   }
 
   function getActiveMultiplierForForm() {
@@ -428,7 +556,33 @@ export function createModalManager(ctx) {
         liveSub.classList.toggle('hidden', subParts.length === 0);
       }
       if (submitBtn && submitBtn.dataset.busy !== '1') {
+        submitBtn.disabled = false;
         submitBtn.textContent = isEditing ? `Atualizar ${formattedCredited}` : `Salvar ${formattedCredited}`;
+      }
+    } else if (entryDateMode === 'multi' && !isEditing) {
+      const count = multiDaySelected.size;
+      const totalDebit = count * baseMins;
+      const formattedTotal = formatHHMM(-totalDebit, true);
+      const multiSummary = document.getElementById('multiDaySummaryText');
+      if (multiSummary) {
+        multiSummary.textContent = count === 0
+          ? 'Selecione ao menos 1 dia no calendário.'
+          : `${count} ${count === 1 ? 'dia selecionado' : 'dias selecionados'} • Vai descontar ${formattedTotal} do banco`;
+      }
+      if (liveSummary) {
+        liveSummary.innerHTML = count === 0
+          ? 'Selecione os dias da folga acima'
+          : `${count} dias • Vai descontar <strong class="font-mono font-bold text-rose-600 dark:text-rose-400">${escapeHtml(formattedTotal)}</strong> do banco`;
+      }
+      if (liveSub) {
+        liveSub.textContent = count > 0 ? `${formatHHMM(baseMins)} por dia` : '';
+        liveSub.classList.toggle('hidden', count === 0);
+      }
+      if (submitBtn && submitBtn.dataset.busy !== '1') {
+        submitBtn.disabled = count === 0;
+        submitBtn.textContent = count === 0
+          ? 'Selecione ao menos 1 dia'
+          : `Registrar ${count} ${count === 1 ? 'folga' : 'folgas'} (${formattedTotal})`;
       }
     } else {
       const formattedDebit = formatHHMM(-baseMins, true);
@@ -441,6 +595,7 @@ export function createModalManager(ctx) {
         liveSub.classList.toggle('hidden', !subText);
       }
       if (submitBtn && submitBtn.dataset.busy !== '1') {
+        submitBtn.disabled = false;
         submitBtn.textContent = isEditing
           ? `Atualizar Folga (${formattedDebit})`
           : `Registrar Folga (${formattedDebit})`;
@@ -472,6 +627,10 @@ export function createModalManager(ctx) {
 
     const today = getLocalDateISO();
     const targetDate = data?.date || today;
+    multiDaySelected.clear();
+    calViewYear = Number(targetDate.slice(0, 4)) || new Date().getFullYear();
+    calViewMonth = (Number(targetDate.slice(5, 7)) || (new Date().getMonth() + 1)) - 1;
+    entryDateMode = 'single';
     document.getElementById('entryDate').value = targetDate;
     document.getElementById('entryTitle').value = data?.title || '';
     document.getElementById('entryStatus').value = data?.status || 'realized';
@@ -774,6 +933,48 @@ export function createModalManager(ctx) {
     ctx.showToast(`Duração preenchida: ${formatHHMM(appliedMins)}`);
   });
 
+  document.getElementById('entrySingleDayBtn')?.addEventListener('click', () => setEntryDateMode('single'));
+  document.getElementById('entryMultiDayBtn')?.addEventListener('click', () => setEntryDateMode('multi'));
+  document.getElementById('calPrevMonthBtn')?.addEventListener('click', () => {
+    const prevYear = calViewYear;
+    calViewMonth -= 1;
+    if (calViewMonth < 0) {
+      calViewMonth = 11;
+      calViewYear -= 1;
+    }
+    renderMultiDayCalendar();
+    if (calViewYear !== prevYear) void ensureCalendarMonthHolidays();
+  });
+  document.getElementById('calNextMonthBtn')?.addEventListener('click', () => {
+    const prevYear = calViewYear;
+    calViewMonth += 1;
+    if (calViewMonth > 11) {
+      calViewMonth = 0;
+      calViewYear += 1;
+    }
+    renderMultiDayCalendar();
+    if (calViewYear !== prevYear) void ensureCalendarMonthHolidays();
+  });
+  document.getElementById('multiDayCalendarGrid')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-cal-iso]');
+    if (!btn) return;
+    const iso = btn.dataset.calIso;
+    if (!iso) return;
+    if (multiDaySelected.has(iso)) multiDaySelected.delete(iso);
+    else multiDaySelected.add(iso);
+    renderMultiDayCalendar();
+    updateEntryComputedPreview();
+  });
+  document.getElementById('multiDayChipsContainer')?.addEventListener('click', (e) => {
+    const chipBtn = e.target.closest('[data-remove-cal-iso]');
+    if (!chipBtn) return;
+    const iso = chipBtn.dataset.removeCalIso;
+    if (!iso) return;
+    multiDaySelected.delete(iso);
+    renderMultiDayCalendar();
+    updateEntryComputedPreview();
+  });
+
   document.getElementById('entryForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const modal = document.getElementById('entryModal');
@@ -782,12 +983,6 @@ export function createModalManager(ctx) {
     const hh = Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0);
     const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('entryMinutesPart').value, 10) || 0));
     const workedMinutes = hh * 60 + mm;
-
-    const entryDate = document.getElementById('entryDate').value;
-    if (!entryDate) {
-      triggerInlineFieldError('entryDateFieldWrap', 'entryDate', 'Informe a data do lançamento.');
-      return;
-    }
 
     if (workedMinutes <= 0) {
       triggerInlineFieldError('entryDurationWrap', 'entryHoursPart', 'Informe uma duração maior que 00:00 (ou use os atalhos abaixo).');
@@ -804,6 +999,46 @@ export function createModalManager(ctx) {
 
     const rawTitle = document.getElementById('entryTitle').value.trim();
     const entryTitle = rawTitle || ENTRY_CATEGORIES[category]?.label || (type === 'debit' ? 'Folga Compensatória' : 'Hora Extra');
+
+    if (type === 'debit' && !existingId && entryDateMode === 'multi') {
+      const chosenDates = [...multiDaySelected].sort();
+      if (!chosenDates.length) {
+        ctx.showToast('Selecione ao menos 1 dia no calendário.');
+        return;
+      }
+      const status = document.getElementById('entryStatus').value;
+      const notes = document.getElementById('entryNotes').value.trim();
+      const nowIso = new Date().toISOString();
+      const batchEntries = chosenDates.map((dateIso) => ({
+        id: generateUUID(),
+        type: 'debit',
+        date: dateIso,
+        minutes: finalMinutes,
+        workedMinutes,
+        multiplier: 1.0,
+        category,
+        title: entryTitle,
+        status,
+        expiry: '',
+        notes,
+        createdAt: nowIso
+      }));
+
+      await runWithButtonLoading(btn, 'Salvando...', async () => {
+        const ok = await ctx.addEntriesBatch(batchEntries);
+        if (ok) {
+          ctx.showToast(`${batchEntries.length} ${batchEntries.length === 1 ? 'folga registrada' : 'folgas registradas'}!`);
+          closeEntryModal();
+        }
+      });
+      return;
+    }
+
+    const entryDate = document.getElementById('entryDate').value;
+    if (!entryDate) {
+      triggerInlineFieldError('entryDateFieldWrap', 'entryDate', 'Informe a data do lançamento.');
+      return;
+    }
 
     // Detecção de duplicidade: outro registro com a mesma data e mesmo título
     const existingSame = ctx.getEntries().find(
@@ -1797,47 +2032,75 @@ export function createModalManager(ctx) {
         externalModals.push({ id, closeFn });
       }
     },
+    closeAllModals() {
+      const ids = ['confirmModal', 'writeOffModal', 'initialSetupModal', 'shortcutsModal', 'entryIntentModal', 'entryModal', 'holidaysModal', 'settingsModal'];
+      ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && isLayerOpen(el)) {
+          closeAnimatedModal(el);
+        }
+      });
+      externalModals.forEach((ext) => {
+        const el = document.getElementById(ext.id);
+        if (el && isLayerOpen(el)) {
+          ext.closeFn();
+        }
+      });
+      if (confirmResolver) {
+        const fn = confirmResolver;
+        confirmResolver = null;
+        fn(false);
+      }
+      lastFocusedEl = null;
+      confirmLastFocusedEl = null;
+    },
     handleEscapeKey() {
       if (isLayerOpen(document.getElementById('confirmModal'))) {
         resolveConfirm(false);
         return true;
       }
-      if (isLayerOpen(document.getElementById('writeOffModal'))) {
-        closeWriteOffModal();
-        return true;
-      }
-      if (isLayerOpen(document.getElementById('initialSetupModal'))) {
-        closeInitialSetupModal(true);
-        return true;
-      }
-      if (isLayerOpen(document.getElementById('shortcutsModal'))) {
-        closeShortcutsModal();
-        return true;
-      }
-      if (isLayerOpen(document.getElementById('entryIntentModal'))) {
-        closeEntryIntentModal({ restoreFocus: true });
-        return true;
-      }
-      if (isLayerOpen(document.getElementById('entryModal'))) {
-        closeEntryModal();
-        return true;
-      }
-      if (isLayerOpen(document.getElementById('holidaysModal'))) {
-        closeHolidaysModal();
-        return true;
-      }
-      if (isLayerOpen(document.getElementById('settingsModal'))) {
-        closeSettingsModal();
-        return true;
+
+      const internalClosers = new Map([
+        ['writeOffModal', closeWriteOffModal],
+        ['initialSetupModal', () => closeInitialSetupModal(true)],
+        ['shortcutsModal', closeShortcutsModal],
+        ['entryIntentModal', () => closeEntryIntentModal({ restoreFocus: true })],
+        ['entryModal', () => closeEntryModal()],
+        ['holidaysModal', closeHolidaysModal],
+        ['settingsModal', closeSettingsModal]
+      ]);
+
+      const openLayers = [];
+      for (const [id, fn] of internalClosers.entries()) {
+        const el = document.getElementById(id);
+        if (isLayerOpen(el)) {
+          openLayers.push({ id, el, seq: Number(el.dataset.shOpenSeq || 0), closeFn: fn });
+        }
       }
       for (const ext of externalModals) {
         const el = document.getElementById(ext.id);
-        if (el && isLayerOpen(el)) {
-          ext.closeFn();
+        if (isLayerOpen(el)) {
+          openLayers.push({ id: ext.id, el, seq: Number(el.dataset.shOpenSeq || 0), closeFn: ext.closeFn });
+        }
+      }
+
+      if (!openLayers.length) return false;
+      openLayers.sort((a, b) => b.seq - a.seq);
+      const topLayer = openLayers[0];
+
+      // Respeita sub-painel "Calcular pelo ponto" antes de fechar o modal pai
+      if (topLayer.id === 'entryModal') {
+        const punchPanel = document.getElementById('punchCalcPanel');
+        if (punchPanel && !punchPanel.classList.contains('hidden')) {
+          punchPanel.classList.add('hidden');
+          document.getElementById('togglePunchCalcBtn')?.setAttribute('aria-expanded', 'false');
+          document.getElementById('togglePunchCalcBtn')?.focus();
           return true;
         }
       }
-      return false;
+
+      topLayer.closeFn();
+      return true;
     }
   };
 }

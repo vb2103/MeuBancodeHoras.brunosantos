@@ -1,11 +1,33 @@
 import { setupAuth } from './auth.js';
 import { destroyCharts, renderCharts } from './charts.js';
-import { ENTRY_CATEGORIES, STORAGE_KEYS, escapeHtml, formatDateBR, getLocalDateISO } from './config.js';
+import { APP_PUBLIC_URL, APP_VERSION, ENTRY_CATEGORIES, STORAGE_KEYS, escapeHtml, formatDateBR, getLocalDateISO } from './config.js';
+import { computeCycleCarryOver, loadArchivedCycles, mergeArchivedCycles, saveArchivedCycles } from './cycles.js';
+import {
+  clearGuestState,
+  computeGuestMigrationPlan,
+  createDemoEntries,
+  isGuestBannerDismissed,
+  isGuestModeActive,
+  loadGuestState,
+  mergeGuestWithCloudEntries,
+  saveGuestState,
+  setGuestBannerDismissed,
+  setGuestModeActive
+} from './guest.js';
+import {
+  clearClientUserStorage,
+  formatPendingLogoutWarning,
+  initServiceWorkerUpdates,
+  parseAndCleanShortcutUrl
+} from './pwa.js';
 import {
   createDefaultSettings,
+  deleteAllEntriesFromCloud,
   deleteEntryFromCloud,
   loadUserDataFromCloud,
+  saveArchivedCyclesToCloud,
   saveSettingsToCloud,
+  submitFeedbackToCloud,
   upsertEntriesBatchToCloud,
   upsertEntryToCloud,
   validateAndNormalizeImportedEntries
@@ -72,6 +94,7 @@ import { ensureChartJs, ensureJsPdf } from './vendor-loader.js';
 // ==================== ESTADO DA APLICAÇÃO ====================
 const ENTRIES_PAGE_SIZE = 50;
 let currentUser = null;
+let isGuestMode = false;
 let sortAscending = true;
 let quickFilter = 'all';
 let entriesVisibleLimit = ENTRIES_PAGE_SIZE;
@@ -83,6 +106,8 @@ let analyticsBalanceScope = 'all'; // 'all' | 'realized'
 let analyticsRatioMode = 'composition'; // 'composition' | 'origin'
 let settings = createDefaultSettings();
 let entries = [];
+let archivedCycles = [];
+let activeDetailCycle = null;
 let toastTimer = null;
 let renderedChronoById = new Map();
 let renderedRemainingMap = new Map();
@@ -91,6 +116,14 @@ let syncAlertDismissedState = null;
 let lastSyncState = 'ok';
 let isFlushingQueue = false;
 let defaultTemplatesCache = { emailTemplate: '', whatsappTemplate: '' };
+let pendingUrlShortcut = (() => {
+  if (typeof window === 'undefined') return null;
+  const parsed = parseAndCleanShortcutUrl(window.location.href);
+  if (parsed.hadParam) {
+    window.history.replaceState({}, document.title, parsed.cleanUrl);
+  }
+  return parsed.shortcut;
+})();
 let privacyMode = (() => {
   try {
     return localStorage.getItem(STORAGE_KEYS.PRIVACY) === '1';
@@ -137,8 +170,16 @@ function togglePrivacyMode() {
   renderAll();
 }
 
+function hasActiveWorkspace() {
+  return Boolean(currentUser || isGuestMode);
+}
+
 // ==================== TOAST, SYNC & FILA OFFLINE ====================
 function persistCurrentUserSnapshot() {
+  if (isGuestMode && !currentUser) {
+    saveGuestState({ settings, entries });
+    return;
+  }
   if (!currentUser?.id) return;
   saveUserCache(currentUser.id, { settings, entries });
 }
@@ -183,6 +224,8 @@ async function flushPendingSyncQueue({ showSyncedToast = false } = {}) {
       const op = queue[0];
       if (op.kind === 'settings' && op.settings) {
         await saveSettingsToCloud(currentUser.id, op.settings);
+      } else if (op.kind === 'cycles' && Array.isArray(op.cycles)) {
+        await saveArchivedCyclesToCloud(currentUser.id, op.cycles);
       } else if (op.kind === 'upsert' && op.entry) {
         await upsertEntryToCloud(currentUser.id, op.entry);
       } else if (op.kind === 'delete' && op.id) {
@@ -250,18 +293,20 @@ function showToast(msg, options = {}) {
   void toast.offsetWidth;
   toast.classList.add('is-open');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    hideToast();
-    if (actionBtn) {
-      const closeMs = readCssMs('--toast-close', 250) + 16;
-      toast._hideBtnTimer = setTimeout(() => {
-        toast._hideBtnTimer = null;
-        if (!toast.classList.contains('is-open')) {
-          actionBtn.classList.add('hidden');
-        }
-      }, closeMs);
-    }
-  }, duration);
+  if (typeof duration === 'number' && duration > 0) {
+    toastTimer = setTimeout(() => {
+      hideToast();
+      if (actionBtn) {
+        const closeMs = readCssMs('--toast-close', 250) + 16;
+        toast._hideBtnTimer = setTimeout(() => {
+          toast._hideBtnTimer = null;
+          if (!toast.classList.contains('is-open')) {
+            actionBtn.classList.add('hidden');
+          }
+        }, closeMs);
+      }
+    }, duration);
+  }
 }
 
 const SYNC_STATUS_STYLES = {
@@ -279,6 +324,11 @@ const SYNC_STATUS_STYLES = {
     text: 'Offline — dados salvos no aparelho',
     dot: 'bg-amber-500',
     badge: 'bg-amber-50/90 text-amber-800 border-amber-200/80 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-800/60'
+  },
+  local: {
+    text: 'Armazenado localmente',
+    dot: 'bg-indigo-500',
+    badge: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800/70'
   },
   error: {
     text: 'Sem conexão com a nuvem',
@@ -387,10 +437,18 @@ document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 document.getElementById('authThemeToggle').addEventListener('click', toggleTheme);
 
 async function persistSettings(nextSettings, { silentToast = false } = {}) {
-  if (!currentUser) return false;
+  if (!hasActiveWorkspace()) return false;
   const prevSettings = { ...settings };
   settings = nextSettings;
   persistCurrentUserSnapshot();
+
+  if (isGuestMode && !currentUser) {
+    updateHeaderUserInfo();
+    setSyncStatus('local');
+    renderAll();
+    if (!silentToast) showToast('Configuração salva neste aparelho!');
+    return true;
+  }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     enqueueLocalSync({ kind: 'settings', settings: nextSettings });
@@ -436,12 +494,19 @@ const modals = createModalManager({
     if (currentUser?.id) markOnboardingCompleted(currentUser.id);
   },
   async saveEntry(entryObj) {
-    if (!currentUser) return false;
+    if (!hasActiveWorkspace()) return false;
     const snapshot = [...entries];
     const idx = entries.findIndex((item) => item.id === entryObj.id);
     if (idx >= 0) entries[idx] = entryObj;
     else entries.push(entryObj);
     persistCurrentUserSnapshot();
+
+    if (isGuestMode && !currentUser) {
+      setSyncStatus('local');
+      renderAll();
+      showToast('Lançamento salvo neste aparelho!');
+      return true;
+    }
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       enqueueLocalSync({ kind: 'upsert', entry: entryObj });
@@ -474,10 +539,16 @@ const modals = createModalManager({
     }
   },
   async addEntriesBatch(newEntries) {
-    if (!currentUser || !newEntries.length) return false;
+    if (!hasActiveWorkspace() || !newEntries.length) return false;
     const snapshot = [...entries];
     entries = [...entries, ...newEntries];
     persistCurrentUserSnapshot();
+
+    if (isGuestMode && !currentUser) {
+      setSyncStatus('local');
+      renderAll();
+      return true;
+    }
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       newEntries.forEach((entry) => enqueueLocalSync({ kind: 'upsert', entry }));
@@ -508,10 +579,16 @@ const modals = createModalManager({
     }
   },
   async removeEntryQuiet(id) {
-    if (!currentUser || !id) return false;
+    if (!hasActiveWorkspace() || !id) return false;
     const snapshot = [...entries];
     entries = entries.filter((e) => e.id !== id);
     persistCurrentUserSnapshot();
+
+    if (isGuestMode && !currentUser) {
+      setSyncStatus('local');
+      renderAll();
+      return true;
+    }
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       enqueueLocalSync({ kind: 'delete', id });
@@ -1120,7 +1197,7 @@ function syncTemplateResetButton(templateId) {
 
 // ==================== DELEGAÇÃO DE AÇÕES NO EXTRATO ====================
 async function handleConfirmRealized(id, btn) {
-  if (!btn || btn.dataset.busy === '1' || !currentUser) return;
+  if (!btn || btn.dataset.busy === '1' || !hasActiveWorkspace()) return;
   const target = entries.find((e) => e.id === id);
   if (!target || target.status === 'realized') return;
 
@@ -1131,6 +1208,15 @@ async function handleConfirmRealized(id, btn) {
   const updated = { ...target, status: 'realized' };
   entries = entries.map((e) => (e.id === id ? updated : e));
   persistCurrentUserSnapshot();
+
+  if (isGuestMode && !currentUser) {
+    setSyncStatus('local');
+    renderAll();
+    showToast(`"${updated.title}" marcado como realizado!`);
+    delete btn.dataset.busy;
+    btn.disabled = false;
+    return;
+  }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     enqueueLocalSync({ kind: 'upsert', entry: updated });
@@ -1168,10 +1254,17 @@ async function handleConfirmRealized(id, btn) {
 }
 
 async function restoreDeletedEntry(deletedItem) {
-  if (!currentUser) return;
+  if (!hasActiveWorkspace()) return;
   if (!entries.some((x) => x.id === deletedItem.id)) {
     entries.push(deletedItem);
     persistCurrentUserSnapshot();
+  }
+
+  if (isGuestMode && !currentUser) {
+    setSyncStatus('local');
+    renderAll();
+    showToast('Lançamento restaurado!');
+    return;
   }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -1203,7 +1296,7 @@ async function restoreDeletedEntry(deletedItem) {
 
 async function handleDeleteEntry(id) {
   const item = entries.find((e) => e.id === id);
-  if (!item || !currentUser) return;
+  if (!item || !hasActiveWorkspace()) return;
 
   const confirmed = await modals.confirmDialog({
     title: 'Excluir lançamento?',
@@ -1224,6 +1317,13 @@ async function handleDeleteEntry(id) {
     duration: 5500,
     onAction: () => restoreDeletedEntry(deletedItem)
   };
+
+  if (isGuestMode && !currentUser) {
+    setSyncStatus('local');
+    renderAll();
+    showToast(`"${deletedItem.title}" excluído`, undoToastOpts);
+    return;
+  }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     enqueueLocalSync({ kind: 'delete', id });
@@ -1535,6 +1635,13 @@ function switchMainTab(tabName, { animate = true } = {}) {
           ? 'mobile-nav-pill h-7 px-3.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 flex items-center justify-center transition'
           : 'mobile-nav-pill h-7 px-3.5 rounded-full flex items-center justify-center transition';
       }
+    }
+    const deskNavBtn = document.getElementById(`desktopNavBtn-${t}`);
+    if (deskNavBtn) {
+      const isSelected = t === tabName;
+      deskNavBtn.classList.toggle('is-active', isSelected);
+      if (isSelected) deskNavBtn.setAttribute('aria-current', 'page');
+      else deskNavBtn.removeAttribute('aria-current');
     }
   });
 
@@ -2097,7 +2204,7 @@ document.getElementById('commDownloadIcsBtn')?.addEventListener('click', () => {
 
 function handleJsonImportChange(event) {
   const file = event.target.files?.[0];
-  if (!file || !currentUser) return;
+  if (!file || !hasActiveWorkspace()) return;
 
   const reader = new FileReader();
   reader.onload = async (e) => {
@@ -2149,6 +2256,16 @@ function handleJsonImportChange(event) {
       });
 
       persistCurrentUserSnapshot();
+
+      if (isGuestMode && !currentUser) {
+        setSyncStatus('local');
+        updateHeaderUserInfo();
+        modals.closeSettingsModal();
+        exportModal.closeExportModal();
+        renderAll();
+        showToast(`Backup importado localmente (${validEntries.length} registros)!`);
+        return;
+      }
 
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         if (parsed.settings) enqueueLocalSync({ kind: 'settings', settings });
@@ -2219,6 +2336,14 @@ const exportModal = createExportModalManager({
 modals.registerExternalModal('entryDetailModal', closeEntryDetailModal);
 document.getElementById('commOpenExportBtn')?.addEventListener('click', () => exportModal.openExportModal());
 
+// Navegação superior desktop (>= 1024px)
+document.querySelectorAll('[data-desktop-nav]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    switchMainTab(btn.dataset.desktopNav, { animate: false });
+  });
+});
+document.getElementById('desktopNavHolidaysBtn')?.addEventListener('click', () => modals.openHolidaysModal());
+
 // Atalhos de teclado globais
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -2228,7 +2353,37 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (!currentUser) return;
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const activeEl = document.activeElement;
+    const tag = activeEl?.tagName;
+    if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A' || activeEl?.isContentEditable) {
+      return;
+    }
+
+    // Sub-painel "Calcular pelo ponto": Enter aplica duração em vez de enviar o formulário antes da hora
+    const punchPanel = document.getElementById('punchCalcPanel');
+    if (punchPanel && !punchPanel.classList.contains('hidden') && punchPanel.contains(activeEl)) {
+      e.preventDefault();
+      document.getElementById('applyPunchCalcBtn')?.click();
+      return;
+    }
+
+    // Modal Saldo Inicial: Enter avança ou conclui a configuração inicial
+    const initModal = document.getElementById('initialSetupModal');
+    if (isLayerOpen(initModal) && initModal.contains(activeEl) && (tag === 'INPUT' || tag === 'SELECT')) {
+      e.preventDefault();
+      const step1Box = document.getElementById('initStep1Box');
+      if (step1Box && !step1Box.classList.contains('hidden')) {
+        document.getElementById('initNextToStep2Btn')?.click();
+      } else {
+        document.getElementById('saveInitialSetupBtn')?.click();
+      }
+      return;
+    }
+    return;
+  }
+
+  if (!hasActiveWorkspace()) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (modals.hasOpenModal()) return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
@@ -2287,24 +2442,513 @@ document.getElementById('openProfileBtn')?.addEventListener('click', () => {
 document.getElementById('openShortcutsBtn')?.addEventListener('click', () => closeUserMenu());
 document.getElementById('logoutBtn')?.addEventListener('click', () => closeUserMenu());
 
+// ==================== CICLOS E HISTÓRICO ====================
+function renderCyclesModal() {
+  const { chrono, summary } = computeChronologicalAndFIFO(entries);
+  const firstDate = chrono.length > 0 ? chrono[0].date : getLocalDateISO();
+  const ruleText = document.getElementById('currentCycleRuleText');
+  const periodText = document.getElementById('currentCyclePeriodText');
+  const balText = document.getElementById('currentCycleBalanceText');
+  if (ruleText) ruleText.textContent = `${getActiveRuleSummary(settings)} (${settings.stateUf || 'SP'})`;
+  if (periodText) periodText.textContent = chrono.length > 0
+    ? `Desde ${formatDateBR(firstDate)} • ${chrono.length} ${chrono.length === 1 ? 'registro' : 'registros'}`
+    : 'Nenhum lançamento no ciclo atual';
+  if (balText) {
+    balText.textContent = formatVisibleHHMM(summary.realizedMinutes, true);
+    balText.className = summary.realizedMinutes < 0
+      ? 'font-mono text-base font-extrabold tabular-nums text-rose-600 dark:text-rose-400 shrink-0'
+      : 'font-mono text-base font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0';
+  }
+
+  const listEl = document.getElementById('archivedCyclesList');
+  if (listEl) {
+    if (archivedCycles.length === 0) {
+      listEl.innerHTML = '<div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-center text-xs text-slate-500 dark:text-slate-400">Nenhum ciclo arquivado ainda.</div>';
+    } else {
+      listEl.innerHTML = archivedCycles.map((c) => {
+        const bal = Number(c.finalBalanceMinutes) || 0;
+        const balCls = bal < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
+        return `
+          <button type="button" data-cycle-id="${escapeHtml(c.id)}" class="cycle-history-item w-full min-h-[56px] p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center justify-between gap-3 text-left transition">
+            <div class="min-w-0 flex-1">
+              <p class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">${escapeHtml(c.name)}</p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${escapeHtml(c.ruleSummary || '')} • Encerrado em ${formatDateBR(c.closedAt)}</p>
+            </div>
+            <div class="shrink-0 text-right">
+              <span class="font-mono text-xs sm:text-sm font-extrabold tabular-nums ${balCls}">${formatVisibleHHMM(bal, true)}</span>
+              <span class="block text-[10px] text-slate-400">${c.entriesCount || 0} reg.</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+  }
+}
+
+function openCyclesModal() {
+  const modal = document.getElementById('cyclesModal');
+  if (!modal) return;
+  modals.captureLastFocus();
+  document.getElementById('newCycleWizard')?.classList.add('hidden');
+  renderCyclesModal();
+  openAnimatedModal(modal);
+  renderLucideIcons(modal);
+}
+
+function closeCyclesModal() {
+  const modal = document.getElementById('cyclesModal');
+  if (!modal || !isLayerOpen(modal)) return;
+  closeAnimatedModal(modal);
+  modals.restoreLastFocus();
+}
+
+function openCycleDetailModal(cycle) {
+  const modal = document.getElementById('cycleDetailModal');
+  if (!modal || !cycle) return;
+  activeDetailCycle = cycle;
+  modals.captureLastFocus();
+  document.getElementById('cycleDetailTitle').textContent = cycle.name || 'Ciclo Arquivado';
+  document.getElementById('cycleDetailSubtitle').textContent = `${cycle.ruleSummary || ''} • ${formatDateBR(cycle.startedAt)} até ${formatDateBR(cycle.closedAt)}`;
+  const bal = Number(cycle.finalBalanceMinutes) || 0;
+  const balEl = document.getElementById('cycleDetailBalance');
+  balEl.textContent = formatVisibleHHMM(bal, true);
+  balEl.className = bal < 0
+    ? 'font-mono text-lg font-extrabold tabular-nums text-rose-600 dark:text-rose-400'
+    : 'font-mono text-lg font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400';
+  document.getElementById('cycleDetailCount').textContent = `${cycle.entriesCount || cycle.entries?.length || 0} registros`;
+
+  const listEl = document.getElementById('cycleDetailEntriesList');
+  if (listEl) {
+    const rows = Array.isArray(cycle.entries) ? cycle.entries : [];
+    if (!rows.length) {
+      listEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-500 dark:text-slate-400">Sem lançamentos registrados neste ciclo.</div>';
+    } else {
+      listEl.innerHTML = rows.map((item) => {
+        const isCredit = item.type === 'credit';
+        const delta = isCredit ? Number(item.minutes) : -Number(item.minutes);
+        return `
+          <div class="px-3.5 py-2.5 flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-slate-900 dark:text-white truncate">${escapeHtml(item.title)}</p>
+              <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">${formatDateBR(item.date)}</p>
+            </div>
+            <span class="font-mono text-xs font-bold tabular-nums shrink-0 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${formatVisibleHHMM(delta, true)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+  openAnimatedModal(modal);
+  renderLucideIcons(modal);
+}
+
+function closeCycleDetailModal() {
+  const modal = document.getElementById('cycleDetailModal');
+  if (!modal || !isLayerOpen(modal)) return;
+  closeAnimatedModal(modal);
+  activeDetailCycle = null;
+  modals.restoreLastFocus();
+}
+
+async function handleExecuteCycleRollover(mode) {
+  if (!hasActiveWorkspace()) return;
+  const activeStorageKey = currentUser?.id || 'guest';
+  const { summary } = computeChronologicalAndFIFO(entries);
+  const rawName = document.getElementById('newCycleNameInput')?.value.trim() || '';
+  const actionTitle = mode === 'carry' ? 'Continuar com minhas horas?' : 'Começar novo ciclo zerado?';
+  const actionMsg = mode === 'carry'
+    ? `O ciclo "${rawName || 'Atual'}" será arquivado no histórico e o saldo (${formatHHMM(summary.projectedMinutes, true)}) continuará valendo com seus prazos originais.`
+    : `O ciclo "${rawName || 'Atual'}" será arquivado no histórico e o novo ciclo começará em 00:00.`;
+
+  const confirmed = await modals.confirmDialog({
+    title: actionTitle,
+    message: actionMsg,
+    confirmText: 'Confirmar virada de ciclo',
+    cancelText: 'Voltar',
+    variant: 'warning'
+  });
+  if (!confirmed) return;
+
+  const { archivedCycle, nextEntries } = computeCycleCarryOver(entries, settings, {
+    mode,
+    cycleName: rawName,
+    closingDate: getLocalDateISO()
+  });
+
+  const prevEntries = [...entries];
+  const prevCycles = [...archivedCycles];
+  archivedCycles = [archivedCycle, ...archivedCycles];
+  saveArchivedCycles(activeStorageKey, archivedCycles);
+  entries = nextEntries;
+  persistCurrentUserSnapshot();
+
+  if (isGuestMode && !currentUser) {
+    setSyncStatus('local');
+    renderAll();
+    renderCyclesModal();
+    document.getElementById('newCycleWizard')?.classList.add('hidden');
+    showToast('Ciclo arquivado neste aparelho!');
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    for (const oldItem of prevEntries) enqueueLocalSync({ kind: 'delete', id: oldItem.id });
+    for (const newItem of nextEntries) enqueueLocalSync({ kind: 'upsert', entry: newItem });
+    enqueueLocalSync({ kind: 'cycles', cycles: archivedCycles });
+    setSyncStatus('offline');
+    renderAll();
+    renderCyclesModal();
+    document.getElementById('newCycleWizard')?.classList.add('hidden');
+    showToast('Novo ciclo iniciado no aparelho!');
+    return;
+  }
+
+  try {
+    await deleteAllEntriesFromCloud(currentUser.id, setSyncStatus);
+    if (nextEntries.length > 0) {
+      await upsertEntriesBatchToCloud(currentUser.id, nextEntries, setSyncStatus);
+    }
+    const cycleCloudRes = await saveArchivedCyclesToCloud(currentUser.id, archivedCycles, setSyncStatus);
+    saveSyncQueue(currentUser.id, []);
+    renderAll();
+    renderCyclesModal();
+    document.getElementById('newCycleWizard')?.classList.add('hidden');
+    showToast(cycleCloudRes?.schemaPending
+      ? 'Ciclo arquivado neste aparelho (execute o SQL archived_cycles para sincronizar histórico na nuvem).'
+      : 'Ciclo arquivado e sincronizado na nuvem!');
+  } catch (err) {
+    if (isLikelyNetworkError(err)) {
+      for (const oldItem of prevEntries) enqueueLocalSync({ kind: 'delete', id: oldItem.id });
+      for (const newItem of nextEntries) enqueueLocalSync({ kind: 'upsert', entry: newItem });
+      enqueueLocalSync({ kind: 'cycles', cycles: archivedCycles });
+      setSyncStatus('offline');
+      renderAll();
+      renderCyclesModal();
+      document.getElementById('newCycleWizard')?.classList.add('hidden');
+      showToast('Novo ciclo salvo na fila local!');
+      return;
+    }
+    archivedCycles = prevCycles;
+    saveArchivedCycles(currentUser.id, prevCycles);
+    entries = prevEntries;
+    persistCurrentUserSnapshot();
+    renderAll();
+    showToast('Erro ao sincronizar virada de ciclo — revertido');
+  }
+}
+
+modals.registerExternalModal('cyclesModal', closeCyclesModal);
+modals.registerExternalModal('cycleDetailModal', closeCycleDetailModal);
+document.getElementById('openCyclesBtn')?.addEventListener('click', () => {
+  closeUserMenu();
+  openCyclesModal();
+});
+document.getElementById('closeCyclesModalBtn')?.addEventListener('click', closeCyclesModal);
+document.getElementById('cyclesModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'cyclesModal') closeCyclesModal();
+});
+document.getElementById('closeCycleDetailBtn')?.addEventListener('click', closeCycleDetailModal);
+document.getElementById('cycleDetailModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'cycleDetailModal') closeCycleDetailModal();
+});
+document.getElementById('startNewCycleBtn')?.addEventListener('click', () => {
+  const wizard = document.getElementById('newCycleWizard');
+  const nameInput = document.getElementById('newCycleNameInput');
+  const carryBtn = document.getElementById('cycleModeCarryBtn');
+  const carryTitle = document.getElementById('cycleModeCarryTitle');
+  const { summary } = computeChronologicalAndFIFO(entries);
+  const now = new Date();
+  const monthShort = now.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+  const capMonth = monthShort.charAt(0).toUpperCase() + monthShort.slice(1);
+  if (nameInput) nameInput.value = `${getActiveRuleSummary(settings)} até ${capMonth}/${now.getFullYear()}`;
+  const hasBalance = summary.projectedMinutes !== 0 || summary.realizedMinutes !== 0;
+  carryBtn?.classList.toggle('hidden', !hasBalance);
+  if (carryTitle) {
+    carryTitle.textContent = `Continuar com minhas horas (${formatHHMM(summary.projectedMinutes, true)})`;
+  }
+  wizard?.classList.toggle('hidden');
+});
+document.getElementById('cycleModeCarryBtn')?.addEventListener('click', () => handleExecuteCycleRollover('carry'));
+document.getElementById('cycleModeZeroBtn')?.addEventListener('click', () => handleExecuteCycleRollover('zero'));
+document.getElementById('archivedCyclesList')?.addEventListener('click', (e) => {
+  const itemBtn = e.target.closest('[data-cycle-id]');
+  if (!itemBtn) return;
+  const target = archivedCycles.find((c) => c.id === itemBtn.dataset.cycleId);
+  if (target) openCycleDetailModal(target);
+});
+document.getElementById('cycleDetailPdfBtn')?.addEventListener('click', async () => {
+  if (!activeDetailCycle) return;
+  const c = activeDetailCycle;
+  const snapSettings = { ...settings, ...(c.settingsSnapshot || {}) };
+  const rows = Array.isArray(c.entries) ? c.entries : [];
+  const { remainingMap } = computeChronologicalAndFIFO(rows, c.closedAt);
+  const scopeLabel = `Arquivo: ${c.name} (${formatDateBR(c.startedAt)} a ${formatDateBR(c.closedAt)})`;
+  const integrityCode = await computeIntegrityDigest(rows, snapSettings, scopeLabel);
+  const opts = { userEmail: currentUser?.email, scopeLabel, globalChrono: rows, remainingMap, integrityCode };
+  try {
+    await ensureJsPdf().catch((loadErr) => {
+      throw Object.assign(new Error(loadErr?.message || 'jsPDF indisponível'), { code: 'JSPDF_UNAVAILABLE' });
+    });
+    exportPDF(rows, snapSettings, opts);
+    showToast('PDF do ciclo arquivado baixado!');
+  } catch (err) {
+    if (err?.code === 'JSPDF_UNAVAILABLE') exportModal.triggerNativePrint(rows, opts);
+    else showToast(err.message || 'Erro ao gerar PDF do ciclo');
+  }
+});
+document.getElementById('cycleDetailExcelBtn')?.addEventListener('click', () => {
+  if (!activeDetailCycle) return;
+  const c = activeDetailCycle;
+  const snapSettings = { ...settings, ...(c.settingsSnapshot || {}) };
+  const rows = Array.isArray(c.entries) ? c.entries : [];
+  const { remainingMap } = computeChronologicalAndFIFO(rows, c.closedAt);
+  exportExcelXML(rows, remainingMap, snapSettings, {
+    userEmail: currentUser?.email,
+    scopeLabel: `Arquivo: ${c.name}`,
+    globalChrono: rows
+  });
+  showToast('Excel do ciclo arquivado baixado!');
+});
+
+function syncGuestModeUI() {
+  const isGuest = isGuestMode && !currentUser;
+  const hasDemo = entries.some((e) => Boolean(e.isDemo));
+
+  document.getElementById('guestActivateCloudBtn')?.classList.toggle('hidden', !isGuest);
+  document.getElementById('guestResetToAuthBtn')?.classList.toggle('hidden', !isGuest);
+  document.getElementById('userMenuProfileGroup')?.classList.toggle('hidden', isGuest);
+  document.getElementById('logoutBtn')?.classList.toggle('hidden', isGuest);
+  document.getElementById('loadDemoExamplesBtn')?.classList.toggle('hidden', !isGuest);
+  document.getElementById('demoModeBanner')?.classList.toggle('hidden', !(isGuest && hasDemo));
+
+  const guestBanner = document.getElementById('guestLocalBanner');
+  if (guestBanner) {
+    guestBanner.classList.toggle('hidden', !isGuest || isGuestBannerDismissed());
+  }
+
+  if (isGuest) {
+    const avatarEl = document.getElementById('headerProfileAvatar');
+    const labelEl = document.getElementById('headerProfileLabel');
+    const menuFullName = document.getElementById('userMenuFullName');
+    const menuSubInfo = document.getElementById('userMenuSubInfo');
+    if (avatarEl) avatarEl.textContent = 'LC';
+    if (labelEl) labelEl.textContent = 'Local';
+    if (menuFullName) menuFullName.textContent = 'Modo Teste Local';
+    if (menuSubInfo) menuSubInfo.textContent = 'Salvo apenas neste aparelho';
+  }
+}
+
+function consumePendingUrlShortcut() {
+  if (!pendingUrlShortcut) return false;
+  const target = pendingUrlShortcut;
+  pendingUrlShortcut = null;
+  if (target === 'ganho') {
+    modals.openEntryModal({ type: 'credit' }, false, { source: 'intent' });
+    return true;
+  }
+  if (target === 'folga') {
+    modals.openEntryModal({ type: 'debit', category: 'time_off' }, false, { source: 'intent' });
+    return true;
+  }
+  return false;
+}
+
+function enterGuestMode() {
+  currentUser = null;
+  isGuestMode = true;
+  setGuestModeActive(true);
+  const saved = loadGuestState();
+  settings = saved.settings;
+  entries = saved.entries;
+  archivedCycles = loadArchivedCycles('guest');
+  try {
+    if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
+  } catch { /* ignore */ }
+  syncGuestModeUI();
+  updateHeaderUserInfo();
+  setSyncStatus('local');
+  renderAll();
+  authController?.revealLoadingOverlay?.();
+  consumePendingUrlShortcut();
+}
+
+let pendingMigrationState = null;
+function closeGuestMigrationModal() {
+  const modal = document.getElementById('guestMigrationModal');
+  if (!modal || !isLayerOpen(modal)) return;
+  closeAnimatedModal(modal);
+  pendingMigrationState = null;
+  modals.restoreLastFocus();
+}
+
+function openGuestMigrationModal(plan, user, guestState, cloudData) {
+  const modal = document.getElementById('guestMigrationModal');
+  if (!modal) return;
+  pendingMigrationState = { plan, user, guestState, cloudData };
+  const titleEl = document.getElementById('guestMigrationTitle');
+  const bodyEl = document.getElementById('guestMigrationBody');
+  const primaryBtn = document.getElementById('guestMigrationPrimaryBtn');
+  const secondaryBtn = document.getElementById('guestMigrationSecondaryBtn');
+
+  const count = plan.realEntries.length;
+  const countLabel = `${count} ${count === 1 ? 'lançamento salvo' : 'lançamentos salvos'}`;
+  const balFormatted = formatHHMM(plan.balanceMinutes, true);
+
+  if (plan.action === 'merge_prompt') {
+    if (titleEl) titleEl.textContent = 'Sua conta já tem dados na nuvem';
+    if (bodyEl) {
+      bodyEl.innerHTML = `Encontramos <strong>${escapeHtml(countLabel)}</strong> no modo teste (Saldo: <strong class="font-mono">${escapeHtml(balFormatted)}</strong>) e <strong>${plan.cloudCount}</strong> na sua conta. Como deseja continuar?`;
+    }
+    if (primaryBtn) primaryBtn.textContent = 'Mesclar com minha conta';
+    if (secondaryBtn) secondaryBtn.textContent = 'Usar só os dados da nuvem';
+  } else {
+    if (titleEl) titleEl.textContent = 'Trazer seus dados para a nuvem?';
+    if (bodyEl) {
+      bodyEl.innerHTML = `Encontramos <strong>${escapeHtml(countLabel)}</strong> neste aparelho (Saldo: <strong class="font-mono">${escapeHtml(balFormatted)}</strong>). Deseja importar para sua nova conta?`;
+    }
+    if (primaryBtn) primaryBtn.textContent = 'Importar meus dados';
+    if (secondaryBtn) secondaryBtn.textContent = 'Começar zerado';
+  }
+
+  modals.captureLastFocus();
+  openAnimatedModal(modal);
+  renderLucideIcons(modal);
+}
+
+modals.registerExternalModal('guestMigrationModal', closeGuestMigrationModal);
+
+document.getElementById('guestMigrationPrimaryBtn')?.addEventListener('click', async () => {
+  if (!pendingMigrationState) return;
+  const { plan, user, guestState, cloudData } = pendingMigrationState;
+  const primaryBtn = document.getElementById('guestMigrationPrimaryBtn');
+  if (primaryBtn) primaryBtn.disabled = true;
+
+  try {
+    const toInsert = plan.action === 'merge_prompt'
+      ? mergeGuestWithCloudEntries(cloudData.entries, plan.realEntries)
+      : plan.realEntries.map(({ isDemo: _drop, ...clean }) => clean);
+
+    if (plan.action === 'new_account_prompt' && guestState?.settings) {
+      settings = { ...cloudData.settings, ...guestState.settings, userName: settings.userName || guestState.settings.userName };
+      await saveSettingsToCloud(user.id, settings, setSyncStatus);
+    }
+    if (toInsert.length > 0) {
+      await upsertEntriesBatchToCloud(user.id, toInsert, setSyncStatus);
+      entries = [...entries, ...toInsert];
+    }
+    clearGuestState();
+    isGuestMode = false;
+    syncGuestModeUI();
+    persistCurrentUserSnapshot();
+    updateHeaderUserInfo();
+    renderAll();
+    closeGuestMigrationModal();
+    showToast('Dados importados com sucesso');
+  } catch {
+    showToast('Erro ao importar dados para a nuvem. Tente novamente.');
+  } finally {
+    if (primaryBtn) primaryBtn.disabled = false;
+  }
+});
+
+document.getElementById('guestMigrationSecondaryBtn')?.addEventListener('click', () => {
+  clearGuestState();
+  isGuestMode = false;
+  syncGuestModeUI();
+  closeGuestMigrationModal();
+  showToast('Dados de teste descartados');
+});
+
+document.getElementById('guestActivateCloudBtn')?.addEventListener('click', () => {
+  closeUserMenu();
+  authController?.openAuthModal('signup');
+});
+document.getElementById('guestBannerCtaBtn')?.addEventListener('click', () => {
+  authController?.openAuthModal('signup');
+});
+document.getElementById('dismissGuestBannerBtn')?.addEventListener('click', () => {
+  setGuestBannerDismissed(true);
+  document.getElementById('guestLocalBanner')?.classList.add('hidden');
+});
+document.getElementById('guestResetToAuthBtn')?.addEventListener('click', () => {
+  closeUserMenu();
+  isGuestMode = false;
+  setGuestModeActive(false);
+  authController?.openAuthModal('login');
+});
+document.getElementById('loadDemoExamplesBtn')?.addEventListener('click', () => {
+  if (!isGuestMode) return;
+  entries = createDemoEntries(settings);
+  persistCurrentUserSnapshot();
+  syncGuestModeUI();
+  renderAll();
+  showToast('Exemplos carregados!');
+});
+document.getElementById('clearDemoExamplesBtn')?.addEventListener('click', () => {
+  entries = entries.filter((e) => !e.isDemo);
+  persistCurrentUserSnapshot();
+  syncGuestModeUI();
+  renderAll();
+  showToast('Exemplos removidos!');
+});
+
 authController = setupAuth({
   onToast: showToast,
+  shouldRestoreGuest: () => isGuestModeActive(),
+  onEnterGuestMode: () => enterGuestMode(),
   onUserUpdated(user) {
     currentUser = user;
     updateHeaderUserInfo();
     profile.syncProfileHeaderSummary();
   },
-  onSignedOut() {
+  async onBeforeLogout() {
+    if (!currentUser?.id) return true;
+    const pendingQueue = loadSyncQueue(currentUser.id);
+    if (!pendingQueue.length) return true;
+    return modals.confirmDialog({
+      title: 'Alterações ainda não enviadas',
+      message: formatPendingLogoutWarning(pendingQueue.length),
+      confirmText: 'Sair mesmo assim',
+      cancelText: 'Cancelar',
+      variant: 'danger'
+    });
+  },
+  async onSignedOut({ clearStorage = true } = {}) {
+    if (clearStorage) {
+      await clearClientUserStorage();
+    }
     currentUser = null;
+    isGuestMode = false;
+    privacyMode = false;
+    settings = createDefaultSettings();
     entries = [];
+    archivedCycles = [];
+    activeDetailCycle = null;
+    pendingMigrationState = null;
+    quickFilter = 'all';
+    sortAscending = true;
     entriesVisibleLimit = ENTRIES_PAGE_SIZE;
     lastRenderedRealizedMinutes = null;
     isFlushingQueue = false;
     syncAlertDismissedState = null;
+    defaultTemplatesCache = { emailTemplate: '', whatsappTemplate: '' };
+    renderedChronoById = new Map();
+    renderedRemainingMap = new Map();
+    activeDetailEntryId = null;
+
+    const searchEl = document.getElementById('searchInput');
+    if (searchEl) searchEl.value = '';
+    profile.resetForSignOut();
+    modals.closeAllModals();
     destroyCharts();
     closeUserMenu();
     closeExportMenu();
     syncPrivacyButtonsUI();
+    syncGuestModeUI();
+    updateHeaderUserInfo();
+    setSyncStatus('ok');
+    renderAll();
+
     const avatarEl = document.getElementById('headerProfileAvatar');
     const labelEl = document.getElementById('headerProfileLabel');
     const menuFullName = document.getElementById('userMenuFullName');
@@ -2314,22 +2958,35 @@ authController = setupAuth({
     if (menuFullName) menuFullName.textContent = 'Minha Conta';
     if (menuSubInfo) menuSubInfo.textContent = 'Backup automático na nuvem';
   },
-  async onSessionReady(user) {
+  async onSessionReady(user, meta = {}) {
     currentUser = user;
+    const wasGuest = isGuestMode || isGuestModeActive();
+    const guestStateSnapshot = wasGuest ? loadGuestState() : null;
+    isGuestMode = false;
     setSyncStatus('saving');
     let loadedSuccessfully = false;
+    let cloudDataForMigration = null;
     try {
       const data = await loadUserDataFromCloud(user);
+      cloudDataForMigration = data;
       const pendingQueue = loadSyncQueue(user.id);
       const merged = pendingQueue.length > 0
         ? applyQueueToState({ settings: data.settings, entries: data.entries }, pendingQueue)
         : data;
       settings = merged.settings;
       entries = merged.entries;
+      const localCycles = loadArchivedCycles(user.id);
+      const cloudCycles = Array.isArray(data.archivedCycles) ? data.archivedCycles : [];
+      archivedCycles = mergeArchivedCycles(localCycles, cloudCycles);
+      saveArchivedCycles(user.id, archivedCycles);
+      if (archivedCycles.length > cloudCycles.length && navigator.onLine !== false) {
+        void saveArchivedCyclesToCloud(user.id, archivedCycles).catch(() => null);
+      }
       persistCurrentUserSnapshot();
       try {
         if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
       } catch { /* ignore */ }
+      syncGuestModeUI();
       updateHeaderUserInfo();
       renderAll();
       loadedSuccessfully = true;
@@ -2345,9 +3002,11 @@ authController = setupAuth({
         const merged = applyQueueToState(cached, loadSyncQueue(user.id));
         if (merged.settings) settings = merged.settings;
         if (Array.isArray(merged.entries)) entries = merged.entries;
+        archivedCycles = loadArchivedCycles(user.id);
         try {
           if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
         } catch { /* ignore */ }
+        syncGuestModeUI();
         updateHeaderUserInfo();
         setSyncStatus(navigator.onLine === false ? 'offline' : 'pending');
         renderAll();
@@ -2360,8 +3019,22 @@ authController = setupAuth({
       }
     } finally {
       authController?.revealLoadingOverlay?.();
-      if (loadedSuccessfully && entries.length === 0 && !hasCompletedOnboarding(user.id) && !modals.hasOpenModal()) {
-        modals.openInitialSetupModal({ startStep: 1, adjustOnly: false });
+      if (wasGuest && guestStateSnapshot && cloudDataForMigration) {
+        const plan = computeGuestMigrationPlan({
+          guestEntries: guestStateSnapshot.entries,
+          cloudEntries: cloudDataForMigration.entries,
+          isNewAccount: meta?.event === 'SIGNED_IN' && cloudDataForMigration.entries.length === 0
+        });
+        if (plan.action === 'silent') {
+          clearGuestState();
+        } else {
+          openGuestMigrationModal(plan, user, guestStateSnapshot, cloudDataForMigration);
+        }
+      } else if (loadedSuccessfully) {
+        const openedShortcut = consumePendingUrlShortcut();
+        if (!openedShortcut && entries.length === 0 && !hasCompletedOnboarding(user.id) && !modals.hasOpenModal()) {
+          modals.openInitialSetupModal({ startStep: 1, adjustOnly: false });
+        }
       }
     }
   }
@@ -2456,14 +3129,187 @@ if (typeof navigator !== 'undefined' && navigator.onLine === false) {
   setSyncStatus('offline');
 }
 
-// Registro de Service Worker PWA com caminho relativo para GitHub Pages
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).catch(() => {
-      // Falha silenciosa caso navegador restrinja SW em ambiente de teste
-    });
-  });
+// Registro e atualizações controladas do Service Worker PWA com caminho relativo
+const checkUpdatesMenuBtn = document.getElementById('checkUpdatesMenuBtn');
+if (checkUpdatesMenuBtn) {
+  checkUpdatesMenuBtn.textContent = `SaldoHoras v${APP_VERSION} • Verificar atualizações`;
 }
+
+const swUpdater = initServiceWorkerUpdates({
+  onToast: showToast,
+  swUrl: './sw.js',
+  scope: './',
+  version: APP_VERSION
+});
+
+checkUpdatesMenuBtn?.addEventListener('click', async () => {
+  closeUserMenu();
+  await swUpdater.checkForUpdatesManual();
+});
+
+// ==================== AJUDA RÁPIDA, FEEDBACK E COMPARTILHAR ====================
+const helpFeedbackModal = document.getElementById('helpFeedbackModal');
+let lastFeedbackFallbackText = '';
+
+function setFeedbackType(typeVal) {
+  const next = typeVal === 'problema' ? 'problema' : 'sugestao';
+  const hidden = document.getElementById('feedbackTypeValue');
+  if (hidden) hidden.value = next;
+  const activeCls = 'sh-touch-h44 px-3 py-2 rounded-xl border border-indigo-500 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-200 text-xs font-semibold transition';
+  const inactiveCls = 'sh-touch-h44 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition';
+  const sugBtn = document.getElementById('feedbackTypeSugestaoBtn');
+  const probBtn = document.getElementById('feedbackTypeProblemaBtn');
+  if (sugBtn) {
+    sugBtn.className = next === 'sugestao' ? activeCls : inactiveCls;
+    sugBtn.setAttribute('aria-checked', String(next === 'sugestao'));
+  }
+  if (probBtn) {
+    probBtn.className = next === 'problema' ? activeCls : inactiveCls;
+    probBtn.setAttribute('aria-checked', String(next === 'problema'));
+  }
+}
+
+function showFeedbackAlert(msg, tone = 'success') {
+  const el = document.getElementById('feedbackAlert');
+  if (!el) return;
+  el.classList.remove(
+    'hidden',
+    'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/60', 'dark:text-emerald-200', 'dark:border-emerald-800',
+    'bg-rose-50', 'text-rose-800', 'border-rose-200', 'dark:bg-rose-950/60', 'dark:text-rose-200', 'dark:border-rose-800'
+  );
+  if (tone === 'error') {
+    el.classList.add('bg-rose-50', 'text-rose-800', 'border-rose-200', 'dark:bg-rose-950/60', 'dark:text-rose-200', 'dark:border-rose-800');
+  } else {
+    el.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/60', 'dark:text-emerald-200', 'dark:border-emerald-800');
+  }
+  el.textContent = msg;
+}
+
+function openHelpFeedbackModal() {
+  if (!helpFeedbackModal) return;
+  modals.captureLastFocus();
+  clearAllInlineErrors(helpFeedbackModal);
+  document.getElementById('feedbackAlert')?.classList.add('hidden');
+  document.getElementById('feedbackOfflineFallback')?.classList.add('hidden');
+  setFeedbackType(document.getElementById('feedbackTypeValue')?.value || 'sugestao');
+  openAnimatedModal(helpFeedbackModal);
+  renderLucideIcons(helpFeedbackModal);
+}
+
+function closeHelpFeedbackModal() {
+  if (!helpFeedbackModal || !isLayerOpen(helpFeedbackModal)) return;
+  closeAnimatedModal(helpFeedbackModal);
+  modals.restoreLastFocus();
+}
+
+modals.registerExternalModal('helpFeedbackModal', closeHelpFeedbackModal);
+document.getElementById('openHelpFeedbackBtn')?.addEventListener('click', () => {
+  closeUserMenu();
+  openHelpFeedbackModal();
+});
+document.getElementById('closeHelpFeedbackBtn')?.addEventListener('click', closeHelpFeedbackModal);
+helpFeedbackModal?.addEventListener('click', (e) => {
+  if (e.target.id === 'helpFeedbackModal') closeHelpFeedbackModal();
+});
+document.getElementById('feedbackTypeSugestaoBtn')?.addEventListener('click', () => setFeedbackType('sugestao'));
+document.getElementById('feedbackTypeProblemaBtn')?.addEventListener('click', () => setFeedbackType('problema'));
+
+async function copyTextToClipboardSafe(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fallback */ }
+  try {
+    const tmp = document.createElement('textarea');
+    tmp.value = text;
+    tmp.setAttribute('readonly', 'readonly');
+    tmp.style.position = 'fixed';
+    tmp.style.opacity = '0';
+    document.body.appendChild(tmp);
+    tmp.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(tmp);
+    return Boolean(ok);
+  } catch {
+    return false;
+  }
+}
+
+document.getElementById('feedbackForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgInput = document.getElementById('feedbackMessageInput');
+  const msgWrap = document.getElementById('feedbackMessageWrap');
+  const submitBtn = document.getElementById('feedbackSubmitBtn');
+  const fallbackBox = document.getElementById('feedbackOfflineFallback');
+  clearAllInlineErrors(helpFeedbackModal);
+  document.getElementById('feedbackAlert')?.classList.add('hidden');
+  fallbackBox?.classList.add('hidden');
+
+  const rawMsg = msgInput?.value.trim() || '';
+  if (rawMsg.length < 5) {
+    triggerInlineFieldError(msgWrap, msgInput, 'Escreva pelo menos 5 caracteres para enviar seu feedback.');
+    return;
+  }
+
+  const feedbackType = document.getElementById('feedbackTypeValue')?.value === 'problema' ? 'problema' : 'sugestao';
+  const platform = typeof window !== 'undefined' && window.innerWidth < 1024 ? 'mobile' : 'desktop';
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      throw new Error('OFFLINE');
+    }
+    await submitFeedbackToCloud({
+      userId: currentUser?.id || null,
+      type: feedbackType,
+      message: rawMsg,
+      appVersion: APP_VERSION,
+      platform
+    });
+    if (msgInput) msgInput.value = '';
+    showFeedbackAlert('Obrigado! Seu feedback foi enviado.', 'success');
+    showToast('Obrigado! Seu feedback foi enviado.');
+  } catch {
+    const typeLabel = feedbackType === 'problema' ? 'Relato de problema' : 'Sugestão';
+    lastFeedbackFallbackText = `[${typeLabel}] SaldoHoras v${APP_VERSION} (${platform})\n${rawMsg}`;
+    await copyTextToClipboardSafe(lastFeedbackFallbackText);
+    const mailLink = document.getElementById('feedbackMailFallbackLink');
+    if (mailLink) {
+      mailLink.href = `mailto:?subject=${encodeURIComponent(`Feedback SaldoHoras (${typeLabel})`)}&body=${encodeURIComponent(lastFeedbackFallbackText)}`;
+    }
+    fallbackBox?.classList.remove('hidden');
+    showToast('Sem conexão — mensagem copiada para envio alternativo');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+});
+
+document.getElementById('feedbackCopyFallbackBtn')?.addEventListener('click', async () => {
+  if (!lastFeedbackFallbackText) return;
+  const ok = await copyTextToClipboardSafe(lastFeedbackFallbackText);
+  showToast(ok ? 'Mensagem copiada!' : 'Não foi possível copiar automaticamente');
+});
+
+document.getElementById('shareAppMenuBtn')?.addEventListener('click', async () => {
+  closeUserMenu();
+  const sharePayload = {
+    title: 'SaldoHoras',
+    text: 'Acompanhe seu banco de horas, folgas e prazos no celular ou computador.',
+    url: APP_PUBLIC_URL
+  };
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share(sharePayload);
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+  }
+  const copied = await copyTextToClipboardSafe(APP_PUBLIC_URL);
+  showToast(copied ? 'Link copiado para compartilhar' : APP_PUBLIC_URL);
+});
 
 initTheme();
 syncPrivacyButtonsUI();

@@ -146,31 +146,43 @@ export function formatAuthTimestampBR(isoString) {
 /**
  * Converte mensagens técnicas de autenticação em mensagens seguras em PT-BR.
  */
-export function mapAuthErrorMessage(error, fallback = 'Não foi possível concluir a operação de segurança.') {
+export function mapAuthErrorMessage(error, fallback = 'Não foi possível concluir a operação. Tente novamente.') {
   const msg = String(error?.message || '').toLowerCase();
   if (!msg) return fallback;
-  if (msg.includes('invalid login credentials')) {
-    return 'Credenciais incorretas. Confira os dados informados.';
+  if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+    return 'E-mail ou senha incorretos. Confira os dados e tente novamente.';
   }
   if (msg.includes('email not confirmed')) {
-    return 'E-mail ainda não confirmado. Verifique sua caixa de entrada ou spam.';
+    return 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada ou spam.';
   }
   if (msg.includes('same_password') || msg.includes('new password should be different')) {
     return 'A nova senha precisa ser diferente da senha atual.';
   }
-  if (msg.includes('password') && msg.includes('weak')) {
+  if (msg.includes('password') && (msg.includes('weak') || msg.includes('at least') || msg.includes('length'))) {
     return 'A senha não atende aos requisitos mínimos de segurança.';
   }
-  if (msg.includes('rate limit') || msg.includes('too many requests')) {
-    return 'Muitas tentativas seguidas. Aguarde alguns instantes antes de tentar novamente.';
+  if (msg.includes('unable to validate email') || msg.includes('invalid format') || msg.includes('invalid email')) {
+    return 'Informe um endereço de e-mail válido.';
   }
-  if (msg.includes('already registered') || msg.includes('already exists')) {
-    return 'Já existe uma conta cadastrada com este e-mail.';
+  if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('email rate limit')) {
+    return 'Muitas tentativas seguidas. Aguarde alguns instantes e tente de novo.';
+  }
+  if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+    return 'Já existe uma conta com este e-mail. Tente entrar ou recuperar sua senha.';
+  }
+  if (msg.includes('user not found')) {
+    return 'Não encontramos uma conta com este e-mail.';
+  }
+  if (msg.includes('expired') || msg.includes('invalid token') || msg.includes('otp')) {
+    return 'Este link expirou ou já foi usado. Solicite um novo link.';
+  }
+  if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('load failed')) {
+    return 'Sem conexão com a internet. Verifique sua rede e tente novamente.';
   }
   if (msg.includes('reauthentication')) {
     return 'Por segurança, confirme sua senha atual antes de prosseguir.';
   }
-  return escapeHtml(error.message);
+  return fallback;
 }
 
 /**

@@ -27,6 +27,8 @@ export function renderLucideIcons(root = null) {
   }
 }
 
+let modalSequenceCounter = 0;
+
 export function isLayerOpen(el) {
   return Boolean(el && !el.classList.contains('hidden') && !el.classList.contains('is-closing'));
 }
@@ -37,6 +39,7 @@ export function openAnimatedModal(el) {
     clearTimeout(el._shCloseTimer);
     el._shCloseTimer = null;
   }
+  el.dataset.shOpenSeq = String(++modalSequenceCounter);
   el.classList.remove('hidden', 'is-closing');
   if (prefersReducedMotion()) {
     el.classList.add('is-open');

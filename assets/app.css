@@ -164,7 +164,18 @@ html.dark input[type='time'] {
   display: none !important;
 }
 
+.sh-hero-card {
+  display: none !important;
+}
+
+.sh-desktop-nav {
+  display: none;
+}
+
 @media (max-width: 767px) {
+  .sh-hero-card {
+    display: block !important;
+  }
   html,
   body {
     overflow-x: clip;
@@ -619,6 +630,239 @@ html.dark input[type='time'] {
   }
 }
 
+/* ==================== DESKTOP: MODAIS CENTRALIZADOS (>= 768px) ==================== */
+@media (min-width: 768px) {
+  .sh-sheet-backdrop {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1.5rem !important;
+  }
+
+  .sh-sheet-panel {
+    width: 100% !important;
+    max-width: 480px !important;
+    max-height: 88dvh !important;
+    margin: auto !important;
+    padding: 0 !important;
+    border-radius: 1.25rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .sh-sheet-panel .sh-sheet-header {
+    padding: 1rem 1.25rem !important;
+    flex-shrink: 0 !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .sh-sheet-panel .sh-sheet-form {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .sh-sheet-panel .sh-sheet-body,
+  .sh-sheet-panel .sh-holidays-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 1rem 1.25rem !important;
+    margin-top: 0 !important;
+  }
+
+  .sh-sheet-panel .sh-holidays-body {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    gap: 0.75rem !important;
+  }
+
+  .sh-sheet-panel .sh-sheet-footer {
+    flex-shrink: 0 !important;
+    margin-top: 0 !important;
+    padding: 0.875rem 1.25rem !important;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+}
+
+/* ==================== DESKTOP LARGO: NAVEGAÇÃO TOPO E GRADE 2 COLUNAS (>= 1024px) ==================== */
+@media (min-width: 1024px) {
+  .sh-header-inner {
+    max-width: 1120px !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+  }
+
+  .sh-desktop-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: 0.875rem;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    flex-shrink: 0;
+  }
+
+  html.dark .sh-desktop-nav {
+    background: rgba(15, 23, 42, 0.72);
+    border-color: rgba(51, 65, 85, 0.75);
+  }
+
+  .sh-desktop-nav-btn {
+    min-height: 36px;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    transition: background-color var(--duration-quick) ease, color var(--duration-quick) ease, box-shadow var(--duration-quick) ease;
+    white-space: nowrap;
+  }
+
+  html.dark .sh-desktop-nav-btn {
+    color: #94a3b8;
+  }
+
+  .sh-desktop-nav-btn:hover {
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.55);
+  }
+
+  html.dark .sh-desktop-nav-btn:hover {
+    color: #ffffff;
+    background: rgba(30, 41, 59, 0.7);
+  }
+
+  .sh-desktop-nav-btn.is-active {
+    background: #ffffff;
+    color: #4f46e5;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  }
+
+  html.dark .sh-desktop-nav-btn.is-active {
+    background: #1e293b;
+    color: #818cf8;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
+
+  .sh-header-actions {
+    justify-self: end;
+  }
+
+  .sh-desktop-hide,
+  #mainTabsBar,
+  .sh-kpi-grid,
+  #mobileBottomNav,
+  .sh-desktop-table-wrap,
+  #headerSubtitle,
+  #syncText {
+    display: none !important;
+  }
+
+  .sh-brand-title {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
+  }
+
+  header .sh-sync-badge {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    padding: 0.375rem !important;
+  }
+
+  .sh-main {
+    max-width: 1120px !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  .sh-extrato-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 38fr) minmax(0, 62fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .sh-extrato-grid > * + * {
+    margin-top: 0 !important;
+  }
+
+  .sh-extrato-aside {
+    position: sticky;
+    top: 5.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .sh-extrato-aside > * + * {
+    margin-top: 0 !important;
+  }
+
+  .sh-extrato-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .sh-extrato-main > * + * {
+    margin-top: 0 !important;
+  }
+
+  .sh-extrato-main .sh-filter-row {
+    flex-wrap: wrap !important;
+    gap: 0.625rem !important;
+  }
+
+  .sh-extrato-main .sh-search-row {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+
+  .sh-extrato-main .sh-filter-select {
+    flex: 1 1 0% !important;
+    min-width: 120px !important;
+  }
+
+  .sh-extrato-cards {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.625rem;
+  }
+
+  .sh-hero-card {
+    display: block !important;
+    padding: 1.25rem !important;
+  }
+
+  .sh-analytics-pairs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    align-items: stretch;
+  }
+
+  .sh-analytics-pairs > * + * {
+    margin-top: 0 !important;
+  }
+}
+
 /* Cards de lançamento mobile: indicador interno sem cortar cantos arredondados */
 .mobile-entry-card {
   border-width: 1px;
@@ -629,6 +873,11 @@ html.dark input[type='time'] {
   align-self: stretch;
   border-radius: 9999px;
   flex-shrink: 0;
+}
+
+.sh-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 /* Botão limpar busca inline */

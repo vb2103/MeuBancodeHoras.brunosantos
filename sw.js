@@ -1,4 +1,5 @@
-const CACHE_NAME = 'saldohoras-shell-v26';
+const APP_VERSION = '1.0.0';
+const CACHE_NAME = `saldohoras-static-${APP_VERSION}`;
 
 const APP_SHELL_ASSETS = [
   './',
@@ -7,8 +8,13 @@ const APP_SHELL_ASSETS = [
   './assets/app.css?v=25',
   './assets/tailwind.css?v=25',
   './assets/icons/icon.svg',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
   './js/config.js',
   './js/time.js',
+  './js/cycles.js',
+  './js/guest.js',
+  './js/pwa.js',
   './js/sync-queue.js',
   './js/rules-catalog.js',
   './js/holidays.js',
@@ -34,6 +40,7 @@ const PINNED_CDN_ASSETS = [
 ];
 
 const PINNED_CDN_SET = new Set(PINNED_CDN_ASSETS);
+const FONT_ORIGINS = new Set(['https://fonts.googleapis.com', 'https://fonts.gstatic.com']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -52,16 +59,27 @@ self.addEventListener('install', (event) => {
       ])
     )
   );
-  self.skipWaiting();
+  // Atualiza somente quando o usuário confirmar via Toast "Atualizar" (ou no próximo ciclo de abas fechadas)
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE_NAME && (k.startsWith('saldohoras-static-') || k.startsWith('saldohoras-shell-')))
+            .map((k) => caches.delete(k))
+        )
+      )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 function fetchWithTimeout(request, timeoutMs = 2400) {
@@ -82,47 +100,108 @@ function fetchWithTimeout(request, timeoutMs = 2400) {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
 
   const url = new URL(request.url);
 
-  // Nunca interceptar chamadas autenticadas ou APIs dinâmicas
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('brasilapi.com.br')) {
+  // Nunca cachear chamadas autenticadas ou APIs dinâmicas
+  if (
+    url.hostname.includes('supabase.co')
+    || url.hostname.includes('brasilapi.com.br')
+    || url.pathname.includes('/rest/v1/')
+    || url.pathname.includes('/auth/v1/')
+    || request.headers.has('authorization')
+  ) {
     return;
   }
 
-  // Bibliotecas externas com versão e integridade fixas usam Cache-First para abrir instantâneo e offline
+  // Bibliotecas externas com versão e integridade SRI fixas: Cache-First versionado
   if (PINNED_CDN_SET.has(request.url)) {
     event.respondWith(
-      caches.match(request).then((cached) => {
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request);
         if (cached) return cached;
-        return fetch(new Request(request.url, { mode: 'cors' })).then((response) => {
-          if (resOk(response)) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request.url, copy));
-          }
-          return response;
-        });
+        const response = await fetch(new Request(request.url, { mode: 'cors' }));
+        if (resOk(response)) {
+          cache.put(request.url, response.clone());
+        }
+        return response;
       })
     );
     return;
   }
 
-  // Assets locais da mesma origem: Network-First com timeout rápido para fallback imediato ao cache offline
-  if (url.origin === self.location.origin) {
-    const netReq = request.mode === 'navigate'
-      ? new Request(request.url, { cache: 'no-cache' })
-      : new Request(request, { cache: 'no-cache' });
-
+  // Fontes Google: Stale-While-Revalidate opcional para offline
+  if (FONT_ORIGINS.has(url.origin)) {
     event.respondWith(
-      fetchWithTimeout(netReq, 2400)
-        .then((response) => {
-          if (resOk(response)) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request);
+        const networkPromise = fetch(new Request(request.url, { mode: 'cors' }))
+          .then((response) => {
+            if (resOk(response)) {
+              cache.put(request, response.clone());
+            }
+            return response;
+          })
+          .catch(() => null);
+        if (cached) {
+          event.waitUntil(networkPromise);
+          return cached;
+        }
+        const net = await networkPromise;
+        return net || Response.error();
+      })
+    );
+    return;
+  }
+
+  if (url.origin === self.location.origin) {
+    // Navegação (index.html / documentos): Network-First com fallback instantâneo para cache offline
+    if (request.mode === 'navigate' || request.destination === 'document') {
+      const cleanNavUrl = new URL(url.pathname, self.location.origin).toString();
+      event.respondWith(
+        fetchWithTimeout(new Request(request.url, { cache: 'no-cache' }), 2400)
+          .then((response) => {
+            if (resOk(response)) {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(cleanNavUrl, copy));
+            }
+            return response;
+          })
+          .catch(async () => {
+            const cache = await caches.open(CACHE_NAME);
+            return (await cache.match(cleanNavUrl))
+              || (await cache.match(request, { ignoreSearch: true }))
+              || (await cache.match('./index.html'))
+              || (await cache.match('./'))
+              || Response.error();
+          })
+      );
+      return;
+    }
+
+    // Assets estáticos (JS, CSS, ícones, manifest): Stale-While-Revalidate
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request);
+        const networkPromise = fetch(new Request(request.url, { cache: 'no-cache' }))
+          .then((response) => {
+            if (resOk(response)) {
+              cache.put(request, response.clone());
+            }
+            return response;
+          })
+          .catch(() => null);
+
+        if (cached) {
+          event.waitUntil(networkPromise);
+          return cached;
+        }
+
+        const networkRes = await networkPromise;
+        if (networkRes) return networkRes;
+        return (await cache.match(request, { ignoreSearch: true })) || Response.error();
+      })
     );
   }
 });

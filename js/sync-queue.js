@@ -18,14 +18,20 @@ export function enqueueSyncOp(queue = [], op) {
     return filtered;
   }
 
+  if (op.kind === 'cycles') {
+    const filtered = list.filter((item) => item.kind !== 'cycles');
+    filtered.push({ kind: 'cycles', cycles: op.cycles, ts: op.ts || Date.now() });
+    return filtered;
+  }
+
   if (op.kind === 'upsert' && op.entry?.id) {
-    const filtered = list.filter((item) => !(item.kind !== 'settings' && item.id === op.entry.id && (!item.entry || item.entry.id === op.entry.id)));
+    const filtered = list.filter((item) => !(item.kind !== 'settings' && item.kind !== 'cycles' && item.id === op.entry.id && (!item.entry || item.entry.id === op.entry.id)));
     filtered.push({ kind: 'upsert', id: op.entry.id, entry: op.entry, ts: op.ts || Date.now() });
     return filtered;
   }
 
   if (op.kind === 'delete' && op.id) {
-    const filtered = list.filter((item) => !(item.kind !== 'settings' && (item.id === op.id || item.entry?.id === op.id)));
+    const filtered = list.filter((item) => !(item.kind !== 'settings' && item.kind !== 'cycles' && (item.id === op.id || item.entry?.id === op.id)));
     filtered.push({ kind: 'delete', id: op.id, ts: op.ts || Date.now() });
     return filtered;
   }

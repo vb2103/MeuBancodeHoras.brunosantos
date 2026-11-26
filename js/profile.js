@@ -478,6 +478,13 @@ export function createProfileManager(ctx) {
   return {
     openProfileModal,
     closeProfileModal,
-    syncProfileHeaderSummary
+    syncProfileHeaderSummary,
+    resetForSignOut() {
+      clearSensitiveInputs();
+      if (nameInput) nameInput.value = '';
+      if (newEmailInput) newEmailInput.value = '';
+      clearProfileAlert();
+      closeAnimatedModal(modal);
+    }
   };
 }
