@@ -14,7 +14,7 @@
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=17" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=18" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=17" />
+  <link rel="stylesheet" href="./assets/app.css?v=18" />
 
   <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -226,7 +226,7 @@
 
         <!-- Menu da Conta (Perfil, Parâmetros, Tema, Atalhos e Sair) -->
         <div class="relative" id="userMenuWrapper">
-          <button type="button" id="userMenuBtn" aria-label="Abrir menu da conta" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 h-9 pl-1.5 pr-2 sm:pr-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
+          <button type="button" id="userMenuBtn" aria-label="Abrir menu da conta" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 min-h-[44px] md:min-h-0 h-11 md:h-9 pl-2 md:pl-1.5 pr-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition">
             <span id="headerProfileAvatar" class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0">SH</span>
             <span id="headerProfileLabel" class="hidden md:inline max-w-[100px] truncate">Perfil</span>
             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
@@ -352,7 +352,7 @@
 
       <div class="pt-2 border-t border-slate-100/80 dark:border-slate-800/80 flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
         <span id="mobileRuleSummary" class="truncate">SINDPD-SP (SP) • Jornada 08:00/dia</span>
-        <button type="button" id="heroRuleEditBtn" class="text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 hover:underline">Alterar</button>
+        <button type="button" id="heroRuleEditBtn" class="min-h-[44px] min-w-[44px] px-2 -my-2.5 -mr-2 inline-flex items-center justify-end text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 hover:underline">Alterar</button>
       </div>
     </section>
 
@@ -767,8 +767,8 @@
     <!-- ==================== ABA 3: COMUNICAÇÃO RH / GESTÃO ==================== -->
     <section id="tabPanel-comunicacao" class="hidden space-y-4">
       <!-- Acesso rápido a Relatórios e Exportação no Mobile (centralizado na aba RH) -->
-      <div class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-        <button type="button" id="commOpenExportBtn" class="w-full flex items-center justify-between gap-3 text-left">
+      <div class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <button type="button" id="commOpenExportBtn" class="w-full min-h-[56px] p-3.5 flex items-center justify-between gap-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition">
           <span class="flex items-center gap-2.5 min-w-0">
             <span class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
               <i data-lucide="file-down" class="w-4 h-4"></i>
@@ -899,6 +899,7 @@
   <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO (HH:MM) ==================== -->
   <div id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
     <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-animate my-auto">
+      <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
       <div class="sh-sheet-header flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <h2 id="entryModalTitle" class="text-base font-bold text-slate-900 dark:text-white">Novo Lançamento</h2>
         <button type="button" id="closeEntryModalBtn" aria-label="Fechar modal de lançamento" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -928,35 +929,52 @@
             </label>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 sm:items-end gap-4">
             <div>
-              <label for="entryDate" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data do Evento</label>
-              <input type="date" id="entryDate" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <label for="entryDate" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Data</label>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" id="entryDateTodayBtn" data-date-shortcut="today" aria-pressed="false" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hoje</button>
+                  <button type="button" id="entryDateYesterdayBtn" data-date-shortcut="yesterday" aria-pressed="false" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Ontem</button>
+                </div>
+              </div>
+              <input type="date" id="entryDate" required class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label for="entryCategory" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Categoria</label>
-              <select id="entryCategory" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
+              <label for="entryCategory" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Categoria</label>
+              <select id="entryCategory" class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
             </div>
           </div>
 
-          <div>
-            <div class="flex items-center justify-between gap-2 mb-1">
-              <label for="entryHoursPart" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Duração (HH:MM)</label>
-              <button type="button" id="togglePunchCalcBtn" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <label for="entryHoursPart" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Duração</label>
+              <button type="button" id="togglePunchCalcBtn" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 py-1">
                 <i data-lucide="clock" class="w-3.5 h-3.5"></i>
                 <span>Calcular pelo ponto</span>
               </button>
             </div>
-            <div class="flex flex-wrap items-center gap-1.5">
-              <input type="number" id="entryHoursPart" inputmode="numeric" min="0" max="300" required value="8" aria-label="Horas" class="no-spinners w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
-              <span class="text-xs font-bold text-slate-400">:</span>
-              <input type="number" id="entryMinutesPart" inputmode="numeric" min="0" max="59" step="1" required value="0" aria-label="Minutos" class="no-spinners w-20 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
-              <button type="button" id="fillJourneyBtn" title="Preencher com a jornada configurada" class="px-2.5 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 shrink-0">
-                1 dia
-              </button>
-              <button type="button" data-quick-mins="30" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">00:30</button>
-              <button type="button" data-quick-mins="60" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">01:00</button>
-              <button type="button" data-quick-mins="120" class="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">02:00</button>
+
+            <!-- Linha 1: Campos numéricos com 2 dígitos e unidades inline -->
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+              <div class="relative flex items-center">
+                <input type="text" id="entryHoursPart" inputmode="numeric" pattern="[0-9]*" maxlength="3" required value="08" aria-label="Horas" class="w-full min-h-[44px] pl-3.5 pr-8 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-base font-bold font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
+                <span aria-hidden="true" class="absolute right-3 text-xs font-semibold text-slate-400 pointer-events-none">h</span>
+              </div>
+              <span aria-hidden="true" class="text-sm font-bold text-slate-400 select-none">:</span>
+              <div class="relative flex items-center">
+                <input type="text" id="entryMinutesPart" inputmode="numeric" pattern="[0-9]*" maxlength="2" required value="00" aria-label="Minutos" class="w-full min-h-[44px] pl-3.5 pr-11 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-base font-bold font-mono tabular-nums text-center outline-none focus:ring-2 focus:ring-indigo-500" />
+                <span aria-hidden="true" class="absolute right-3 text-xs font-semibold text-slate-400 pointer-events-none">min</span>
+              </div>
+            </div>
+
+            <!-- Linha 2: Atalhos rápidos distribuídos em 1 linha sem quebras -->
+            <div id="durationQuickChips" class="grid grid-cols-5 gap-1.5">
+              <button type="button" data-quick-mins="30" aria-pressed="false" class="duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition">30m</button>
+              <button type="button" data-quick-mins="60" aria-pressed="false" class="duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition">1h</button>
+              <button type="button" data-quick-mins="120" aria-pressed="false" class="duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition">2h</button>
+              <button type="button" id="fillHalfJourneyBtn" title="Preencher com metade da jornada configurada" aria-pressed="false" class="duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition">Meio dia</button>
+              <button type="button" id="fillJourneyBtn" title="Preencher com a jornada configurada" aria-pressed="false" class="duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition">1 dia</button>
             </div>
 
             <!-- Calculadora de Ponto Diário -->
@@ -997,16 +1015,21 @@
           </div>
 
           <div>
-            <label for="entryTitle" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Descrição / Motivo</label>
-            <input type="text" id="entryTitle" required placeholder="Ex.: Plantão de Feriado, Hora extra ou Folga" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label for="entryTitle" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Descrição (opcional)</label>
+            <input type="text" id="entryTitle" placeholder="Ex.: Plantão de feriado ou hora extra" class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
-          <!-- Resumo rápido mobile + botão para opções avançadas -->
-          <div class="sh-mobile-only-flex flex-col gap-2 p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/60">
-            <span id="entryLiveRuleSummary" class="text-xs font-semibold text-indigo-900 dark:text-indigo-200 tabular-nums">Vai entrar +08:00 no banco de horas</span>
-            <button type="button" id="toggleEntryAdvancedBtn" aria-expanded="false" aria-controls="entryAdvancedBox" class="inline-flex items-center justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400 pt-1 border-t border-indigo-200/60 dark:border-indigo-800/50">
+          <!-- Card de resumo com hierarquia em 2 linhas + opções avançadas recolhíveis -->
+          <div class="sh-mobile-only-flex flex-col gap-2 p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+            <div class="space-y-0.5">
+              <p id="entryLiveRuleSummary" class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
+                Vai entrar <strong class="font-mono font-bold text-emerald-600 dark:text-emerald-400">+08:00</strong> no banco
+              </p>
+              <p id="entryLiveRuleSub" class="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums"></p>
+            </div>
+            <button type="button" id="toggleEntryAdvancedBtn" aria-expanded="false" aria-controls="entryAdvancedBox" class="min-h-[40px] -mb-1 inline-flex items-center justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400 pt-2 border-t border-slate-200/80 dark:border-slate-700/70">
               <span>Mais opções (bônus, status, prazo e notas)</span>
-              <i data-lucide="chevron-down" class="w-4 h-4"></i>
+              <i data-lucide="chevron-down" id="entryAdvancedChevron" class="w-4 h-4 transition-transform"></i>
             </button>
           </div>
 
@@ -1039,30 +1062,27 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="entryStatus" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Situação</label>
-                <select id="entryStatus" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                <select id="entryStatus" class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value="realized">Realizado (Já aconteceu)</option>
                   <option value="planned">Previsto (Agendado)</option>
                 </select>
               </div>
               <div id="expiryFieldWrapper">
                 <label for="entryExpiry" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Prazo p/ usar (Vencimento)</label>
-                <input type="date" id="entryExpiry" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="date" id="entryExpiry" class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
 
             <div>
               <label for="entryNotes" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Observações (opcional)</label>
-              <input type="text" id="entryNotes" placeholder="Ex.: Acordo coletivo, alinhado com gestor..." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" id="entryNotes" placeholder="Ex.: Acordo coletivo, alinhado com gestor..." class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
         </div>
 
-        <div class="sh-sheet-footer pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
-          <button type="button" id="cancelEntryModalBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-            Cancelar
-          </button>
-          <button type="submit" id="entrySubmitBtn" class="flex-1 sm:flex-none px-5 py-2.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
-            Salvar Lançamento
+        <div class="sh-sheet-footer pt-3 border-t border-slate-100 dark:border-slate-800">
+          <button type="submit" id="entrySubmitBtn" class="w-full min-h-[46px] px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition">
+            Salvar +08:00
           </button>
         </div>
       </form>
@@ -1517,11 +1537,11 @@
         </div>
 
         <div id="entryDetailPlannedActions" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-          <button type="button" id="entryDetailConfirmBtn" class="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+          <button type="button" id="entryDetailConfirmBtn" class="min-h-[46px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
             <i data-lucide="check-circle-2" class="w-4 h-4"></i>
             <span>Marcar como Realizado</span>
           </button>
-          <button type="button" id="entryDetailIcsBtn" class="min-h-[44px] px-4 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+          <button type="button" id="entryDetailIcsBtn" class="min-h-[46px] px-4 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
             <i data-lucide="calendar-plus" class="w-4 h-4"></i>
             <span>Salvar na Agenda</span>
           </button>
@@ -1529,11 +1549,11 @@
       </div>
 
       <div class="sh-sheet-footer pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2.5">
-        <button type="button" id="entryDetailDeleteBtn" class="min-h-[44px] px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/70 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+        <button type="button" id="entryDetailDeleteBtn" class="min-h-[46px] px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/70 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
           <span>Excluir</span>
         </button>
-        <button type="button" id="entryDetailEditBtn" class="min-h-[44px] px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition">
+        <button type="button" id="entryDetailEditBtn" class="min-h-[46px] px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition">
           <i data-lucide="pencil" class="w-4 h-4"></i>
           <span>Editar</span>
         </button>

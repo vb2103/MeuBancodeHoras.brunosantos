@@ -139,9 +139,11 @@ function setSyncStatus(state) {
     const isAlertState = state === 'error' || state === 'offline';
     mobileAlert.className = `sh-mobile-only px-3 py-2 rounded-xl border text-xs font-medium ${cfg.badge}${isAlertState ? '' : ' hidden'}`;
     mobileAlert.style.display = isAlertState ? '' : 'none';
-    mobileAlertText.textContent = state === 'error'
-      ? 'Sem sincronização com a nuvem — tente novamente em instantes.'
-      : 'Modo offline — exibindo os dados salvos neste aparelho.';
+    mobileAlertText.textContent = isAlertState
+      ? (state === 'error'
+        ? 'Sem sincronização com a nuvem — tente novamente em instantes.'
+        : 'Modo offline — exibindo os dados salvos neste aparelho.')
+      : '';
   }
 }
 

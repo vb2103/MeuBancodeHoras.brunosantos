@@ -207,42 +207,142 @@ export function createModalManager(ctx) {
     return parseFloat(preset) || 1.0;
   }
 
+  const CHIP_ACTIVE_CLS = 'duration-chip min-h-[44px] px-1 rounded-xl border border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/60 dark:text-indigo-200 ring-1 ring-indigo-500/40 text-xs font-semibold whitespace-nowrap flex items-center justify-center transition';
+  const CHIP_INACTIVE_CLS = 'duration-chip min-h-[44px] px-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap flex items-center justify-center transition';
+  const DATE_SHORTCUT_ACTIVE_CLS = 'px-2.5 py-1 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/60 dark:text-indigo-200 text-[11px] font-semibold transition';
+  const DATE_SHORTCUT_INACTIVE_CLS = 'px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+
+  function setDurationParts(totalMinutes) {
+    const safeMins = Math.max(0, Math.round(Number(totalMinutes) || 0));
+    const hh = Math.min(300, Math.floor(safeMins / 60));
+    const mm = safeMins % 60;
+    document.getElementById('entryHoursPart').value = String(hh).padStart(2, '0');
+    document.getElementById('entryMinutesPart').value = String(mm).padStart(2, '0');
+  }
+
+  function syncEntryTitlePlaceholder(typeVal = null) {
+    const titleInput = document.getElementById('entryTitle');
+    if (!titleInput) return;
+    const type = typeVal || document.querySelector('input[name="entryType"]:checked')?.value || 'credit';
+    titleInput.placeholder = type === 'debit'
+      ? 'Ex.: Consulta médica ou emenda de feriado'
+      : 'Ex.: Plantão de feriado ou hora extra';
+  }
+
+  function syncEntryDateShortcutsUI() {
+    const val = document.getElementById('entryDate')?.value || '';
+    const today = getLocalDateISO();
+    const yesterday = addDaysToISO(today, -1);
+    const todayBtn = document.getElementById('entryDateTodayBtn');
+    const yesterdayBtn = document.getElementById('entryDateYesterdayBtn');
+    if (todayBtn) {
+      const isToday = val === today;
+      todayBtn.className = isToday ? DATE_SHORTCUT_ACTIVE_CLS : DATE_SHORTCUT_INACTIVE_CLS;
+      todayBtn.setAttribute('aria-pressed', String(isToday));
+    }
+    if (yesterdayBtn) {
+      const isYesterday = val === yesterday;
+      yesterdayBtn.className = isYesterday ? DATE_SHORTCUT_ACTIVE_CLS : DATE_SHORTCUT_INACTIVE_CLS;
+      yesterdayBtn.setAttribute('aria-pressed', String(isYesterday));
+    }
+  }
+
+  function syncDurationQuickChipsSelection(baseMins) {
+    const dailyMins = Number(ctx.getSettings().dailyMinutes) || 480;
+    const halfMins = Math.round(dailyMins / 2);
+    const fullBtn = document.getElementById('fillJourneyBtn');
+    const halfBtn = document.getElementById('fillHalfJourneyBtn');
+    const matchedFull = baseMins === dailyMins;
+    const matchedHalf = !matchedFull && baseMins === halfMins;
+
+    document.querySelectorAll('#durationQuickChips [data-quick-mins]').forEach((btn) => {
+      const target = Number(btn.dataset.quickMins);
+      const isMatch = !matchedFull && !matchedHalf && baseMins === target;
+      btn.className = isMatch ? CHIP_ACTIVE_CLS : CHIP_INACTIVE_CLS;
+      btn.setAttribute('aria-pressed', String(isMatch));
+    });
+
+    if (halfBtn) {
+      halfBtn.className = matchedHalf
+        ? CHIP_ACTIVE_CLS.replace('text-xs', 'text-[11px] sm:text-xs')
+        : CHIP_INACTIVE_CLS.replace('text-xs', 'text-[11px] sm:text-xs');
+      halfBtn.setAttribute('aria-pressed', String(matchedHalf));
+    }
+    if (fullBtn) {
+      fullBtn.className = matchedFull ? CHIP_ACTIVE_CLS : CHIP_INACTIVE_CLS;
+      fullBtn.setAttribute('aria-pressed', String(matchedFull));
+    }
+  }
+
   function updateEntryComputedPreview() {
     const type = document.querySelector('input[name="entryType"]:checked').value;
     const multWrapper = document.getElementById('multiplierWrapper');
     const customBox = document.getElementById('customMultiplierBox');
     const preset = document.getElementById('entryRulePreset').value;
+    const isEditing = Boolean(document.getElementById('entryId')?.value);
 
     multWrapper.classList.toggle('hidden', type !== 'credit');
     customBox.classList.toggle('hidden', type !== 'credit' || preset !== 'custom');
     customBox.classList.toggle('flex', type === 'credit' && preset === 'custom');
 
-    const hh = Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0);
+    const hh = Math.min(300, Math.max(0, parseInt(document.getElementById('entryHoursPart').value, 10) || 0));
     const mm = Math.min(59, Math.max(0, parseInt(document.getElementById('entryMinutesPart').value, 10) || 0));
     const baseMins = hh * 60 + mm;
+    syncDurationQuickChipsSelection(baseMins);
+    syncEntryDateShortcutsUI();
+
     const liveSummary = document.getElementById('entryLiveRuleSummary');
+    const liveSub = document.getElementById('entryLiveRuleSub');
+    const submitBtn = document.getElementById('entrySubmitBtn');
+    const statusVal = document.getElementById('entryStatus')?.value || 'realized';
 
     if (type === 'credit') {
       const mult = getActiveMultiplierForForm();
       const creditedMins = applyMultiplierToMinutes(baseMins, mult);
+      const formattedCredited = formatHHMM(creditedMins, true);
       document.getElementById('entryComputedPreview').textContent =
-        `Trabalhado ${formatHHMM(baseMins)} × ${mult}x = ${formatHHMM(creditedMins, true)}`;
+        `Trabalhado ${formatHHMM(baseMins)} × ${mult}x = ${formattedCredited}`;
+
       if (liveSummary) {
-        const expVal = document.getElementById('entryExpiry')?.value;
-        const multTxt = mult !== 1 ? ` (${mult}x)` : '';
-        const expTxt = expVal ? ` • vence ${formatDateBR(expVal)}` : '';
-        liveSummary.textContent = `Vai entrar ${formatHHMM(creditedMins, true)} no banco${multTxt}${expTxt}`;
+        liveSummary.innerHTML = `Vai entrar <strong class="font-mono font-bold text-emerald-600 dark:text-emerald-400">${escapeHtml(formattedCredited)}</strong> no banco`;
       }
-    } else if (liveSummary) {
-      liveSummary.textContent = `Vai descontar ${formatHHMM(-baseMins, true)} do seu saldo`;
+      if (liveSub) {
+        const expVal = document.getElementById('entryExpiry')?.value;
+        const subParts = [];
+        if (mult !== 1) subParts.push(`Regra ${mult}x`);
+        if (expVal) subParts.push(`Vence em ${formatDateBR(expVal)}`);
+        if (statusVal === 'planned') subParts.push('Previsto');
+        liveSub.textContent = subParts.join(' • ');
+        liveSub.classList.toggle('hidden', subParts.length === 0);
+      }
+      if (submitBtn && submitBtn.dataset.busy !== '1') {
+        submitBtn.textContent = isEditing ? `Atualizar ${formattedCredited}` : `Salvar ${formattedCredited}`;
+      }
+    } else {
+      const formattedDebit = formatHHMM(-baseMins, true);
+      if (liveSummary) {
+        liveSummary.innerHTML = `Vai descontar <strong class="font-mono font-bold text-rose-600 dark:text-rose-400">${escapeHtml(formattedDebit)}</strong> do banco`;
+      }
+      if (liveSub) {
+        const subText = statusVal === 'planned' ? 'Agendado como folga prevista' : '';
+        liveSub.textContent = subText;
+        liveSub.classList.toggle('hidden', !subText);
+      }
+      if (submitBtn && submitBtn.dataset.busy !== '1') {
+        submitBtn.textContent = isEditing
+          ? `Atualizar Folga (${formattedDebit})`
+          : `Registrar Folga (${formattedDebit})`;
+      }
     }
   }
 
   function setEntryAdvancedOpen(isOpen) {
     const advBox = document.getElementById('entryAdvancedBox');
     const toggleBtn = document.getElementById('toggleEntryAdvancedBtn');
+    const chevron = document.getElementById('entryAdvancedChevron');
     advBox?.classList.toggle('is-open', Boolean(isOpen));
     toggleBtn?.setAttribute('aria-expanded', String(Boolean(isOpen)));
+    chevron?.classList.toggle('rotate-180', Boolean(isOpen));
   }
 
   function openEntryModal(data = null, isEditing = false) {
@@ -262,6 +362,7 @@ export function createModalManager(ctx) {
     const typeVal = data?.type || 'credit';
     document.querySelector(`input[name="entryType"][value="${typeVal}"]`).checked = true;
     document.getElementById('expiryFieldWrapper').classList.toggle('hidden', typeVal !== 'credit');
+    syncEntryTitlePlaceholder(typeVal);
 
     syncCategoryOptionsForType(typeVal, data?.category || null);
 
@@ -269,8 +370,7 @@ export function createModalManager(ctx) {
       ? (Number(data?.workedMinutes) || Number(data?.minutes) || settings.dailyMinutes)
       : (Number(data?.minutes) || Number(settings.dailyMinutes) || 480);
 
-    document.getElementById('entryHoursPart').value = Math.floor(totalMins / 60);
-    document.getElementById('entryMinutesPart').value = totalMins % 60;
+    setDurationParts(totalMins);
 
     const presetSel = document.getElementById('entryRulePreset');
     if (isEditing && data?.multiplier) {
@@ -320,7 +420,6 @@ export function createModalManager(ctx) {
   }
 
   document.getElementById('closeEntryModalBtn').addEventListener('click', closeEntryModal);
-  document.getElementById('cancelEntryModalBtn').addEventListener('click', closeEntryModal);
   document.getElementById('entryModal').addEventListener('click', (e) => {
     if (e.target.id === 'entryModal') closeEntryModal();
   });
@@ -330,6 +429,7 @@ export function createModalManager(ctx) {
       const type = document.querySelector('input[name="entryType"]:checked').value;
       const settings = ctx.getSettings();
       document.getElementById('expiryFieldWrapper').classList.toggle('hidden', type !== 'credit');
+      syncEntryTitlePlaceholder(type);
       syncCategoryOptionsForType(type);
       if (type === 'credit') {
         if (!document.getElementById('entryExpiry').value) {
@@ -354,46 +454,69 @@ export function createModalManager(ctx) {
     updateEntryComputedPreview();
   });
 
-  document.getElementById('entryDate').addEventListener('change', () => {
+  function applyEntryDateShortcut(targetISO) {
+    const dateInput = document.getElementById('entryDate');
+    if (!dateInput) return;
+    dateInput.value = targetISO;
     const type = document.querySelector('input[name="entryType"]:checked').value;
     const isNew = !document.getElementById('entryId').value;
     const settings = ctx.getSettings();
-    if (type === 'credit' && isNew && document.getElementById('entryDate').value) {
-      document.getElementById('entryExpiry').value =
-        addDaysToISO(document.getElementById('entryDate').value, settings.expiryDays);
+    if (type === 'credit' && isNew && targetISO) {
+      document.getElementById('entryExpiry').value = addDaysToISO(targetISO, settings.expiryDays);
     }
     updateEntryComputedPreview();
+  }
+
+  document.getElementById('entryDateTodayBtn')?.addEventListener('click', () => {
+    applyEntryDateShortcut(getLocalDateISO());
+  });
+
+  document.getElementById('entryDateYesterdayBtn')?.addEventListener('click', () => {
+    applyEntryDateShortcut(addDaysToISO(getLocalDateISO(), -1));
+  });
+
+  document.getElementById('entryDate').addEventListener('change', () => {
+    applyEntryDateShortcut(document.getElementById('entryDate').value);
   });
 
   document.getElementById('fillJourneyBtn').addEventListener('click', () => {
     const dMins = Number(ctx.getSettings().dailyMinutes) || 480;
-    document.getElementById('entryHoursPart').value = Math.floor(dMins / 60);
-    document.getElementById('entryMinutesPart').value = dMins % 60;
+    setDurationParts(dMins);
+    updateEntryComputedPreview();
+  });
+
+  document.getElementById('fillHalfJourneyBtn')?.addEventListener('click', () => {
+    const halfMins = Math.round((Number(ctx.getSettings().dailyMinutes) || 480) / 2);
+    setDurationParts(halfMins);
     updateEntryComputedPreview();
   });
 
   document.querySelectorAll('[data-quick-mins]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const mins = Number(btn.dataset.quickMins) || 60;
-      document.getElementById('entryHoursPart').value = Math.floor(mins / 60);
-      document.getElementById('entryMinutesPart').value = mins % 60;
+      setDurationParts(mins);
       updateEntryComputedPreview();
     });
   });
 
-  document.getElementById('entryHoursPart').addEventListener('input', updateEntryComputedPreview);
-  document.getElementById('entryMinutesPart').addEventListener('input', updateEntryComputedPreview);
   ['entryHoursPart', 'entryMinutesPart'].forEach((id) => {
     const input = document.getElementById(id);
     input.addEventListener('focus', () => input.select());
+    input.addEventListener('input', () => {
+      const clean = input.value.replace(/\D/g, '');
+      if (input.value !== clean) input.value = clean;
+      updateEntryComputedPreview();
+    });
     input.addEventListener('blur', () => {
       const val = parseInt(input.value, 10) || 0;
-      input.value = String(id === 'entryHoursPart' ? Math.min(300, Math.max(0, val)) : Math.min(59, Math.max(0, val)));
+      const clamped = id === 'entryHoursPart' ? Math.min(300, Math.max(0, val)) : Math.min(59, Math.max(0, val));
+      input.value = String(clamped).padStart(2, '0');
       updateEntryComputedPreview();
     });
   });
   document.getElementById('entryRulePreset').addEventListener('change', updateEntryComputedPreview);
   document.getElementById('entryCustomMultiplier').addEventListener('input', updateEntryComputedPreview);
+  document.getElementById('entryStatus')?.addEventListener('change', updateEntryComputedPreview);
   document.getElementById('entryExpiry')?.addEventListener('change', updateEntryComputedPreview);
   document.getElementById('toggleEntryAdvancedBtn')?.addEventListener('click', () => {
     const isOpen = document.getElementById('entryAdvancedBox')?.classList.contains('is-open');
@@ -468,6 +591,7 @@ export function createModalManager(ctx) {
     const radio = document.querySelector(`input[name="entryType"][value="${res.suggestedType}"]`);
     if (radio) radio.checked = true;
     document.getElementById('expiryFieldWrapper').classList.toggle('hidden', res.suggestedType !== 'credit');
+    syncEntryTitlePlaceholder(res.suggestedType);
     syncCategoryOptionsForType(res.suggestedType);
 
     if (res.suggestedType === 'credit') {
@@ -480,8 +604,7 @@ export function createModalManager(ctx) {
       }
     }
 
-    document.getElementById('entryHoursPart').value = String(Math.floor(res.durationMinutes / 60));
-    document.getElementById('entryMinutesPart').value = String(res.durationMinutes % 60);
+    setDurationParts(res.durationMinutes);
     updateEntryComputedPreview();
     ctx.showToast(`Ponto calculado: ${formatHHMM(res.diffMinutes, true)} aplicados!`);
   });
@@ -507,7 +630,8 @@ export function createModalManager(ctx) {
     const finalMinutes = type === 'credit' ? applyMultiplierToMinutes(workedMinutes, multiplier) : workedMinutes;
 
     const entryDate = document.getElementById('entryDate').value;
-    const entryTitle = document.getElementById('entryTitle').value.trim();
+    const rawTitle = document.getElementById('entryTitle').value.trim();
+    const entryTitle = rawTitle || ENTRY_CATEGORIES[category]?.label || (type === 'debit' ? 'Folga Compensatória' : 'Hora Extra');
 
     // Detecção de duplicidade: outro registro com a mesma data e mesmo título
     const existingSame = ctx.getEntries().find(
