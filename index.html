@@ -14,7 +14,7 @@
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=20" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=21" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=20" />
+  <link rel="stylesheet" href="./assets/app.css?v=21" />
 
   <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -855,8 +855,8 @@
                   <i data-lucide="mail" class="w-4 h-4"></i>
                 </div>
                 <div class="min-w-0">
-                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">E-mail Formal (Gestão / RH)</h3>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">Texto editável com resumo atualizado em HH:MM</p>
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">Resumo por E-mail</h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">Revise ou edite o texto antes de enviar</p>
                 </div>
               </div>
               <button type="button" data-action="regen-messages" data-for-template="emailTemplate" aria-label="Restaurar padrão do e-mail" title="Restaurar padrão" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition shrink-0">
@@ -865,25 +865,27 @@
               </button>
             </div>
 
-            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-snug text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
-          <div class="sh-email-actions flex flex-wrap items-center gap-2 pt-2">
-            <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
-              <i data-lucide="copy" class="w-4 h-4"></i>
-              Copiar Texto
-            </button>
-            <button type="button" id="commDownloadRealizedPdfBtn" title="Baixar PDF com lançamentos realizados para anexar ao RH" class="py-2.5 px-3 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50/70 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5">
-              <i data-lucide="file-text" class="w-4 h-4"></i>
-              <span>PDF RH</span>
-            </button>
-            <button type="button" id="commDownloadIcsBtn" title="Salvar agenda .ICS das folgas previstas" class="sh-mobile-hide py-2.5 px-3 rounded-xl border border-sky-200 dark:border-sky-800/70 bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5">
-              <i data-lucide="calendar-plus" class="w-4 h-4"></i>
-              <span>Agenda</span>
-            </button>
-            <button type="button" id="openMailClientBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5">
-              <i data-lucide="external-link" class="w-4 h-4"></i>
-              Abrir E-mail
+          <div class="sh-email-actions space-y-2 pt-2">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <button type="button" data-copy-target="emailTemplate" data-copy-toast="E-mail copiado!" class="min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
+                <i data-lucide="copy" class="w-4 h-4 shrink-0"></i>
+                <span>Copiar Texto</span>
+              </button>
+              <button type="button" id="commDownloadRealizedPdfBtn" title="Baixar PDF com lançamentos realizados para anexar ao e-mail" class="min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
+                <i data-lucide="file-text" class="w-4 h-4 shrink-0"></i>
+                <span>Baixar PDF</span>
+              </button>
+              <button type="button" id="commDownloadIcsBtn" title="Salvar agenda .ICS das folgas previstas" class="sh-mobile-hide min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-1.5">
+                <i data-lucide="calendar-plus" class="w-4 h-4 shrink-0"></i>
+                <span>Agenda</span>
+              </button>
+            </div>
+            <button type="button" id="openMailClientBtn" class="w-full min-h-[46px] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition flex items-center justify-center gap-2">
+              <i data-lucide="external-link" class="w-4 h-4 shrink-0"></i>
+              <span>Abrir E-mail</span>
             </button>
           </div>
         </div>
@@ -898,7 +900,7 @@
                 </div>
                 <div class="min-w-0">
                   <h3 class="text-sm font-bold text-slate-900 dark:text-white">Mensagem Rápida (WhatsApp)</h3>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">Formato direto para alinhar folgas com seu gestor</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">Revise ou edite o texto antes de enviar</p>
                 </div>
               </div>
               <button type="button" data-action="regen-messages" data-for-template="whatsappTemplate" aria-label="Restaurar padrão do WhatsApp" title="Restaurar padrão" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition shrink-0">
@@ -907,7 +909,7 @@
               </button>
             </div>
 
-            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-snug text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
           </div>
 
           <div class="flex flex-wrap items-center gap-2.5 pt-2">

@@ -745,6 +745,7 @@ export function exportJSONBackup(settings, entries, integrityCode = '') {
 export function buildCommunicationTemplates(chronoEntries, settings) {
   const realizedMins = chronoEntries.filter((i) => i.status === 'realized').reduce((s, i) => s + i.deltaMinutes, 0);
   const projectedMins = chronoEntries.reduce((s, i) => s + i.deltaMinutes, 0);
+  const hasProjectedDiff = projectedMins !== realizedMins;
   const plannedDebits = chronoEntries.filter((i) => i.status === 'planned' && i.type === 'debit');
   const senderName = settings.userName || 'Colaborador';
   const ruleLabel = getActiveRuleSummary(settings);
@@ -754,27 +755,37 @@ export function buildCommunicationTemplates(chronoEntries, settings) {
     ? plannedDebits.map((p) => `• ${formatDateBR(p.date)}: ${p.title} (${formatHHMM(-p.minutes)})`).join('\n')
     : '• Nenhuma folga futura agendada no momento.';
 
+  const emailBalanceLines = hasProjectedDiff
+    ? `• Saldo Realizado (disponível hoje): ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})\n` +
+      `• Saldo Projetado (considerando agendamentos): ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})`
+    : `• Saldo atual disponível: ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})`;
+
+  const emailPlannedSection = hasPlannedDebits
+    ? `\n\nCompensações / Folgas previstas:\n${plannedLines}`
+    : '';
+
   const emailClosing = hasPlannedDebits
     ? 'Fico à disposição para confirmarmos as datas sem impacto na operação.'
     : 'Segue meu saldo atualizado para conferência.';
+
+  const whatsappBalanceLines = hasProjectedDiff
+    ? `✅ *Saldo disponível hoje:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})\n` +
+      `📅 *Saldo projetado:* ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})`
+    : `✅ *Saldo atual disponível:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})`;
 
   const whatsappClosing = hasPlannedDebits
     ? `Podemos confirmar essas datas? — _${senderName}_`
     : `Segue meu saldo atualizado para conferência. — _${senderName}_`;
 
   const emailText =
-    `Assunto: Alinhamento de Banco de Horas e Folgas Compensatórias — ${senderName}
+    `Assunto: Alinhamento de Banco de Horas${hasPlannedDebits ? ' e Folgas Compensatórias' : ''} — ${senderName}
 
 Olá, tudo bem?
 
 Segue o resumo atualizado do meu banco de horas para alinhamento e registro:
 
-• Saldo Realizado (disponível hoje): ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})
-• Saldo Projetado (considerando agendamentos): ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})
-• Jornada de referência: ${formatHHMM(settings.dailyMinutes)}/dia (${ruleLabel})
-
-Compensações / Folgas previstas:
-${plannedLines}
+${emailBalanceLines}
+• Jornada de referência: ${formatHHMM(settings.dailyMinutes)}/dia (${ruleLabel})${emailPlannedSection}
 
 ${emailClosing}
 
@@ -783,8 +794,7 @@ ${senderName}`;
 
   const whatsappText =
     `Olá! Tudo certo? Passando para alinhar meu *Banco de Horas*:\n\n` +
-    `✅ *Saldo disponível hoje:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})\n` +
-    `📅 *Saldo projetado:* ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})\n` +
+    `${whatsappBalanceLines}\n` +
     `⏱️ *Jornada base:* ${formatHHMM(settings.dailyMinutes)}/dia\n\n` +
     `*Folgas previstas:*\n${plannedLines}\n\n` +
     whatsappClosing;

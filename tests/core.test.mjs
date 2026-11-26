@@ -326,7 +326,7 @@ test('filtros rápidos de extrato e detecção de duplicidades operam com precis
   assert.equal(isDuplicateSelf, false);
 });
 
-test('buildCommunicationTemplates adapta fechamento conforme existência de folgas futuras agendadas', () => {
+test('buildCommunicationTemplates adapta saldo, bloco de folgas e fechamento conforme agendamentos', () => {
   const settings = {
     userName: 'Vitor Bruno',
     dailyMinutes: 480,
@@ -343,11 +343,18 @@ test('buildCommunicationTemplates adapta fechamento conforme existência de folg
   ]).chrono;
 
   const tplNoPlanned = buildCommunicationTemplates(withoutPlanned, settings);
-  assert.match(tplNoPlanned.whatsappText, /Nenhuma folga futura agendada no momento\./);
-  assert.match(tplNoPlanned.whatsappText, /Segue meu saldo atualizado para conferência\. — _Vitor Bruno_$/);
-  assert.doesNotMatch(tplNoPlanned.whatsappText, /Podemos confirmar essas datas\?/);
+  // Saldo igual -> não duplica saldo nem exibe bloco vazio de folgas no E-mail Formal
+  assert.match(tplNoPlanned.emailText, /• Saldo atual disponível: \+03:12/);
+  assert.doesNotMatch(tplNoPlanned.emailText, /Saldo Projetado \(considerando agendamentos\)/);
+  assert.doesNotMatch(tplNoPlanned.emailText, /Compensações \/ Folgas previstas/);
+  assert.doesNotMatch(tplNoPlanned.emailText, /Nenhuma folga futura agendada/);
   assert.match(tplNoPlanned.emailText, /Segue meu saldo atualizado para conferência\./);
   assert.doesNotMatch(tplNoPlanned.emailText, /confirmarmos as datas/);
+
+  assert.match(tplNoPlanned.whatsappText, /\*Saldo atual disponível:\* \+03:12/);
+  assert.doesNotMatch(tplNoPlanned.whatsappText, /\*Saldo projetado:\*/);
+  assert.match(tplNoPlanned.whatsappText, /Segue meu saldo atualizado para conferência\. — _Vitor Bruno_$/);
+  assert.doesNotMatch(tplNoPlanned.whatsappText, /Podemos confirmar essas datas\?/);
 
   const withPlanned = computeChronologicalAndFIFO([
     { id: '1', date: '2026-09-07', title: 'Independência', type: 'credit', minutes: 672, status: 'realized' },
@@ -355,7 +362,13 @@ test('buildCommunicationTemplates adapta fechamento conforme existência de folg
   ]).chrono;
 
   const tplWithPlanned = buildCommunicationTemplates(withPlanned, settings);
+  assert.match(tplWithPlanned.emailText, /Saldo Realizado \(disponível hoje\): \+11:12/);
+  assert.match(tplWithPlanned.emailText, /Saldo Projetado \(considerando agendamentos\): \+03:12/);
+  assert.match(tplWithPlanned.emailText, /Compensações \/ Folgas previstas:\n• 04\/12\/2026: Folga Ponte/);
+  assert.match(tplWithPlanned.emailText, /confirmarmos as datas/);
+
+  assert.match(tplWithPlanned.whatsappText, /\*Saldo disponível hoje:\* \+11:12/);
+  assert.match(tplWithPlanned.whatsappText, /\*Saldo projetado:\* \+03:12/);
   assert.match(tplWithPlanned.whatsappText, /04\/12\/2026: Folga Ponte/);
   assert.match(tplWithPlanned.whatsappText, /Podemos confirmar essas datas\? — _Vitor Bruno_$/);
-  assert.match(tplWithPlanned.emailText, /confirmarmos as datas/);
 });
