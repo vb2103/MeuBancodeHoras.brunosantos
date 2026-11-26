@@ -382,6 +382,16 @@ html.dark input[type='time'] {
     overscroll-behavior: contain;
   }
 
+  .sh-sheet-panel .sh-holidays-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 0.75rem 1rem !important;
+    gap: 0.625rem !important;
+  }
+
   .sh-sheet-panel .sh-sheet-footer {
     flex-shrink: 0 !important;
     margin-top: 0 !important;
@@ -402,8 +412,11 @@ html.dark input[type='time'] {
   }
 
   .sh-comm-textarea {
-    min-height: 170px !important;
-    max-height: 230px !important;
+    resize: none !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.42 !important;
+    min-height: 225px !important;
+    max-height: 280px !important;
   }
 
   .sh-mobile-hidden-panel {

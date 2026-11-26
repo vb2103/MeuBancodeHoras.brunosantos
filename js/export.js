@@ -749,9 +749,18 @@ export function buildCommunicationTemplates(chronoEntries, settings) {
   const senderName = settings.userName || 'Colaborador';
   const ruleLabel = getActiveRuleSummary(settings);
 
-  const plannedLines = plannedDebits.length
+  const hasPlannedDebits = plannedDebits.length > 0;
+  const plannedLines = hasPlannedDebits
     ? plannedDebits.map((p) => `• ${formatDateBR(p.date)}: ${p.title} (${formatHHMM(-p.minutes)})`).join('\n')
     : '• Nenhuma folga futura agendada no momento.';
+
+  const emailClosing = hasPlannedDebits
+    ? 'Fico à disposição para confirmarmos as datas sem impacto na operação.'
+    : 'Segue meu saldo atualizado para conferência.';
+
+  const whatsappClosing = hasPlannedDebits
+    ? `Podemos confirmar essas datas? — _${senderName}_`
+    : `Segue meu saldo atualizado para conferência. — _${senderName}_`;
 
   const emailText =
     `Assunto: Alinhamento de Banco de Horas e Folgas Compensatórias — ${senderName}
@@ -767,7 +776,7 @@ Segue o resumo atualizado do meu banco de horas para alinhamento e registro:
 Compensações / Folgas previstas:
 ${plannedLines}
 
-Fico à disposição para confirmarmos as datas sem impacto na operação.
+${emailClosing}
 
 Atenciosamente,
 ${senderName}`;
@@ -778,7 +787,7 @@ ${senderName}`;
     `📅 *Saldo projetado:* ${formatHHMM(projectedMins, true)} (${formatDaysFromMinutes(projectedMins, settings.dailyMinutes)})\n` +
     `⏱️ *Jornada base:* ${formatHHMM(settings.dailyMinutes)}/dia\n\n` +
     `*Folgas previstas:*\n${plannedLines}\n\n` +
-    `Podemos confirmar essas datas? — _${senderName}_`;
+    whatsappClosing;
 
   return { emailText, whatsappText };
 }

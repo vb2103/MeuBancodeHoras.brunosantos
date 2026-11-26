@@ -4,6 +4,7 @@ import { addDaysToISO, escapeXml, formatDateBR, getLocalDateISO, isValidISODate,
 import { validateAndNormalizeImportedEntries } from '../js/db.js';
 import {
   buildCalendarEventsFromEntries,
+  buildCommunicationTemplates,
   computeExportSummary,
   computeIntegrityDigest,
   exportCSV,
@@ -323,4 +324,38 @@ test('filtros rápidos de extrato e detecção de duplicidades operam com precis
     (e) => e.id !== '1' && e.date === '2026-11-02' && e.title.trim().toLowerCase() === 'finados'
   );
   assert.equal(isDuplicateSelf, false);
+});
+
+test('buildCommunicationTemplates adapta fechamento conforme existência de folgas futuras agendadas', () => {
+  const settings = {
+    userName: 'Vitor Bruno',
+    dailyMinutes: 480,
+    holidayMultiplier: 1.4,
+    overtimeMultiplier: 1.5,
+    expiryDays: 180,
+    unionMode: 'union',
+    unionCode: 'sindpd_sp'
+  };
+
+  const withoutPlanned = computeChronologicalAndFIFO([
+    { id: '1', date: '2026-09-07', title: 'Independência', type: 'credit', minutes: 672, status: 'realized' },
+    { id: '2', date: '2026-11-26', title: 'Folga Compensatória', type: 'debit', minutes: 480, status: 'realized' }
+  ]).chrono;
+
+  const tplNoPlanned = buildCommunicationTemplates(withoutPlanned, settings);
+  assert.match(tplNoPlanned.whatsappText, /Nenhuma folga futura agendada no momento\./);
+  assert.match(tplNoPlanned.whatsappText, /Segue meu saldo atualizado para conferência\. — _Vitor Bruno_$/);
+  assert.doesNotMatch(tplNoPlanned.whatsappText, /Podemos confirmar essas datas\?/);
+  assert.match(tplNoPlanned.emailText, /Segue meu saldo atualizado para conferência\./);
+  assert.doesNotMatch(tplNoPlanned.emailText, /confirmarmos as datas/);
+
+  const withPlanned = computeChronologicalAndFIFO([
+    { id: '1', date: '2026-09-07', title: 'Independência', type: 'credit', minutes: 672, status: 'realized' },
+    { id: '2', date: '2026-12-04', title: 'Folga Ponte', type: 'debit', minutes: 480, status: 'planned' }
+  ]).chrono;
+
+  const tplWithPlanned = buildCommunicationTemplates(withPlanned, settings);
+  assert.match(tplWithPlanned.whatsappText, /04\/12\/2026: Folga Ponte/);
+  assert.match(tplWithPlanned.whatsappText, /Podemos confirmar essas datas\? — _Vitor Bruno_$/);
+  assert.match(tplWithPlanned.emailText, /confirmarmos as datas/);
 });

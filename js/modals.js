@@ -885,9 +885,25 @@ export function createModalManager(ctx) {
     document.querySelectorAll('.holiday-view-pill').forEach((btn) => {
       const active = btn.dataset.holidayFilter === holidayFilter;
       btn.className = active
-        ? 'holiday-view-pill px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
-        : 'holiday-view-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
+        ? 'holiday-view-pill min-h-[34px] px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
+        : 'holiday-view-pill min-h-[34px] px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition';
     });
+  }
+
+  function syncHolidaysBatchFooterUI() {
+    const count = selectedHolidayDates.size;
+    const batchSection = document.getElementById('holidayBatchSection');
+    const clearBtn = document.getElementById('clearSelectionHolidaysBtn');
+    const labelEl = document.getElementById('importSelectedHolidaysLabel');
+    if (batchSection) batchSection.classList.toggle('hidden', count === 0);
+    if (clearBtn) clearBtn.classList.toggle('hidden', count === 0);
+    if (labelEl) labelEl.textContent = `Adicionar Selecionados (${count})`;
+  }
+
+  function formatHolidayMetaSubtitle(ufCode, year) {
+    if (!ufCode || ufCode === 'NONE') return `Feriados Nacionais • ${year}`;
+    const ufObj = BRAZIL_UFS.find((u) => u.code === ufCode);
+    return `${ufObj ? ufObj.name : ufCode} • ${year}`;
   }
 
   function renderHolidaysModalList() {
@@ -913,8 +929,8 @@ export function createModalManager(ctx) {
         bridgesBanner.innerHTML = `
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <span class="font-bold flex items-center gap-1.5">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
-              ${bridgeSuggestions.length} ${bridgeSuggestions.length === 1 ? 'oportunidade de emendar feriado (ponte)' : 'oportunidades de emendar feriado (ponte)'} • requer ${formatHHMM(settings.dailyMinutes || 480)}/folga:
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0"></i>
+              <span>${bridgeSuggestions.length} ${bridgeSuggestions.length === 1 ? 'ponte para emendar feriado' : 'pontes para emendar feriado'} (${formatHHMM(settings.dailyMinutes || 480)}/folga):</span>
             </span>
           </div>
           <div class="flex flex-wrap gap-1.5">${previewBtns}</div>
@@ -927,15 +943,14 @@ export function createModalManager(ctx) {
     }
 
     const visibleItems = currentHolidayList.filter((h) => {
-      const already = isHolidayAlreadyInEntries(entries, h.date, h.name);
       if (holidayFilter === 'upcoming') return !h.isPast;
-      if (holidayFilter === 'available') return !already;
+      if (holidayFilter === 'available') return !isHolidayAlreadyInEntries(entries, h.date, h.name);
       return true;
     });
 
     if (!visibleItems.length) {
       container.innerHTML = `<div class="p-8 text-center text-xs text-slate-500 dark:text-slate-400">Nenhum feriado encontrado para o filtro selecionado em ${holidayYear} (${escapeHtml(uf)}).</div>`;
-      document.getElementById('holidaySelectedCount').textContent = '0 selecionados';
+      syncHolidaysBatchFooterUI();
       return;
     }
 
@@ -951,51 +966,54 @@ export function createModalManager(ctx) {
         timingBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Hoje</span>';
       } else if (!h.isPast && h.daysDiff <= 45) {
         timingBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">Em ${h.daysDiff}d</span>`;
-      } else if (h.isPast) {
-        timingBadge = '<span class="text-[10px] text-slate-400">Passado</span>';
       }
+
+      const scopeTag = h.scope && h.scope !== 'Nacional'
+        ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">${escapeHtml(h.scope)}</span>`
+        : '';
 
       const bridgeTag = bridge
         ? (bridge.alreadyScheduled
-          ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">${escapeHtml(bridge.bridgeLabel)} agendada</span>`
-          : `<button type="button" data-bridge-holiday-date="${h.date}" data-bridge-date="${bridge.bridgeDate}" data-bridge-holiday-name="${escapeHtml(h.name)}" class="schedule-bridge-btn px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition">${escapeHtml(bridge.bridgeLabel)} (${formatDateBR(bridge.bridgeDate).slice(0, 5)})</button>`)
+          ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">Ponte agendada</span>`
+          : `<button type="button" data-bridge-holiday-date="${h.date}" data-bridge-date="${bridge.bridgeDate}" data-bridge-holiday-name="${escapeHtml(h.name)}" class="schedule-bridge-btn px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition">Ponte (${formatDateBR(bridge.bridgeDate).slice(0, 5)})</button>`)
         : '';
 
       return `
-        <div class="p-3.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition min-w-0">
-          <div class="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-            <input
-              type="checkbox"
-              data-holiday-date="${h.date}"
-              aria-label="Selecionar ${escapeHtml(h.name)}"
-              ${already ? 'disabled' : ''}
-              ${checked ? 'checked' : ''}
-              class="holiday-checkbox mt-0.5 sm:mt-0 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40 cursor-pointer shrink-0"
-            />
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 tabular-nums">${formatDateBR(h.date)} (${weekday})</span>
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${h.scope === 'Nacional' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'}">${escapeHtml(h.scope)}</span>
-                ${weekend ? '<span class="text-[10px] font-medium text-amber-600 dark:text-amber-400">Fim de semana</span>' : ''}
-                ${timingBadge}
-                ${bridgeTag}
-              </div>
-              <p class="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white break-words mt-0.5">${escapeHtml(h.name)}</p>
-            </div>
+        <div class="p-3 sm:p-3.5 flex items-center justify-between gap-2.5 sm:gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition min-w-0">
+          <div class="min-w-0 flex-1 space-y-1">
+            <label class="flex items-start gap-2.5 min-w-0 ${already ? 'cursor-default' : 'cursor-pointer'}">
+              <input
+                type="checkbox"
+                data-holiday-date="${h.date}"
+                aria-label="Selecionar ${escapeHtml(h.name)}"
+                ${already ? 'disabled' : ''}
+                ${checked ? 'checked' : ''}
+                class="holiday-checkbox mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40 cursor-pointer shrink-0"
+              />
+              <span class="min-w-0 flex-1 block">
+                <span class="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug break-words">${escapeHtml(h.name)}</span>
+                <span class="mt-0.5 flex items-center gap-1.5 flex-wrap font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                  <span>${formatDateBR(h.date)} (${weekday})</span>
+                  ${scopeTag}
+                  ${weekend ? '<span class="font-sans text-[10px] font-medium text-amber-600 dark:text-amber-400">• Fim de semana</span>' : ''}
+                  ${timingBadge}
+                </span>
+              </span>
+            </label>
+            ${bridgeTag ? `<div class="pl-6">${bridgeTag}</div>` : ''}
           </div>
 
-          <div class="shrink-0 flex items-center gap-2 ml-7 sm:ml-0">
+          <div class="shrink-0 flex items-center">
             ${already
-          ? '<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">Já no extrato</span>'
-          : `<button type="button" data-quick-holiday-date="${h.date}" class="quick-add-holiday-btn px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-semibold transition">+ Lançar</button>`
+          ? '<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 whitespace-nowrap">Já no extrato</span>'
+          : `<button type="button" data-quick-holiday-date="${h.date}" class="quick-add-holiday-btn min-h-[38px] px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-semibold whitespace-nowrap transition">+ Lançar</button>`
         }
           </div>
         </div>
       `;
     }).join('');
 
-    document.getElementById('holidaySelectedCount').textContent =
-      `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
+    syncHolidaysBatchFooterUI();
     window.lucide?.createIcons();
   }
 
@@ -1012,7 +1030,7 @@ export function createModalManager(ctx) {
     const workedM = getHolidayBatchWorkedMinutes();
     const creditedM = applyMultiplierToMinutes(workedM, hMult);
     document.getElementById('holidaysRulePreview').textContent =
-      `Conversão para banco de horas: ${formatHHMM(workedM)} × ${hMult}x = ${formatHHMM(creditedM, true)} por feriado`;
+      `${formatHHMM(workedM)} × ${hMult}x = ${formatHHMM(creditedM, true)} por feriado`;
   }
 
   async function refreshHolidaysView(forceRefresh = false) {
@@ -1020,11 +1038,10 @@ export function createModalManager(ctx) {
     const uf = ufSelect.value || getActiveHolidayUf();
     updateHolidaysRulePreview();
 
-    document.getElementById('holidaysMetaText').textContent = `Carregando calendário de ${holidayYear}...`;
+    document.getElementById('holidaysMetaText').textContent = `Carregando ${holidayYear}...`;
     const result = await fetchHolidaysForYear(holidayYear, uf, forceRefresh);
     currentHolidayList = result.items;
-    document.getElementById('holidaysMetaText').textContent =
-      `Ano ${result.year} (${result.stateUf}) • Fonte: ${result.sourceLabel} • Atualizado em ${result.updatedAt}`;
+    document.getElementById('holidaysMetaText').textContent = formatHolidayMetaSubtitle(result.stateUf, result.year);
     renderHolidaysModalList();
   }
 
@@ -1035,6 +1052,7 @@ export function createModalManager(ctx) {
     holidayFilter = 'all';
     selectedHolidayDates.clear();
     updateHolidayFilterPillsUI();
+    syncHolidaysBatchFooterUI();
 
     const batchInput = document.getElementById('holidayBatchHHMM');
     if (batchInput) {
@@ -1055,7 +1073,6 @@ export function createModalManager(ctx) {
   }
 
   document.getElementById('closeHolidaysModalBtn').addEventListener('click', closeHolidaysModal);
-  document.getElementById('cancelHolidaysBtn').addEventListener('click', closeHolidaysModal);
   document.getElementById('holidaysModal').addEventListener('click', (e) => {
     const bridgeBtn = e.target.closest('.schedule-bridge-btn');
     if (bridgeBtn) {
@@ -1144,8 +1161,7 @@ export function createModalManager(ctx) {
     if (!cb) return;
     if (cb.checked) selectedHolidayDates.add(cb.dataset.holidayDate);
     else selectedHolidayDates.delete(cb.dataset.holidayDate);
-    document.getElementById('holidaySelectedCount').textContent =
-      `${selectedHolidayDates.size} ${selectedHolidayDates.size === 1 ? 'selecionado' : 'selecionados'}`;
+    syncHolidaysBatchFooterUI();
   });
 
   document.getElementById('holidayBatchHHMM')?.addEventListener('input', updateHolidaysRulePreview);
@@ -1238,6 +1254,7 @@ export function createModalManager(ctx) {
         ctx.showToast(`${newEntries.length} ${newEntries.length === 1 ? 'feriado adicionado' : 'feriados adicionados'}!`);
       }
     });
+    syncHolidaysBatchFooterUI();
   });
 
   return {

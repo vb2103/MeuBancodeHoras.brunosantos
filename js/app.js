@@ -39,6 +39,8 @@ import {
 let currentUser = null;
 let sortAscending = true;
 let quickFilter = 'all';
+let activeMainTab = 'extrato'; // 'extrato' | 'graficos' | 'comunicacao'
+let activeAnalyticsSubTab = 'simulador'; // 'simulador' | 'graficos'
 let analyticsBalanceScope = 'all'; // 'all' | 'realized'
 let analyticsRatioMode = 'composition'; // 'composition' | 'origin'
 let settings = createDefaultSettings();
@@ -47,6 +49,9 @@ let toastTimer = null;
 let renderedChronoById = new Map();
 let renderedRemainingMap = new Map();
 let activeDetailEntryId = null;
+let syncAlertDismissedState = null;
+let lastSyncState = 'ok';
+let defaultTemplatesCache = { emailTemplate: '', whatsappTemplate: '' };
 
 // ==================== TOAST & SYNC BADGE ====================
 function showToast(msg, options = {}) {
@@ -95,8 +100,8 @@ const SYNC_STATUS_STYLES = {
   },
   offline: {
     text: 'Modo Offline',
-    dot: 'bg-sky-500',
-    badge: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/70'
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50/90 text-amber-800 border-amber-200/80 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-800/60'
   },
   error: {
     text: 'Erro ao sincronizar',
@@ -111,6 +116,11 @@ const SYNC_STATUS_STYLES = {
 };
 
 function setSyncStatus(state) {
+  lastSyncState = state;
+  if (state === 'ok') {
+    syncAlertDismissedState = null;
+  }
+
   const badge = document.getElementById('syncBadge');
   const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
@@ -134,18 +144,30 @@ function setSyncStatus(state) {
   if (menuDot) menuDot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
 
   const mobileAlert = document.getElementById('mobileSyncAlertBanner');
+  const mobileAlertDot = document.getElementById('mobileSyncAlertDot');
   const mobileAlertText = document.getElementById('mobileSyncAlertText');
   if (mobileAlert && mobileAlertText) {
     const isAlertState = state === 'error' || state === 'offline';
-    mobileAlert.className = `sh-mobile-only px-3 py-2 rounded-xl border text-xs font-medium ${cfg.badge}${isAlertState ? '' : ' hidden'}`;
-    mobileAlert.style.display = isAlertState ? '' : 'none';
-    mobileAlertText.textContent = isAlertState
+    const shouldShow = isAlertState && syncAlertDismissedState !== state;
+    mobileAlert.className = `sh-mobile-only px-3 py-1.5 rounded-xl border text-xs font-medium ${cfg.badge}${shouldShow ? '' : ' hidden'}`;
+    mobileAlert.style.display = shouldShow ? '' : 'none';
+    if (mobileAlertDot) mobileAlertDot.className = `w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`;
+    mobileAlertText.textContent = shouldShow
       ? (state === 'error'
         ? 'Sem sincronização com a nuvem — tente novamente em instantes.'
-        : 'Modo offline — exibindo os dados salvos neste aparelho.')
+        : 'Modo offline — dados salvos localmente.')
       : '';
   }
 }
+
+document.getElementById('dismissMobileSyncAlertBtn')?.addEventListener('click', () => {
+  syncAlertDismissedState = lastSyncState;
+  const mobileAlert = document.getElementById('mobileSyncAlertBanner');
+  if (mobileAlert) {
+    mobileAlert.classList.add('hidden');
+    mobileAlert.style.display = 'none';
+  }
+});
 
 // ==================== TEMA CLARO / ESCURO ====================
 function syncThemeUiLabels() {
@@ -250,16 +272,18 @@ function updateHeaderUserInfo() {
   const mgrEmailEl = document.getElementById('settingManagerEmail');
   const mgrPhoneEl = document.getElementById('settingManagerPhone');
   const mgrSummaryEl = document.getElementById('commManagerSummaryText');
+  const mgrBtnEl = document.getElementById('toggleCommManagerBtn');
   if (mgrEmailEl) mgrEmailEl.value = settings.managerEmail || '';
   if (mgrPhoneEl) mgrPhoneEl.value = settings.managerPhone || '';
+  const mgrParts = [
+    settings.managerEmail ? settings.managerEmail : '',
+    settings.managerPhone ? `WhatsApp ${settings.managerPhone}` : ''
+  ].filter(Boolean);
   if (mgrSummaryEl) {
-    const parts = [
-      settings.managerEmail ? settings.managerEmail : '',
-      settings.managerPhone ? `WhatsApp ${settings.managerPhone}` : ''
-    ].filter(Boolean);
-    mgrSummaryEl.textContent = parts.length
-      ? `Gestor / RH: ${parts.join(' • ')}`
-      : 'Contato do Gestor / RH não configurado';
+    mgrSummaryEl.textContent = mgrParts.length ? mgrParts.join(' • ') : 'Não configurado';
+  }
+  if (mgrBtnEl) {
+    mgrBtnEl.textContent = mgrParts.length ? 'Editar' : 'Configurar';
   }
 
   const avatarEl = document.getElementById('headerProfileAvatar');
@@ -539,6 +563,20 @@ function renderAll() {
   if (heroCreditsEl) heroCreditsEl.textContent = formatHHMM(summary.creditsMinutes, true);
   if (heroDebitsEl) heroDebitsEl.textContent = formatHHMM(-summary.debitsMinutes, false);
 
+  const secHoursEl = document.getElementById('mobileSecondaryBalanceHours');
+  const secDaysEl = document.getElementById('mobileSecondaryBalanceDays');
+  if (secHoursEl) {
+    secHoursEl.textContent = formatHHMM(summary.realizedMinutes, true);
+    secHoursEl.className = summary.realizedMinutes > 0
+      ? 'font-mono font-bold text-emerald-600 dark:text-emerald-400'
+      : summary.realizedMinutes < 0
+        ? 'font-mono font-bold text-rose-600 dark:text-rose-400'
+        : 'font-mono font-bold text-slate-900 dark:text-white';
+  }
+  if (secDaysEl) {
+    secDaysEl.textContent = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
+  }
+
   const alertBanner = document.getElementById('expiryAlertBanner');
   if (urgentItems.length > 0 && summary.projectedMinutes > 0) {
     alertBanner.classList.remove('hidden');
@@ -662,13 +700,25 @@ function renderAll() {
 
   updateSimulator(summary.projectedMinutes);
   const { emailText, whatsappText } = buildCommunicationTemplates(chrono, settings);
+  defaultTemplatesCache = { emailTemplate: emailText, whatsappTemplate: whatsappText };
   document.getElementById('emailTemplate').value = emailText;
   document.getElementById('whatsappTemplate').value = whatsappText;
+  syncTemplateResetButton('emailTemplate');
+  syncTemplateResetButton('whatsappTemplate');
 
   if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
     renderAnalyticsTab();
   }
   window.lucide?.createIcons();
+}
+
+function syncTemplateResetButton(templateId) {
+  const el = document.getElementById(templateId);
+  const resetBtn = document.querySelector(`[data-for-template="${templateId}"]`);
+  if (!el || !resetBtn) return;
+  const isModified = el.value !== (defaultTemplatesCache[templateId] ?? '');
+  resetBtn.classList.toggle('hidden', !isModified);
+  resetBtn.classList.toggle('inline-flex', isModified);
 }
 
 // ==================== DELEGAÇÃO DE AÇÕES NO EXTRATO ====================
@@ -914,7 +964,31 @@ function applyQuickFilter(filterName) {
   renderAll();
 }
 
+function switchAnalyticsSubTab(subTab) {
+  activeAnalyticsSubTab = subTab === 'graficos' ? 'graficos' : 'simulador';
+  const simPanel = document.getElementById('analyticsPanel-simulador');
+  const chartPanel = document.getElementById('analyticsPanel-graficos');
+  const simBtn = document.getElementById('analyticsTabBtn-simulador');
+  const chartBtn = document.getElementById('analyticsTabBtn-graficos');
+  const activeCls = 'px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition';
+  const inactiveCls = 'px-3 py-2 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+
+  const showCharts = activeAnalyticsSubTab === 'graficos';
+  simPanel?.classList.toggle('sh-mobile-hidden-panel', showCharts);
+  chartPanel?.classList.toggle('sh-mobile-hidden-panel', !showCharts);
+  if (simBtn) simBtn.className = showCharts ? inactiveCls : activeCls;
+  if (chartBtn) chartBtn.className = showCharts ? activeCls : inactiveCls;
+  if (showCharts && activeMainTab === 'graficos') {
+    window.requestAnimationFrame(() => renderAnalyticsTab());
+  }
+}
+
+document.querySelectorAll('[data-analytics-subtab]').forEach((btn) => {
+  btn.addEventListener('click', () => switchAnalyticsSubTab(btn.dataset.analyticsSubtab));
+});
+
 function switchMainTab(tabName) {
+  activeMainTab = tabName;
   ['extrato', 'graficos', 'comunicacao'].forEach((t) => {
     document.getElementById(`tabPanel-${t}`).classList.toggle('hidden', t !== tabName);
     const btn = document.getElementById(`tabBtn-${t}`);
@@ -936,8 +1010,19 @@ function switchMainTab(tabName) {
       }
     }
   });
+
+  const secBar = document.getElementById('mobileSecondarySummaryBar');
+  const secTitle = document.getElementById('mobileSecondaryTabTitle');
+  if (secBar) {
+    const showSecondary = tabName === 'graficos' || tabName === 'comunicacao';
+    secBar.classList.toggle('hidden', !showSecondary);
+    if (secTitle && showSecondary) {
+      secTitle.textContent = tabName === 'graficos' ? 'Gráficos' : 'Comunicação RH';
+    }
+  }
+
   if (tabName === 'graficos') {
-    renderAnalyticsTab();
+    window.requestAnimationFrame(() => renderAnalyticsTab());
   }
 }
 
@@ -1103,13 +1188,29 @@ document.getElementById('downloadSimIcsBtn')?.addEventListener('click', () => {
 });
 
 // Comunicação RH / WhatsApp
+['emailTemplate', 'whatsappTemplate'].forEach((templateId) => {
+  document.getElementById(templateId)?.addEventListener('input', () => syncTemplateResetButton(templateId));
+});
+
 document.querySelectorAll('[data-action="regen-messages"]').forEach((btn) => {
   btn.addEventListener('click', () => {
     const { chrono } = computeChronologicalAndFIFO(entries);
     const { emailText, whatsappText } = buildCommunicationTemplates(chrono, settings);
-    document.getElementById('emailTemplate').value = emailText;
-    document.getElementById('whatsappTemplate').value = whatsappText;
-    showToast('Textos atualizados com o saldo atual');
+    defaultTemplatesCache = { emailTemplate: emailText, whatsappTemplate: whatsappText };
+    const targetId = btn.dataset.forTemplate;
+    if (targetId === 'emailTemplate') {
+      document.getElementById('emailTemplate').value = emailText;
+      syncTemplateResetButton('emailTemplate');
+    } else if (targetId === 'whatsappTemplate') {
+      document.getElementById('whatsappTemplate').value = whatsappText;
+      syncTemplateResetButton('whatsappTemplate');
+    } else {
+      document.getElementById('emailTemplate').value = emailText;
+      document.getElementById('whatsappTemplate').value = whatsappText;
+      syncTemplateResetButton('emailTemplate');
+      syncTemplateResetButton('whatsappTemplate');
+    }
+    showToast('Texto restaurado para o padrão!');
   });
 });
 

@@ -42,29 +42,7 @@ function createCenterTextPlugin(centerTitle, centerValue, isDark) {
   };
 }
 
-function renderInsightsCards(analytics, chronoEntries, dailyMinutes) {
-  const projectedMins = chronoEntries.reduce((s, e) => s + (Number(e.deltaMinutes) || 0), 0);
-  const realizedMins = chronoEntries
-    .filter((e) => e.status === 'realized')
-    .reduce((s, e) => s + (Number(e.deltaMinutes) || 0), 0);
-
-  const powerTitle = document.getElementById('analyticsPowerTitle');
-  const powerText = document.getElementById('analyticsPowerText');
-  if (powerTitle && powerText) {
-    if (projectedMins > 0) {
-      powerTitle.textContent = `Você pode folgar ${formatDaysFromMinutes(projectedMins, dailyMinutes)}`;
-      powerText.textContent =
-        `Seu saldo projetado é ${formatHHMM(projectedMins, true)} (já realizados: ${formatHHMM(realizedMins, true)}) considerando jornada de ${formatHHMM(dailyMinutes)}/dia.`;
-    } else if (projectedMins < 0) {
-      powerTitle.textContent = `Saldo negativo de ${formatHHMM(projectedMins)}`;
-      powerText.textContent =
-        `Você está devendo ${formatHHMM(Math.abs(projectedMins))} no banco (${formatDaysFromMinutes(Math.abs(projectedMins), dailyMinutes)}). Horas extras futuras compensam primeiro esse valor.`;
-    } else {
-      powerTitle.textContent = 'Saldo zerado (00:00)';
-      powerText.textContent = 'Suas horas extras e folgas estão em equilíbrio exato no momento.';
-    }
-  }
-
+function renderInsightsCards(analytics, _chronoEntries, _dailyMinutes) {
   const expTitle = document.getElementById('analyticsExpiryTitle');
   const expText = document.getElementById('analyticsExpiryText');
   if (expTitle && expText) {
@@ -127,27 +105,29 @@ function renderFifoExpiryTimeline(analytics) {
     const openPct = Math.max(4, 100 - bucket.usedPct);
 
     return `
-      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-2 min-w-0">
-        <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-col gap-2.5 min-w-0">
+        <div class="flex items-start justify-between gap-2.5 min-w-0">
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums shrink-0">${formatDateBR(bucket.date)}</span>
-              <span class="text-xs font-bold text-slate-900 dark:text-white break-words">${escapeHtml(bucket.title)}</span>
-            </div>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums break-words">
-              Ainda resta compensar <strong class="font-mono text-slate-800 dark:text-slate-200">${formatHHMM(bucket.remainingMinutes)}</strong> de ${formatHHMM(bucket.totalMinutes)}
-              ${bucket.usedMinutes > 0 ? `(${formatHHMM(bucket.usedMinutes)} já abatidos por folgas)` : '(100% disponível)'}
-            </p>
+            <span class="block font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(bucket.date)}</span>
+            <h4 class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug mt-0.5 break-words">${escapeHtml(bucket.title)}</h4>
           </div>
-          <div class="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
-            <span class="px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums ${bucket.badge.badgeClass}">${escapeHtml(bucket.badge.label)}</span>
-            <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold transition">
-              Simular folga
-            </button>
+          <span class="px-2 py-0.5 rounded-md border text-[11px] font-medium tabular-nums whitespace-nowrap shrink-0 ${bucket.badge.badgeClass}">${escapeHtml(bucket.badge.label)}</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <p class="text-xs text-slate-600 dark:text-slate-300 tabular-nums leading-relaxed">
+            Resta compensar <strong class="font-mono text-slate-900 dark:text-white">${formatHHMM(bucket.remainingMinutes)}</strong> de ${formatHHMM(bucket.totalMinutes)}
+            ${bucket.usedMinutes > 0 ? `• ${formatHHMM(bucket.usedMinutes)} abatidos` : '• 100% disponível'}
+          </p>
+          <div class="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden" aria-label="Proporção restante deste crédito">
+            <div class="h-full rounded-full ${barColor} transition-all duration-300" style="width: ${openPct}%"></div>
           </div>
         </div>
-        <div class="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden" aria-label="Proporção restante deste crédito">
-          <div class="h-full rounded-full ${barColor} transition-all duration-300" style="width: ${openPct}%"></div>
+
+        <div class="flex justify-end">
+          <button type="button" data-sim-minutes="${bucket.remainingMinutes}" class="sim-from-bucket-btn min-h-[40px] px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition">
+            Simular folga
+          </button>
         </div>
       </div>
     `;
@@ -385,16 +365,16 @@ function renderRatioDonutChart(analytics, mode, isDark, textColor) {
 
   const rawItems = mode === 'origin'
     ? [
-        { label: 'Feriados Trabalhados', mins: analytics.holidayCreditsMinutes, color: '#4f46e5', dot: 'bg-indigo-600' },
-        { label: 'Horas Extras / Plantões', mins: analytics.overtimeCreditsMinutes, color: '#0ea5e9', dot: 'bg-sky-500' },
-        { label: 'Ajustes / Manuais', mins: analytics.otherCreditsMinutes, color: '#8b5cf6', dot: 'bg-violet-500' }
-      ]
+      { label: 'Feriados Trabalhados', mins: analytics.holidayCreditsMinutes, color: '#4f46e5', dot: 'bg-indigo-600' },
+      { label: 'Horas Extras / Plantões', mins: analytics.overtimeCreditsMinutes, color: '#0ea5e9', dot: 'bg-sky-500' },
+      { label: 'Ajustes / Manuais', mins: analytics.otherCreditsMinutes, color: '#8b5cf6', dot: 'bg-violet-500' }
+    ]
     : [
-        { label: 'Disponível (prazo longo)', mins: analytics.safeOpenMinutes, color: '#10b981', dot: 'bg-emerald-500' },
-        { label: 'Vence em até 60 dias', mins: analytics.expiringSoonMinutes, color: '#f59e0b', dot: 'bg-amber-500' },
-        { label: 'Vencido sem folga', mins: analytics.expiredMinutes, color: '#e11d48', dot: 'bg-rose-600' },
-        { label: 'Já usado em folgas', mins: analytics.compensatedMinutes, color: '#64748b', dot: 'bg-slate-500' }
-      ];
+      { label: 'Disponível (prazo longo)', mins: analytics.safeOpenMinutes, color: '#10b981', dot: 'bg-emerald-500' },
+      { label: 'Vence em até 60 dias', mins: analytics.expiringSoonMinutes, color: '#f59e0b', dot: 'bg-amber-500' },
+      { label: 'Vencido sem folga', mins: analytics.expiredMinutes, color: '#e11d48', dot: 'bg-rose-600' },
+      { label: 'Já usado em folgas', mins: analytics.compensatedMinutes, color: '#64748b', dot: 'bg-slate-500' }
+    ];
 
   const items = rawItems.filter((i) => i.mins > 0);
   const total = items.reduce((s, i) => s + i.mins, 0);

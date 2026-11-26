@@ -14,7 +14,7 @@
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=18" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=19" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=18" />
+  <link rel="stylesheet" href="./assets/app.css?v=19" />
 
   <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -309,8 +309,16 @@
     </div>
 
     <!-- Aviso discreto exclusivo Mobile apenas se Offline ou Erro de Sync -->
-    <div id="mobileSyncAlertBanner" role="status" class="sh-mobile-only hidden px-3 py-2 rounded-xl border text-xs font-medium">
-      <span id="mobileSyncAlertText">Modo Offline</span>
+    <div id="mobileSyncAlertBanner" role="status" class="sh-mobile-only hidden px-3 py-1.5 rounded-xl border text-xs font-medium">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="mobileSyncAlertDot" class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+          <span id="mobileSyncAlertText" class="truncate">Modo offline — dados salvos localmente</span>
+        </div>
+        <button type="button" id="dismissMobileSyncAlertBtn" aria-label="Dispensar aviso" class="min-w-[32px] min-h-[32px] -my-1 -mr-1 inline-flex items-center justify-center rounded-lg opacity-75 hover:opacity-100 transition shrink-0">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Banner de Alerta de Vencimento Real (FIFO) -->
@@ -325,36 +333,6 @@
         Ver itens vencendo
       </button>
     </div>
-
-    <!-- Hero Card Unificado Mobile (estilo app bancário — exclusivo < 768px) -->
-    <section id="mobileHeroCard" aria-label="Resumo do saldo" class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-      <div>
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Seu saldo atual</span>
-        <div class="flex items-baseline gap-2.5 flex-wrap mt-0.5">
-          <span id="heroRealizedHours" class="text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white tracking-tight">+00:00</span>
-          <span id="heroRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias de folga</span>
-        </div>
-        <p id="heroProjectedRow" class="hidden mt-1.5 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-          Com lançamentos previstos: <strong id="heroProjectedHours" class="font-mono font-bold text-indigo-600 dark:text-indigo-400">+00:00</strong>
-        </p>
-      </div>
-
-      <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 text-xs tabular-nums">
-        <div>
-          <span class="text-slate-400 dark:text-slate-500">Entradas:</span>
-          <strong id="heroCreditsHours" class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-1">+00:00</strong>
-        </div>
-        <div class="text-right">
-          <span class="text-slate-400 dark:text-slate-500">Folgas:</span>
-          <strong id="heroDebitsHours" class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-1">-00:00</strong>
-        </div>
-      </div>
-
-      <div class="pt-2 border-t border-slate-100/80 dark:border-slate-800/80 flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
-        <span id="mobileRuleSummary" class="truncate">SINDPD-SP (SP) • Jornada 08:00/dia</span>
-        <button type="button" id="heroRuleEditBtn" class="min-h-[44px] min-w-[44px] px-2 -my-2.5 -mr-2 inline-flex items-center justify-end text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 hover:underline">Alterar</button>
-      </div>
-    </section>
 
     <!-- Cards de KPI (Desktop >= 768px preservado) -->
     <section class="sh-kpi-grid sh-mobile-hide grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -435,8 +413,46 @@
       </button>
     </div>
 
+    <!-- Barra compacta de 1 linha nas abas secundárias (Gráficos e RH — exclusivo < 768px) -->
+    <div id="mobileSecondarySummaryBar" class="sh-mobile-only-flex hidden items-center justify-between gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm text-xs">
+      <span id="mobileSecondaryTabTitle" class="font-bold text-slate-900 dark:text-white truncate">Gráficos</span>
+      <span class="text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap shrink-0">
+        Saldo atual: <strong id="mobileSecondaryBalanceHours" class="font-mono font-bold text-emerald-600 dark:text-emerald-400">+00:00</strong> • <span id="mobileSecondaryBalanceDays">0,0 dias</span>
+      </span>
+    </div>
+
     <!-- ==================== ABA 1: EXTRATO CRONOLÓGICO ==================== -->
     <section id="tabPanel-extrato" class="space-y-4">
+      <!-- Hero Card Unificado Mobile (exclusivo da aba Extrato < 768px) -->
+      <section id="mobileHeroCard" aria-label="Resumo do saldo" class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+        <div>
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Seu saldo atual</span>
+          <div class="flex items-baseline gap-2.5 flex-wrap mt-0.5">
+            <span id="heroRealizedHours" class="text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white tracking-tight">+00:00</span>
+            <span id="heroRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias de folga</span>
+          </div>
+          <p id="heroProjectedRow" class="hidden mt-1.5 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+            Com lançamentos previstos: <strong id="heroProjectedHours" class="font-mono font-bold text-indigo-600 dark:text-indigo-400">+00:00</strong>
+          </p>
+        </div>
+
+        <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 text-xs tabular-nums">
+          <div>
+            <span class="text-slate-400 dark:text-slate-500">Entradas:</span>
+            <strong id="heroCreditsHours" class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-1">+00:00</strong>
+          </div>
+          <div class="text-right">
+            <span class="text-slate-400 dark:text-slate-500">Folgas:</span>
+            <strong id="heroDebitsHours" class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-1">-00:00</strong>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100/80 dark:border-slate-800/80 flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+          <span id="mobileRuleSummary" class="truncate">SINDPD-SP (SP) • Jornada 08:00/dia</span>
+          <button type="button" id="heroRuleEditBtn" class="min-h-[44px] min-w-[44px] px-2 -my-2.5 -mr-2 inline-flex items-center justify-end text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 hover:underline">Alterar</button>
+        </div>
+      </section>
+
       <!-- Cabeçalho enxuto da lista Mobile (< 768px) -->
       <div id="mobileListToolbar" class="sh-mobile-only-flex items-center justify-between gap-2">
         <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 min-w-0">
@@ -597,152 +613,166 @@
     </section>
 
     <!-- ==================== ABA 2: GRÁFICOS & SIMULADOR ==================== -->
-    <section id="tabPanel-graficos" class="hidden space-y-6">
-      <div class="sh-sim-card bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div class="space-y-2 max-w-xl min-w-0">
-            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-              Simulador Rápido de Folgas
-            </div>
-            <h3 class="text-lg sm:text-xl font-bold">Planeje seus próximos dias de descanso</h3>
-            <p class="text-xs sm:text-sm text-indigo-100">Arraste o controle para simular quantos dias (ou meio período de <span class="font-mono font-semibold">0,5 dia</span>) você deseja folgar e veja na hora quanto ainda restará no seu banco.</p>
-          </div>
+    <section id="tabPanel-graficos" class="hidden space-y-5 sm:space-y-6">
+      <!-- Alternador de sub-abas exclusivo Mobile -->
+      <div id="analyticsSubTabs" class="sh-mobile-only-grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
+        <button type="button" id="analyticsTabBtn-simulador" data-analytics-subtab="simulador" class="px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">
+          Simulador &amp; Resumo
+        </button>
+        <button type="button" id="analyticsTabBtn-graficos" data-analytics-subtab="graficos" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+          Gráficos
+        </button>
+      </div>
 
-          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 max-w-lg space-y-4 min-w-0">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <label for="simDaysSlider" class="text-xs font-semibold uppercase tracking-wider text-indigo-100">Dias de Folga Simulados</label>
-              <span id="simDaysValue" class="text-lg sm:text-xl font-extrabold font-mono tabular-nums">2 dias (-16:00)</span>
-            </div>
-            <input type="range" id="simDaysSlider" min="0.5" max="15" step="0.5" value="2" class="w-full accent-white cursor-pointer" />
-            <div class="sh-sim-date-row flex items-center justify-between gap-3 text-xs text-indigo-100">
-              <label for="simTargetDate" class="font-medium shrink-0">Data pretendida (opcional):</label>
-              <input type="date" id="simTargetDate" class="sh-sim-date-input px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
-            </div>
-            <p id="simNegativeWarning" class="hidden px-3 py-1.5 rounded-lg bg-rose-500/30 border border-rose-300/40 text-[11px] font-medium text-white"></p>
-            <div class="flex flex-wrap items-center justify-between pt-2 border-t border-white/15 text-xs gap-2.5">
-              <div>
-                <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
-                <strong id="simRemainingResult" class="text-base font-bold font-mono tabular-nums">+00:00 (0,0 dias)</strong>
+      <!-- SUB-ABA 1 (MOBILE) / SEÇÃO SUPERIOR (DESKTOP): SIMULADOR, RESUMO & PRAZOS FIFO -->
+      <div id="analyticsPanel-simulador" class="space-y-4 sm:space-y-6">
+        <div class="sh-sim-card bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+            <div class="space-y-1.5 max-w-xl min-w-0">
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                Simulador Rápido de Folgas
               </div>
-              <div class="flex items-center gap-2 shrink-0 flex-wrap">
-                <button type="button" id="downloadSimIcsBtn" title="Salvar lembrete desta folga no Google Calendar / Outlook (.ics)" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white font-semibold text-xs transition flex items-center gap-1.5">
-                  <i data-lucide="calendar-arrow-down" class="w-4 h-4"></i>
-                  <span>Agenda</span>
-                </button>
-                <button type="button" id="scheduleFromSimBtn" class="px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
-                  <i data-lucide="calendar-plus" class="w-4 h-4"></i>
-                  Agendar Folga
-                </button>
+              <h3 class="text-lg sm:text-xl font-bold">Planeje seus próximos dias de descanso</h3>
+              <p class="text-xs sm:text-sm text-indigo-100">Arraste para simular folgas e ver quanto sobra no seu saldo.</p>
+            </div>
+
+            <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 flex-1 max-w-lg space-y-4 min-w-0">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label for="simDaysSlider" class="text-xs font-semibold uppercase tracking-wider text-indigo-100">Dias de Folga Simulados</label>
+                <span id="simDaysValue" class="text-lg sm:text-xl font-extrabold font-mono tabular-nums">2 dias (-16:00)</span>
+              </div>
+              <input type="range" id="simDaysSlider" min="0.5" max="15" step="0.5" value="2" class="w-full accent-white cursor-pointer" />
+              <div class="sh-sim-date-row flex items-center justify-between gap-3 text-xs text-indigo-100">
+                <label for="simTargetDate" class="font-medium shrink-0">Data pretendida (opcional):</label>
+                <input type="date" id="simTargetDate" style="color-scheme: dark;" class="sh-sim-date-input px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white text-xs font-mono outline-none focus:ring-2 focus:ring-white/60" />
+              </div>
+              <p id="simNegativeWarning" class="hidden px-3 py-1.5 rounded-lg bg-rose-500/30 border border-rose-300/40 text-[11px] font-medium text-white"></p>
+              <div class="flex flex-wrap items-center justify-between pt-2 border-t border-white/15 text-xs gap-2.5">
+                <div>
+                  <span class="text-indigo-200 block">Saldo Projetado Restante:</span>
+                  <strong id="simRemainingResult" class="text-base font-bold font-mono tabular-nums">+00:00 (0,0 dias)</strong>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 flex-wrap">
+                  <button type="button" id="downloadSimIcsBtn" title="Adicionar lembrete desta folga no calendário do aparelho (.ics)" class="min-h-[42px] px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white font-semibold text-xs transition flex items-center gap-1.5">
+                    <i data-lucide="calendar-arrow-down" class="w-4 h-4"></i>
+                    <span>Exportar .ics</span>
+                  </button>
+                  <button type="button" id="scheduleFromSimBtn" class="min-h-[42px] px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                    <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                    <span>Agendar Folga</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Guia Rápido para Usuário Leigo -->
-      <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:px-5 shadow-sm group">
-        <summary class="flex items-center justify-between gap-3 cursor-pointer list-none text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
-          <span class="flex items-center gap-2">
-            <i data-lucide="help-circle" class="w-4 h-4 text-indigo-500"></i>
-            Entenda seu Banco de Horas em 30 segundos (guia simples)
-          </span>
-          <span class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">Abrir / fechar</span>
-        </summary>
-        <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-            <strong class="block text-slate-900 dark:text-white mb-1">1. Tudo vira horas (HH:MM)</strong>
-            Nenhum valor é convertido em dinheiro. Cada hora trabalhada extra ou em feriado aumenta o tempo disponível para suas folgas.
-          </div>
-          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-            <strong class="block text-slate-900 dark:text-white mb-1">2. Bônus de Feriado (ex.: 1.4x)</strong>
-            No Sindpd-SP, trabalhar 08:00 em feriado rende 40% a mais em descanso: entra <strong>11:12</strong> no banco.
-          </div>
-          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-            <strong class="block text-slate-900 dark:text-white mb-1">3. Horas mais antigas saem primeiro</strong>
-            Quando você tira uma folga, o sistema desconta primeiro das horas mais antigas que vencem antes.
-          </div>
-          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-            <strong class="block text-slate-900 dark:text-white mb-1">4. Realizado vs. Previsto</strong>
-            <strong>Realizado</strong> já aconteceu e pode ser usado hoje; <strong>Previsto</strong> mostra como ficará o saldo com feriados e folgas futuros.
-          </div>
-        </div>
-      </details>
-
-      <!-- 3 Cards Explicativos em Português Simples -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
-          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            <i data-lucide="calendar-check" class="w-4 h-4"></i>
-            <span>Posso folgar quanto tempo?</span>
-          </div>
-          <h4 id="analyticsPowerTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
-          <p id="analyticsPowerText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
-        </div>
-
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
-          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-            <i data-lucide="hourglass" class="w-4 h-4"></i>
-            <span>Prazo das Horas</span>
-          </div>
-          <h4 id="analyticsExpiryTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
-          <p id="analyticsExpiryText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
-        </div>
-
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
-          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-            <i data-lucide="award" class="w-4 h-4"></i>
-            <span>Ganho com Multiplicadores</span>
-          </div>
-          <h4 id="analyticsOriginTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
-          <p id="analyticsOriginText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
-        </div>
-      </div>
-
-      <!-- Linha 1 de Gráficos: Evolução + Composição -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="sh-chart-card lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col min-w-0">
-          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-            <div class="min-w-0">
-              <h3 id="balanceChartTitle" class="text-sm font-bold text-slate-900 dark:text-white">Caminho do seu Saldo ao Longo do Tempo</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pontos verdes = horas ganhas • Pontos vermelhos = folgas • Tracejado = zero</p>
+        <!-- Guia Rápido para Usuário Leigo -->
+        <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:px-5 shadow-sm group">
+          <summary class="flex items-center justify-between gap-3 cursor-pointer list-none text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
+            <span class="flex items-center gap-2 min-w-0">
+              <i data-lucide="help-circle" class="w-4 h-4 text-indigo-500 shrink-0"></i>
+              <span>Entenda seu Banco de Horas em 30 segundos</span>
+            </span>
+            <span aria-hidden="true" class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 transition-transform group-open:rotate-180 shrink-0">
+              <i data-lucide="chevron-down" class="w-4 h-4"></i>
+            </span>
+          </summary>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <strong class="block text-slate-900 dark:text-white mb-1">1. Tudo vira horas (HH:MM)</strong>
+              Nenhum valor é convertido em dinheiro. Cada hora trabalhada extra ou em feriado aumenta o tempo disponível para suas folgas.
             </div>
-            <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
-              <button type="button" data-balance-scope="all" class="balance-scope-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">Tudo</button>
-              <button type="button" data-balance-scope="realized" class="balance-scope-btn px-2.5 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Realizado</button>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <strong class="block text-slate-900 dark:text-white mb-1">2. Bônus de Feriado (ex.: 1.4x)</strong>
+              No Sindpd-SP, trabalhar 08:00 em feriado rende 40% a mais em descanso: entra <strong>11:12</strong> no banco.
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <strong class="block text-slate-900 dark:text-white mb-1">3. Horas mais antigas saem primeiro</strong>
+              Quando você tira uma folga, o sistema desconta primeiro das horas mais antigas que vencem antes.
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <strong class="block text-slate-900 dark:text-white mb-1">4. Realizado vs. Previsto</strong>
+              <strong>Realizado</strong> já aconteceu e pode ser usado hoje; <strong>Previsto</strong> mostra como ficará o saldo com feriados e folgas futuros.
             </div>
           </div>
-          <div class="sh-chart-box h-72 relative">
-            <canvas id="balanceChart"></canvas>
-            <div id="balanceChartEmpty" class="hidden h-full flex items-center justify-center text-xs text-slate-400 text-center px-6">
-              Adicione lançamentos no extrato para acompanhar a curva do seu saldo em HH:MM.
+        </details>
+
+        <!-- 2 Cards Explicativos Enxutos -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
+            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <i data-lucide="hourglass" class="w-4 h-4"></i>
+              <span>Prazo das Horas</span>
             </div>
+            <h4 id="analyticsExpiryTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
+            <p id="analyticsExpiryText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
+          </div>
+
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-1.5">
+            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <i data-lucide="award" class="w-4 h-4"></i>
+              <span>Ganho com Multiplicadores</span>
+            </div>
+            <h4 id="analyticsOriginTitle" class="text-sm font-bold text-slate-900 dark:text-white">—</h4>
+            <p id="analyticsOriginText" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">—</p>
           </div>
         </div>
 
-        <div class="sh-chart-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col min-w-0">
-          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-            <div class="min-w-0">
-              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Resumo Visual das Horas</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Quanto já foi usado ou está em aberto</p>
-            </div>
-            <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
-              <button type="button" data-ratio-mode="composition" class="ratio-mode-btn px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">Situação</button>
-              <button type="button" data-ratio-mode="origin" class="ratio-mode-btn px-2 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Origem</button>
-            </div>
+        <!-- Horas a Vencer (sem scroll interno preso no mobile) -->
+        <div class="sh-chart-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Horas a Vencer (mais antigas primeiro)</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lista dos créditos em aberto, do vencimento mais próximo para o mais distante</p>
           </div>
-          <div class="sh-chart-box h-48 relative flex items-center justify-center">
-            <canvas id="ratioChart"></canvas>
-            <div id="ratioChartEmpty" class="hidden text-xs text-slate-400 text-center px-4">
-              Sem movimentações suficientes para exibir proporções.
-            </div>
-          </div>
-          <div id="ratioLegendDetails" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/70"></div>
+          <div id="expiryBreakdownContainer" class="space-y-3 md:max-h-72 md:overflow-y-auto md:pr-1"></div>
         </div>
       </div>
 
-      <!-- Linha 2: Entradas vs Folgas por Mês + Linha do Tempo FIFO -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- SUB-ABA 2 (MOBILE) / SEÇÃO INFERIOR (DESKTOP): GRÁFICOS ANALÍTICOS -->
+      <div id="analyticsPanel-graficos" class="sh-mobile-hidden-panel space-y-4 sm:space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div class="sh-chart-card lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col min-w-0">
+            <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+              <div class="min-w-0">
+                <h3 id="balanceChartTitle" class="text-sm font-bold text-slate-900 dark:text-white">Caminho do seu Saldo ao Longo do Tempo</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pontos verdes = horas ganhas • Pontos vermelhos = folgas</p>
+              </div>
+              <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
+                <button type="button" data-balance-scope="all" class="balance-scope-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">Tudo</button>
+                <button type="button" data-balance-scope="realized" class="balance-scope-btn px-2.5 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Realizado</button>
+              </div>
+            </div>
+            <div class="sh-chart-box h-72 relative">
+              <canvas id="balanceChart"></canvas>
+              <div id="balanceChartEmpty" class="hidden h-full flex items-center justify-center text-xs text-slate-400 text-center px-6">
+                Adicione lançamentos no extrato para acompanhar a curva do seu saldo em HH:MM.
+              </div>
+            </div>
+          </div>
+
+          <div class="sh-chart-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col min-w-0">
+            <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+              <div class="min-w-0">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Resumo Visual das Horas</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Quanto já foi usado ou está em aberto</p>
+              </div>
+              <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
+                <button type="button" data-ratio-mode="composition" class="ratio-mode-btn px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition">Situação</button>
+                <button type="button" data-ratio-mode="origin" class="ratio-mode-btn px-2 py-1 rounded-md text-slate-500 dark:text-slate-400 transition">Origem</button>
+              </div>
+            </div>
+            <div class="sh-chart-box h-48 relative flex items-center justify-center">
+              <canvas id="ratioChart"></canvas>
+              <div id="ratioChartEmpty" class="hidden text-xs text-slate-400 text-center px-4">
+                Sem movimentações suficientes para exibir proporções.
+              </div>
+            </div>
+            <div id="ratioLegendDetails" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/70"></div>
+          </div>
+        </div>
+
         <div class="sh-chart-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm min-w-0">
           <h3 class="text-sm font-bold text-slate-900 dark:text-white">Comparativo Mês a Mês (Ganhas × Folgas)</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Compare quanto acumulou vs. quanto descansou em cada mês</p>
@@ -752,14 +782,6 @@
               Nenhum mês registrado ainda.
             </div>
           </div>
-        </div>
-
-        <div class="sh-chart-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3 min-w-0">
-          <div>
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Horas a Vencer (mais antigas primeiro)</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lista dos créditos em aberto, do vencimento mais próximo para o mais distante</p>
-          </div>
-          <div id="expiryBreakdownContainer" class="space-y-2.5 max-h-64 overflow-y-auto pr-1"></div>
         </div>
       </div>
     </section>
@@ -784,13 +806,18 @@
 
       <!-- Contato do Gestor / RH (configurado direto no contexto de envio) -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:px-5 shadow-sm space-y-3">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            <i data-lucide="user-check" class="w-4 h-4 text-indigo-500 shrink-0"></i>
-            <span id="commManagerSummaryText" class="text-xs text-slate-600 dark:text-slate-300 truncate">Contato do Gestor / RH não configurado</span>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <i data-lucide="user-check" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <span class="block text-xs font-bold text-slate-900 dark:text-white leading-tight">Gestor / RH</span>
+              <span id="commManagerSummaryText" class="block text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Não configurado</span>
+            </div>
           </div>
-          <button type="button" id="toggleCommManagerBtn" aria-expanded="false" aria-controls="commManagerForm" class="px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0 transition">
-            Configurar contato
+          <button type="button" id="toggleCommManagerBtn" aria-expanded="false" aria-controls="commManagerForm" class="min-h-[38px] px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/70 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0 whitespace-nowrap transition">
+            Configurar
           </button>
         </div>
         <form id="commManagerForm" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 items-end">
@@ -832,12 +859,13 @@
                   <p class="text-xs text-slate-500 dark:text-slate-400">Texto editável com resumo atualizado em HH:MM</p>
                 </div>
               </div>
-              <button type="button" data-action="regen-messages" aria-label="Atualizar texto de e-mail" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <button type="button" data-action="regen-messages" data-for-template="emailTemplate" aria-label="Restaurar padrão do e-mail" title="Restaurar padrão" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition shrink-0">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Restaurar padrão</span>
               </button>
             </div>
 
-            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="11" class="sh-comm-textarea w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-snug text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
           <div class="sh-email-actions flex flex-wrap items-center gap-2 pt-2">
@@ -873,12 +901,13 @@
                   <p class="text-xs text-slate-500 dark:text-slate-400">Formato direto para alinhar folgas com seu gestor</p>
                 </div>
               </div>
-              <button type="button" data-action="regen-messages" aria-label="Atualizar texto do WhatsApp" title="Atualizar texto com dados atuais" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <button type="button" data-action="regen-messages" data-for-template="whatsappTemplate" aria-label="Restaurar padrão do WhatsApp" title="Restaurar padrão" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition shrink-0">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Restaurar padrão</span>
               </button>
             </div>
 
-            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="11" class="sh-comm-textarea w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-mono leading-snug text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
           </div>
 
           <div class="flex flex-wrap items-center gap-2.5 pt-2">
@@ -1091,92 +1120,87 @@
 
   <!-- ==================== MODAL: CALENDÁRIO DINÂMICO DE FERIADOS ==================== -->
   <div id="holidaysModal" role="dialog" aria-modal="true" aria-labelledby="holidaysModalTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-6 modal-animate my-auto space-y-4">
-      <div class="sh-sheet-header flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl md:max-h-[88dvh] p-6 modal-animate my-auto flex flex-col overflow-hidden">
+      <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
+      <div class="sh-sheet-header flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <div class="min-w-0">
           <h2 id="holidaysModalTitle" class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <i data-lucide="calendar-days" class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0"></i>
             Calendário Oficial de Feriados
           </h2>
-          <p id="holidaysMetaText" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Atualizado automaticamente • Nunca apaga seus dados</p>
+          <p id="holidaysMetaText" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">São Paulo • 2026</p>
         </div>
         <button type="button" id="closeHolidaysModalBtn" aria-label="Fechar calendário de feriados" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <div class="sh-sheet-body space-y-4">
-        <!-- Barra de Ano, UF e Atualização -->
-        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/70 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div class="flex items-center gap-2">
-            <button type="button" id="prevHolidayYearBtn" aria-label="Ano anterior" class="sh-touch-target p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Ano anterior">
-              <i data-lucide="chevron-left" class="w-4 h-4"></i>
-            </button>
-            <span id="holidayYearDisplay" class="font-mono text-sm font-extrabold px-2 tabular-nums">2026</span>
-            <button type="button" id="nextHolidayYearBtn" aria-label="Próximo ano" class="sh-touch-target p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Próximo ano">
-              <i data-lucide="chevron-right" class="w-4 h-4"></i>
-            </button>
-            <button type="button" id="currentYearHolidayBtn" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 hover:bg-indigo-200/70 transition">
+      <div class="sh-holidays-body flex-1 min-h-0 flex flex-col overflow-hidden pt-3.5 space-y-3">
+        <!-- Controles compactos: Ano + UF + Ícone Sincronizar -->
+        <div class="shrink-0 bg-slate-50 dark:bg-slate-800/70 p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3">
+          <div class="flex items-center justify-between sm:justify-start gap-2">
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="prevHolidayYearBtn" aria-label="Ano anterior" class="sh-touch-target min-w-[36px] min-h-[36px] p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center" title="Ano anterior">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              </button>
+              <span id="holidayYearDisplay" class="font-mono text-sm font-extrabold px-2 tabular-nums">2026</span>
+              <button type="button" id="nextHolidayYearBtn" aria-label="Próximo ano" class="sh-touch-target min-w-[36px] min-h-[36px] p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center" title="Próximo ano">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <button type="button" id="currentYearHolidayBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 hover:bg-indigo-200/70 transition">
               Ano atual
             </button>
           </div>
 
-          <div class="flex items-center gap-2 flex-wrap">
-            <label for="holidayUfSelect" class="text-xs font-medium text-slate-500 dark:text-slate-400">UF:</label>
-            <select id="holidayUfSelect" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold outline-none"></select>
+          <div class="flex items-center gap-2 min-w-0 sm:flex-1 sm:max-w-xs">
+            <label for="holidayUfSelect" class="sr-only">Estado (UF)</label>
+            <select id="holidayUfSelect" class="flex-1 min-w-0 min-h-[40px] px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold outline-none"></select>
 
-            <button type="button" id="refreshHolidaysBtn" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1 transition" title="Forçar sincronização agora">
-              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-              <span>Sincronizar</span>
+            <button type="button" id="refreshHolidaysBtn" aria-label="Sincronizar feriados" title="Sincronizar feriados" class="min-w-[40px] min-h-[40px] rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 inline-flex items-center justify-center transition shrink-0">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
 
-        <!-- Filtros de Visualização & Seleção Rápida -->
-        <div class="flex flex-wrap items-center justify-between gap-2 text-xs px-1">
-          <div class="sh-quick-pills-scroll flex flex-wrap items-center gap-1.5">
-            <button type="button" data-holiday-filter="all" class="holiday-view-pill px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">Todos</button>
-            <button type="button" data-holiday-filter="upcoming" class="holiday-view-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Hoje e Futuros</button>
-            <button type="button" data-holiday-filter="available" class="holiday-view-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Não Lançados</button>
+        <!-- Filtros simples (Próximos / Todos) & Ações de Seleção -->
+        <div class="shrink-0 flex items-center justify-between gap-2 text-xs px-0.5">
+          <div class="inline-flex items-center gap-1.5">
+            <button type="button" data-holiday-filter="upcoming" class="holiday-view-pill min-h-[34px] px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Próximos</button>
+            <button type="button" data-holiday-filter="all" class="holiday-view-pill min-h-[34px] px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">Todos</button>
           </div>
-          <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-2.5 shrink-0">
             <button type="button" id="selectAllHolidaysBtn" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Selecionar disponíveis</button>
-            <button type="button" id="clearSelectionHolidaysBtn" class="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline">Limpar</button>
-            <span id="holidaySelectedCount" class="font-mono text-slate-500 dark:text-slate-400 tabular-nums">0 selecionados</span>
+            <button type="button" id="clearSelectionHolidaysBtn" class="hidden text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline">Limpar</button>
           </div>
         </div>
 
         <!-- Oportunidades de Ponte ("Emendar Feriado") -->
-        <div id="holidayBridgesBanner" class="hidden p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-1.5"></div>
+        <div id="holidayBridgesBanner" class="hidden shrink-0 p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-1.5"></div>
 
-        <!-- Lista de Feriados -->
-        <div id="holidaysListContainer" class="max-h-72 overflow-y-auto overflow-x-hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl min-w-0"></div>
-
-        <!-- Duração padrão p/ importação em lote -->
-        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2.5">
-          <div class="flex flex-wrap items-center gap-2">
-            <label for="holidayBatchHHMM" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Horas trab. por feriado:</label>
-            <input type="text" id="holidayBatchHHMM" inputmode="numeric" maxlength="6" value="08:00" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-semibold text-center tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
-            <button type="button" data-holiday-quick-duration="04:00" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">04:00</button>
-            <button type="button" data-holiday-quick-duration="06:00" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">06:00</button>
-            <button type="button" data-holiday-quick-duration="journey" class="px-2 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">1 dia</button>
-          </div>
-          <span id="holidaysRulePreview" class="text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums"></span>
-        </div>
+        <!-- Lista Única Rolável de Feriados -->
+        <div id="holidaysListContainer" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl min-w-0"></div>
       </div>
 
-      <!-- Rodapé -->
-      <div class="sh-sheet-footer pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
-        <span class="sh-mobile-hide text-[11px] text-slate-500 dark:text-slate-400">Apenas visualizar não altera seu extrato. Importar adiciona somente os marcados.</span>
-        <div class="flex items-center gap-2 ml-auto w-full sm:w-auto">
-          <button type="button" id="cancelHolidaysBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-            Fechar
-          </button>
-          <button type="button" id="importSelectedHolidaysBtn" class="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5">
-            <i data-lucide="plus-circle" class="w-4 h-4"></i>
-            <span>Adicionar Selecionados</span>
-          </button>
+      <!-- Barra de Ação em Lote Condicional (só aparece com >= 1 feriado marcado) -->
+      <div id="holidayBatchSection" class="sh-sheet-footer hidden shrink-0 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+        <div class="p-2.5 sm:p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label for="holidayBatchHHMM" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Horas trab. por feriado:</label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="holidayBatchHHMM" inputmode="numeric" maxlength="6" value="08:00" class="w-16 px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-semibold text-center tabular-nums outline-none focus:ring-2 focus:ring-indigo-500" />
+              <button type="button" data-holiday-quick-duration="04:00" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">04:00</button>
+              <button type="button" data-holiday-quick-duration="06:00" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">06:00</button>
+              <button type="button" data-holiday-quick-duration="journey" class="px-2 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">1 dia</button>
+            </div>
+          </div>
+          <p id="holidaysRulePreview" class="text-[11px] font-mono font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums"></p>
         </div>
+
+        <button type="button" id="importSelectedHolidaysBtn" class="w-full min-h-[46px] px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition flex items-center justify-center gap-1.5">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span id="importSelectedHolidaysLabel">Adicionar Selecionados (0)</span>
+        </button>
       </div>
     </div>
   </div>

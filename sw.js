@@ -1,11 +1,11 @@
-const CACHE_NAME = 'saldohoras-shell-v18';
+const CACHE_NAME = 'saldohoras-shell-v19';
 
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './assets/app.css?v=18',
-  './assets/tailwind.css?v=18',
+  './assets/app.css?v=19',
+  './assets/tailwind.css?v=19',
   './assets/icons/icon.svg',
   './js/config.js',
   './js/time.js',
