@@ -9,7 +9,8 @@ import {
   computeIntegrityDigest,
   exportCSV,
   exportPDF,
-  generateExcelSpreadsheetXml,
+  generateCsvContent,
+  generateExcelXlsxBytes,
   generateIcsContent,
   generateStructuredXml
 } from '../js/export.js';
@@ -250,17 +251,26 @@ test('getHolidayBridgeOpportunity detecta pontes de terça/quinta e gera eventos
   );
   const ics = generateIcsContent(events, new Date('2026-11-25T12:00:00Z'));
   assert.match(ics, /BEGIN:VCALENDAR/);
+  assert.match(ics, /Folga agendada \(Folga Ponte\) — Banco de Horas \(-08:00\)/);
   assert.match(ics, /DTSTART;VALUE=DATE:20260605/);
   assert.match(ics, /DTEND;VALUE=DATE:20260606/);
   assert.match(ics, /BEGIN:VALARM/);
+
+  const expEvents = buildCalendarEventsFromEntries(
+    [{ id: 'c1', date: '2026-11-15', title: 'Proclamação (Plantão/Feriado)', category: 'holiday', type: 'credit', minutes: 672, expiry: '2027-05-14', status: 'realized' }],
+    new Map([['c1', 384]]),
+    { dailyMinutes: 480 }
+  );
+  assert.equal(expEvents[0].summary, 'Vencimento de 06:24 no Banco de Horas (Proclamação)');
+  assert.equal(expEvents[0].alarmDaysBefore, 15);
 });
 
-test('XML estruturado, Excel XML, sanitização PDF e digest SHA-256 funcionam corretamente', async () => {
+test('XML estruturado, Excel OOXML (.xlsx), CSV acentuado, sanitização PDF e digest SHA-256 funcionam', async () => {
   assert.equal(escapeXml('A & B <tag> "x" \'y\''), 'A &amp; B &lt;tag&gt; &quot;x&quot; &apos;y&apos;');
   assert.equal(sanitizePdfText('Ponto 08:00 → +01:00 ≈ 0,1d — ✓'), 'Ponto 08:00 -> +01:00 ~ 0,1d - OK');
 
   const sample = [
-    { id: '1', date: '2026-09-07', title: 'Feriado & Plantão', type: 'credit', category: 'holiday', workedMinutes: 480, minutes: 672, multiplier: 1.4, status: 'realized', expiry: '2027-03-06', notes: '<obs>' },
+    { id: '1', date: '2026-09-07', title: 'Feriado & Plantão (Plantão/Feriado)', type: 'credit', category: 'holiday', workedMinutes: 480, minutes: 672, multiplier: 1.4, status: 'realized', expiry: '2027-03-06', notes: '<obs>' },
     { id: '2', date: '2026-10-05', title: 'Folga Compensatória', type: 'debit', category: 'time_off', workedMinutes: 480, minutes: 480, multiplier: 1.0, status: 'planned', expiry: '', notes: '' }
   ];
   const { chrono, remainingMap } = computeChronologicalAndFIFO(sample, '2026-11-25');
@@ -278,10 +288,33 @@ test('XML estruturado, Excel XML, sanitização PDF e digest SHA-256 funcionam c
   assert.match(xml, /Feriado &amp; Plantão/);
   assert.match(xml, /&lt;obs&gt;/);
 
-  const xlsXml = generateExcelSpreadsheetXml(chrono, remainingMap, settings, { globalChrono: chrono });
-  assert.match(xlsXml, /progid="Excel\.Sheet"/);
-  assert.match(xlsXml, /<Worksheet ss:Name="Resumo e FIFO">/);
-  assert.match(xlsXml, /<Worksheet ss:Name="Extrato Cronologico">/);
+  const xlsxBytes = generateExcelXlsxBytes(chrono, remainingMap, settings, { globalChrono: chrono });
+  assert.ok(xlsxBytes instanceof Uint8Array);
+  assert.equal(xlsxBytes[0], 0x50);
+  assert.equal(xlsxBytes[1], 0x4b);
+  assert.equal(xlsxBytes[2], 0x03);
+  assert.equal(xlsxBytes[3], 0x04);
+  const xlsxText = new TextDecoder('utf-8').decode(xlsxBytes);
+  assert.match(xlsxText, /\[Content_Types\]\.xml/);
+  assert.match(xlsxText, /xl\/workbook\.xml/);
+  assert.match(xlsxText, /xl\/styles\.xml/);
+  assert.match(xlsxText, /xl\/worksheets\/sheet1\.xml/);
+  assert.match(xlsxText, /xl\/worksheets\/sheet2\.xml/);
+  assert.match(xlsxText, /name="Extrato"/);
+  assert.match(xlsxText, /name="Horas a Vencer"/);
+  assert.match(xlsxText, /state="frozen"/);
+  assert.match(xlsxText, /customWidth="1"/);
+  assert.match(xlsxText, /Descrição/);
+  assert.match(xlsxText, /Crédito Inicial/);
+  assert.match(xlsxText, /TOTAL GERAL/);
+  assert.match(xlsxText, /TOTAL DISPONÍVEL/);
+
+  const csv = generateCsvContent(chrono, { includeSummary: true });
+  assert.equal(csv.charCodeAt(0), 0xfeff);
+  assert.match(csv, /^﻿Data;Descrição;Categoria;Tipo;Status;Horas Trabalhadas \(HH:MM\);Regra;/);
+  assert.match(csv, /;Crédito;Realizado;/);
+  assert.match(csv, /;Débito;Previsto;/);
+  assert.match(csv, /TOTAL GERAL;/);
 
   assert.throws(() => exportCSV([]), /Nenhum lançamento encontrado/);
   assert.throws(() => exportPDF([], settings), /Nenhum lançamento encontrado/);

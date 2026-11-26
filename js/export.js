@@ -10,7 +10,7 @@ import {
   sanitizePdfText
 } from './config.js';
 import { getActiveRuleSummary } from './rules-catalog.js';
-import { computeAnalyticsSummary, formatDaysFromMinutes, formatHHMM, getExpiryBadge, minutesToDecimalHours } from './time.js';
+import { applyMultiplierToMinutes, computeAnalyticsSummary, formatDaysFromMinutes, formatHHMM, getExpiryBadge, minutesToDecimalHours } from './time.js';
 
 function triggerDownload(content, mimeType, filename) {
   const blob = new Blob([content], { type: mimeType });
@@ -102,7 +102,57 @@ export async function computeIntegrityDigest(rows = [], settings = {}, scopeLabe
   return `SH-${h1.toString(16).padStart(8, '0').toUpperCase()}${h2.toString(16).padStart(4, '0').toUpperCase().slice(0, 4)}`;
 }
 
-export function exportCSV(chronoEntries, options = {}) {
+function formatCleanEntryTitle(item) {
+  const rawTitle = String(item?.title || '').trim();
+  if (!rawTitle) return '';
+  if (item?.category === 'holiday') {
+    return rawTitle.replace(/\s*\((?:Plantão\/Feriado|Feriado)\)\s*$/i, '').trim() || rawTitle;
+  }
+  return rawTitle;
+}
+
+function getEntryTypeDisplayLabel(item, includePlannedTag = false) {
+  let base = 'Manual';
+  if (item?.category === 'holiday') base = 'Feriado Trabalhado';
+  else if (item?.category === 'overtime') base = 'Hora Extra';
+  else if (item?.category === 'time_off') base = 'Folga Compensatória';
+  else if (item?.category === 'adjustment') base = 'Ajuste de Saldo';
+
+  if (includePlannedTag && item?.status === 'planned') {
+    return `${base} [Previsto]`;
+  }
+  return base;
+}
+
+function getCleanEntryNotes(item) {
+  const note = String(item?.notes || '').trim();
+  if (!note) return '';
+  if (item?.category === 'holiday' && /^Feriado\s+(Nacional|Estadual|Municipal)$/i.test(note)) {
+    return '';
+  }
+  const cleanTitle = formatCleanEntryTitle(item);
+  if (note.toLowerCase() === cleanTitle.toLowerCase()) return '';
+  return note;
+}
+
+function formatRuleFactorDisplay(item) {
+  if (item?.type === 'debit') return '-';
+  const mult = Number(item?.multiplier);
+  if (!Number.isFinite(mult) || mult <= 0) return '1.0x';
+  return Number.isInteger(mult) ? `${mult}.0x` : `${String(mult).replace(',', '.')}x`;
+}
+
+function formatFifoExpiryClean(bucket) {
+  if (!bucket?.expiry || !isValidISODate(bucket.expiry)) return 'Sem vencimento';
+  const brDate = formatDateBR(bucket.expiry);
+  if (bucket.badge?.isExpired) return `${brDate} (Vencido)`;
+  if (typeof bucket.badge?.daysRemaining === 'number' && bucket.badge.daysRemaining <= 60) {
+    return `${brDate} (${bucket.badge.daysRemaining}d)`;
+  }
+  return brDate;
+}
+
+export function generateCsvContent(chronoEntries, options = {}) {
   if (!Array.isArray(chronoEntries) || chronoEntries.length === 0) {
     throw new Error('Nenhum lançamento encontrado no recorte selecionado para exportar CSV.');
   }
@@ -110,39 +160,46 @@ export function exportCSV(chronoEntries, options = {}) {
   const includeSummary = options.includeSummary !== false;
   const headers = [
     'Data',
-    'Evento',
+    'Descrição',
     'Categoria',
     'Tipo',
     'Status',
-    'Tempo_Trabalhado_HHMM',
-    'Multiplicador',
-    'Saldo_Aplicado_HHMM',
-    'Saldo_Decimal_Horas',
-    'Saldo_Acumulado_HHMM',
+    'Horas Trabalhadas (HH:MM)',
+    'Regra',
+    'Impacto (HH:MM)',
+    'Impacto Decimal (h)',
+    'Saldo Acumulado (HH:MM)',
     'Vencimento',
-    'Observacoes'
+    'Observações'
   ];
 
-  const rows = chronoEntries.map((i) => [
-    formatDateBR(i.date),
-    sanitizeCsvCell(i.title || ''),
-    ENTRY_CATEGORIES[i.category]?.label || 'Manual',
-    i.type === 'credit' ? 'Credito' : 'Debito',
-    i.status === 'realized' ? 'Realizado' : 'Previsto',
-    formatHHMM(i.workedMinutes ?? i.minutes, false),
-    String(i.multiplier ?? 1).replace('.', ','),
-    formatHHMM(i.deltaMinutes, true),
-    String(i.type === 'credit' ? minutesToDecimalHours(i.minutes) : -minutesToDecimalHours(i.minutes)).replace('.', ','),
-    formatHHMM(i.runningMinutes, true),
-    i.expiry ? formatDateBR(i.expiry) : '',
-    sanitizeCsvCell(i.notes || '')
-  ]);
+  const rows = chronoEntries.map((i) => {
+    const isCredit = i.type === 'credit';
+    return [
+      formatDateBR(i.date),
+      sanitizeCsvCell(formatCleanEntryTitle(i)),
+      sanitizeCsvCell(getEntryTypeDisplayLabel(i, false)),
+      isCredit ? 'Crédito' : 'Débito',
+      i.status === 'realized' ? 'Realizado' : 'Previsto',
+      formatHHMM(i.workedMinutes ?? i.minutes, false),
+      isCredit ? String(i.multiplier ?? 1).replace('.', ',') : '-',
+      formatHHMM(i.deltaMinutes, true),
+      String(isCredit ? minutesToDecimalHours(i.minutes) : -minutesToDecimalHours(i.minutes)).replace('.', ','),
+      formatHHMM(i.runningMinutes, true),
+      isCredit && i.expiry ? formatDateBR(i.expiry) : '',
+      sanitizeCsvCell(i.notes || '')
+    ];
+  });
 
   if (includeSummary) {
     const sum = computeExportSummary(chronoEntries);
+    const lastRunning = chronoEntries[chronoEntries.length - 1]?.runningMinutes ?? sum.projectedMinutes;
+    const balanceNote = sum.realizedMinutes === sum.projectedMinutes
+      ? `Saldo: ${formatHHMM(sum.realizedMinutes, true)}`
+      : `Realizado: ${formatHHMM(sum.realizedMinutes, true)} | Projetado: ${formatHHMM(sum.projectedMinutes, true)}`;
     rows.push([
-      'TOTAL',
-      sanitizeCsvCell(`Resumo do Recorte (${sum.count} registros)`),
+      'TOTAL GERAL',
+      sanitizeCsvCell(`${sum.count} ${sum.count === 1 ? 'lançamento' : 'lançamentos'}`),
       'Resumo',
       '-',
       '-',
@@ -150,13 +207,17 @@ export function exportCSV(chronoEntries, options = {}) {
       '-',
       formatHHMM(sum.projectedMinutes, true),
       String(minutesToDecimalHours(sum.projectedMinutes)).replace('.', ','),
-      formatHHMM(sum.realizedMinutes, true),
+      formatHHMM(lastRunning, true),
       '',
-      sanitizeCsvCell(`Realizado: ${formatHHMM(sum.realizedMinutes, true)} | Projetado: ${formatHHMM(sum.projectedMinutes, true)}`)
+      sanitizeCsvCell(balanceNote)
     ]);
   }
 
-  const csv = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+  return '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+}
+
+export function exportCSV(chronoEntries, options = {}) {
+  const csv = generateCsvContent(chronoEntries, options);
   triggerDownload(csv, 'text/csv;charset=utf-8;', `saldohoras-extrato-${getLocalDateISO()}.csv`);
 }
 
@@ -206,77 +267,113 @@ export function exportPDF(chronoEntries, settings, userEmailOrOptions = '', lega
   const globalRows = opts.globalChrono || chronoEntries;
   const globalSummary = computeExportSummary(globalRows);
   const isFilteredRecorte = Boolean(opts.globalChrono && globalRows.length !== chronoEntries.length);
+  const hasProjectedDiff = globalSummary.realizedMinutes !== globalSummary.projectedMinutes;
+  const hasAnyPlanned = chronoEntries.some((i) => i.status === 'planned');
 
   const ownerName = sanitizePdfText(settings.userName || opts.userEmail || 'Colaborador');
   const ruleLabel = sanitizePdfText(getActiveRuleSummary(settings));
   const todayIso = getLocalDateISO();
+  const holidayMult = Number(settings.holidayMultiplier) || 1.4;
+  const overtimeMult = Number(settings.overtimeMultiplier) || 1.5;
 
-  const metaLine = sanitizePdfText(
-    `Colaborador: ${ownerName}  |  Regra: ${ruleLabel} (${settings.stateUf || 'SP'})  |  Jornada: ${formatHHMM(settings.dailyMinutes)}/dia  |  ${opts.scopeLabel}  |  Emitido: ${formatDateBR(todayIso)}`
-  );
-  doc.setFontSize(8.5);
-  const metaWrapped = doc.splitTextToSize(metaLine, pageW - margin * 2);
-  const bannerHeight = 18 + metaWrapped.length * 4.2 + 3;
+  // Cabeçalho executivo branco com barra superior de destaque de ~4px (1.8mm)
+  doc.setFillColor(79, 70, 229);
+  doc.rect(0, 0, pageW, 1.8, 'F');
 
-  doc.setFillColor(30, 27, 75);
-  doc.rect(0, 0, pageW, bannerHeight, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(14.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('SaldoHoras - Extrato Oficial de Banco de Horas & Folgas', margin, 11.5);
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(metaWrapped, margin, 18);
+  doc.text(sanitizePdfText('SaldoHoras - Extrato de Banco de Horas & Folgas'), margin, 10.5);
 
-  // Cards de resumo abaixo do banner
-  let cursorY = bannerHeight + 5;
+  const metaLine1 = sanitizePdfText(
+    `Colaborador: ${ownerName}   |   Regra: ${ruleLabel} (${settings.stateUf || 'SP'})   |   Jornada: ${formatHHMM(settings.dailyMinutes)}/dia`
+  );
+  const metaLine2 = sanitizePdfText(
+    `Escopo: ${opts.scopeLabel}   |   Emissão: ${formatDateBR(todayIso)}`
+  );
+  doc.setFontSize(8.2);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  const wrappedMeta = [
+    ...doc.splitTextToSize(metaLine1, pageW - margin * 2),
+    ...doc.splitTextToSize(metaLine2, pageW - margin * 2)
+  ];
+  doc.text(wrappedMeta, margin, 16);
+
+  const dividerY = 16 + wrappedMeta.length * 4 + 1.5;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(margin, dividerY, pageW - margin, dividerY);
+
+  // Cards de resumo sem duplicação (3 cards quando Realizado === Projetado, 4 quando diferem)
+  let cursorY = dividerY + 4.5;
   const cards = [
     {
-      title: isFilteredRecorte ? 'SALDO REALIZADO (CONTA)' : 'SALDO REALIZADO',
-      value: `${formatHHMM(globalSummary.realizedMinutes, true)} (${formatDaysFromMinutes(globalSummary.realizedMinutes, settings.dailyMinutes)})`,
-      fill: [236, 253, 245],
-      stroke: [167, 243, 208],
-      titleColor: [4, 120, 87]
+      title: isFilteredRecorte ? 'SALDO ATUAL (CONTA)' : 'SALDO ATUAL DISPONÍVEL',
+      value: formatHHMM(globalSummary.realizedMinutes, true),
+      sub: `${formatDaysFromMinutes(globalSummary.realizedMinutes, settings.dailyMinutes)} de folga`,
+      fill: [240, 253, 244],
+      stroke: [187, 247, 208],
+      titleColor: [4, 120, 87],
+      valueColor: [6, 95, 70]
+    },
+    ...(hasProjectedDiff
+      ? [{
+          title: isFilteredRecorte ? 'SALDO PROJETADO (CONTA)' : 'SALDO PROJETADO',
+          value: formatHHMM(globalSummary.projectedMinutes, true),
+          sub: `${formatDaysFromMinutes(globalSummary.projectedMinutes, settings.dailyMinutes)} c/ previstos`,
+          fill: [238, 242, 255],
+          stroke: [199, 210, 254],
+          titleColor: [67, 56, 202],
+          valueColor: [49, 46, 129]
+        }]
+      : []),
+    {
+      title: isFilteredRecorte ? 'TOTAL DE CRÉDITOS (RECORTE)' : 'TOTAL DE CRÉDITOS',
+      value: formatHHMM(recorteSummary.creditsMinutes, true),
+      sub: recorteSummary.bonusMinutes > 0
+        ? `sendo +${formatHHMM(recorteSummary.bonusMinutes)} de adicional`
+        : `${recorteSummary.creditsCount} ${recorteSummary.creditsCount === 1 ? 'crédito' : 'créditos'}`,
+      fill: [248, 250, 252],
+      stroke: [203, 213, 225],
+      titleColor: [51, 65, 85],
+      valueColor: [15, 23, 42]
     },
     {
-      title: isFilteredRecorte ? 'SALDO PROJETADO (CONTA)' : 'SALDO PROJETADO',
-      value: `${formatHHMM(globalSummary.projectedMinutes, true)} (${formatDaysFromMinutes(globalSummary.projectedMinutes, settings.dailyMinutes)})`,
-      fill: [238, 242, 255],
-      stroke: [199, 210, 254],
-      titleColor: [67, 56, 202]
-    },
-    {
-      title: isFilteredRecorte ? 'CREDITOS DO RECORTE' : 'CREDITOS (+ BONUS)',
-      value: `${formatHHMM(recorteSummary.creditsMinutes, true)}${recorteSummary.bonusMinutes > 0 ? ` (+${formatHHMM(recorteSummary.bonusMinutes)} bonus)` : ''}`,
-      fill: [240, 249, 255],
-      stroke: [186, 230, 253],
-      titleColor: [3, 105, 161]
-    },
-    {
-      title: isFilteredRecorte ? 'DEBITOS DO RECORTE' : 'FOLGAS & SAIDAS',
-      value: `${formatHHMM(-recorteSummary.debitsMinutes, false)} (${recorteSummary.debitsCount} reg.)`,
+      title: isFilteredRecorte ? 'FOLGAS NO RECORTE' : 'FOLGAS UTILIZADAS',
+      value: formatHHMM(-recorteSummary.debitsMinutes, false),
+      sub: `${recorteSummary.debitsCount} ${recorteSummary.debitsCount === 1 ? 'registro' : 'registros'}`,
       fill: [255, 241, 242],
       stroke: [254, 205, 211],
-      titleColor: [190, 18, 60]
+      titleColor: [190, 18, 60],
+      valueColor: [159, 18, 57]
     }
   ];
 
-  const cardGap = 3;
-  const cardW = (pageW - margin * 2 - cardGap * 3) / 4;
+  const cardGap = 3.5;
+  const cardW = (pageW - margin * 2 - cardGap * (cards.length - 1)) / cards.length;
   cards.forEach((c, idx) => {
     const x = margin + idx * (cardW + cardGap);
     doc.setFillColor(...c.fill);
     doc.setDrawColor(...c.stroke);
-    doc.roundedRect(x, cursorY, cardW, 13.5, 2, 2, 'FD');
+    doc.roundedRect(x, cursorY, cardW, 16.5, 2, 2, 'FD');
+
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...c.titleColor);
-    doc.text(c.title, x + 2.5, cursorY + 4.5);
-    doc.setFontSize(8.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text(sanitizePdfText(c.value), x + 2.5, cursorY + 10.2, { maxWidth: cardW - 5 });
+    doc.text(sanitizePdfText(c.title), x + 3, cursorY + 4.5, { maxWidth: cardW - 6 });
+
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...c.valueColor);
+    doc.text(sanitizePdfText(c.value), x + 3, cursorY + 10.5, { maxWidth: cardW - 6 });
+
+    doc.setFontSize(6.8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(sanitizePdfText(c.sub), x + 3, cursorY + 14.5, { maxWidth: cardW - 6 });
   });
-  cursorY += 16.5;
+  cursorY += 19.5;
 
   if (isFilteredRecorte) {
     doc.setFontSize(7.5);
@@ -284,7 +381,7 @@ export function exportPDF(chronoEntries, settings, userEmailOrOptions = '', lega
     doc.setTextColor(100, 116, 139);
     doc.text(
       sanitizePdfText(
-        `Nota: Recorte filtrado exibe ${chronoEntries.length} de ${globalRows.length} registros (saldo liquido do recorte: ${formatHHMM(recorteSummary.projectedMinutes, true)}). Os saldos da conta acima refletem todos os registros.`
+        `Nota: Recorte filtrado exibe ${chronoEntries.length} de ${globalRows.length} registros (saldo líquido do recorte: ${formatHHMM(recorteSummary.projectedMinutes, true)}). Os saldos acima refletem toda a conta.`
       ),
       margin,
       cursorY
@@ -292,115 +389,195 @@ export function exportPDF(chronoEntries, settings, userEmailOrOptions = '', lega
     cursorY += 4.5;
   }
 
+  // Tabela 1 enxuta (7 colunas) com notas discretas sob a descrição e Total Geral no rodapé
   const tableRows = chronoEntries.map((i) => {
-    const isCredit = i.type === 'credit';
-    const rem = opts.remainingMap.get(i.id) ?? i.minutes;
-    let expiryText = '-';
-    if (isCredit && i.expiry) {
-      expiryText = sanitizePdfText(getExpiryBadge(i.expiry, rem, todayIso, i.minutes).label);
-    }
-
+    const cleanTitle = sanitizePdfText(formatCleanEntryTitle(i));
+    const cleanNote = sanitizePdfText(getCleanEntryNotes(i));
+    const descCell = cleanNote ? `${cleanTitle}\nObs.: ${cleanNote}` : cleanTitle;
     return [
       formatDateBR(i.date),
-      sanitizePdfText(i.title),
-      sanitizePdfText(ENTRY_CATEGORIES[i.category]?.label || 'Manual'),
-      i.status === 'realized' ? 'Realizado' : 'Previsto',
+      descCell,
+      sanitizePdfText(getEntryTypeDisplayLabel(i, hasAnyPlanned)),
       formatHHMM(i.workedMinutes ?? i.minutes, false),
-      isCredit && Number(i.multiplier) !== 1 ? `${i.multiplier}x` : '1.0x',
+      formatRuleFactorDisplay(i),
       formatHHMM(i.deltaMinutes, true),
-      formatHHMM(i.runningMinutes, true),
-      expiryText,
-      sanitizePdfText(i.notes || '')
+      formatHHMM(i.runningMinutes, true)
     ];
   });
 
+  const lastRunningMinutes = chronoEntries[chronoEntries.length - 1]?.runningMinutes ?? recorteSummary.projectedMinutes;
   const isLandscape = opts.orientation === 'landscape';
   doc.autoTable({
     startY: cursorY,
     margin: { left: margin, right: margin, bottom: 16 },
-    head: [['Data', 'Evento / Descricao', 'Categoria', 'Status', 'Trab.', 'Fator', 'Saldo', 'Acum.', 'Validade / FIFO', 'Obs.']],
+    head: [['Data', 'Descrição', 'Tipo', 'Horas', 'Regra', 'Impacto', 'Saldo Acum.']],
     body: tableRows,
+    foot: [[
+      'TOTAL GERAL',
+      `${chronoEntries.length} ${chronoEntries.length === 1 ? 'lançamento' : 'lançamentos'}`,
+      '',
+      formatHHMM(recorteSummary.workedMinutesTotal, false),
+      '-',
+      formatHHMM(recorteSummary.projectedMinutes, true),
+      formatHHMM(lastRunningMinutes, true)
+    ]],
+    showFoot: 'lastPage',
     theme: 'grid',
-    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: isLandscape ? 7.8 : 6.8 },
-    bodyStyles: { fontSize: isLandscape ? 7.4 : 6.5, textColor: [30, 41, 59], cellPadding: 1.6 },
+    headStyles: {
+      fillColor: [241, 245, 249],
+      textColor: [15, 23, 42],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.25,
+      fontStyle: 'bold',
+      fontSize: isLandscape ? 8 : 7.2
+    },
+    bodyStyles: {
+      fontSize: isLandscape ? 7.8 : 7,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      cellPadding: 2
+    },
+    footStyles: {
+      fillColor: [238, 242, 255],
+      textColor: [15, 23, 42],
+      lineColor: [199, 210, 254],
+      fontStyle: 'bold',
+      fontSize: isLandscape ? 8 : 7.2
+    },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: isLandscape ? 19 : 16 },
-      2: { cellWidth: isLandscape ? 27 : 18 },
-      3: { cellWidth: isLandscape ? 17 : 14 },
-      4: { halign: 'right', cellWidth: isLandscape ? 14 : 11 },
-      5: { halign: 'center', cellWidth: isLandscape ? 12 : 10 },
-      6: { halign: 'right', fontStyle: 'bold', cellWidth: isLandscape ? 17 : 14 },
-      7: { halign: 'right', fontStyle: 'bold', cellWidth: isLandscape ? 17 : 14 },
-      8: { cellWidth: isLandscape ? 37 : 26 }
+      0: { cellWidth: isLandscape ? 23 : 20 },
+      2: { cellWidth: isLandscape ? 38 : 32 },
+      3: { halign: 'right', cellWidth: isLandscape ? 19 : 16 },
+      4: { halign: 'center', cellWidth: isLandscape ? 16 : 14 },
+      5: { halign: 'right', fontStyle: 'bold', cellWidth: isLandscape ? 23 : 20 },
+      6: { halign: 'right', fontStyle: 'bold', cellWidth: isLandscape ? 26 : 22 }
     },
     didParseCell(data) {
-      if (data.section !== 'body') return;
-      const rowItem = chronoEntries[data.row.index];
-      if (!rowItem) return;
-      if (data.column.index === 6) {
-        data.cell.styles.textColor = rowItem.type === 'credit' ? [4, 120, 87] : [190, 18, 60];
-      } else if (data.column.index === 3 && rowItem.status === 'planned') {
-        data.cell.styles.textColor = [180, 83, 9];
-        data.cell.styles.fontStyle = 'bold';
+      if (data.section === 'head' && data.column.index >= 3) {
+        data.cell.styles.halign = data.column.index === 4 ? 'center' : 'right';
+      } else if (data.section === 'foot' && data.column.index >= 3) {
+        data.cell.styles.halign = data.column.index === 4 ? 'center' : 'right';
+      } else if (data.section === 'body') {
+        const rowItem = chronoEntries[data.row.index];
+        if (!rowItem) return;
+        if (data.column.index === 5) {
+          data.cell.styles.textColor = rowItem.type === 'credit' ? [4, 120, 87] : [190, 18, 60];
+        } else if (data.column.index === 2 && rowItem.status === 'planned') {
+          data.cell.styles.textColor = [180, 83, 9];
+          data.cell.styles.fontStyle = 'bold';
+        }
       }
     }
   });
 
-  let nextY = (doc.lastAutoTable?.finalY || cursorY) + 6;
+  let nextY = (doc.lastAutoTable?.finalY || cursorY) + 7;
 
-  // Bloco opcional de créditos abertos no FIFO
+  // Tabela 2: Horas Disponíveis para Folga (Vencem Primeiro)
   if (opts.includeFifo) {
     const analytics = computeAnalyticsSummary(globalRows, opts.remainingMap, settings.dailyMinutes, todayIso);
     if (analytics.openBuckets.length > 0) {
-      if (nextY > pageH - 42) {
+      if (nextY > pageH - 46) {
         doc.addPage();
         nextY = 16;
       }
-      doc.setFontSize(9.5);
+      doc.setFontSize(9.8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('Resumo de Creditos em Aberto (Ordem FIFO de Compensacao)', margin, nextY);
-      nextY += 3;
+      doc.setTextColor(15, 23, 42);
+      doc.text('Horas Disponíveis para Folga (Vencem Primeiro)', margin, nextY);
+      nextY += 4;
+      doc.setFontSize(7.6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('As folgas tiradas abatem automaticamente os créditos que vencem primeiro.', margin, nextY);
+      nextY += 2.8;
 
       const fifoBody = analytics.openBuckets.map((b) => [
         formatDateBR(b.date),
-        sanitizePdfText(b.title),
+        sanitizePdfText(formatCleanEntryTitle(b)),
         formatHHMM(b.totalMinutes),
         formatHHMM(b.usedMinutes),
         formatHHMM(b.remainingMinutes),
-        sanitizePdfText(b.badge.label)
+        sanitizePdfText(formatFifoExpiryClean(b))
       ]);
+      const fifoInitialSum = analytics.openBuckets.reduce((acc, b) => acc + b.totalMinutes, 0);
+      const fifoUsedSum = analytics.openBuckets.reduce((acc, b) => acc + b.usedMinutes, 0);
 
       doc.autoTable({
         startY: nextY,
         margin: { left: margin, right: margin, bottom: 16 },
-        head: [['Origem', 'Evento', 'Total', 'Ja Compensado', 'Restante', 'Prazo / Situacao']],
+        head: [['Data Origem', 'Evento', 'Crédito Inicial', 'Já Usado', 'Disponível', 'Vencimento']],
         body: fifoBody,
+        foot: [[
+          'TOTAL DISPONÍVEL',
+          `${analytics.openBuckets.length} ${analytics.openBuckets.length === 1 ? 'crédito aberto' : 'créditos abertos'}`,
+          formatHHMM(fifoInitialSum),
+          formatHHMM(fifoUsedSum),
+          formatHHMM(analytics.openRemainingMinutes),
+          ''
+        ]],
+        showFoot: 'lastPage',
         theme: 'grid',
-        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
-        bodyStyles: { fontSize: 7.2, textColor: [30, 41, 59], cellPadding: 1.5 },
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          lineColor: [203, 213, 225],
+          lineWidth: 0.25,
+          fontStyle: 'bold',
+          fontSize: 7.6
+        },
+        bodyStyles: {
+          fontSize: 7.4,
+          textColor: [30, 41, 59],
+          lineColor: [226, 232, 240],
+          cellPadding: 1.8
+        },
+        footStyles: {
+          fillColor: [240, 253, 244],
+          textColor: [6, 95, 70],
+          lineColor: [187, 247, 208],
+          fontStyle: 'bold',
+          fontSize: 7.6
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
-          0: { cellWidth: 21 },
-          2: { halign: 'right', cellWidth: 18 },
-          3: { halign: 'right', cellWidth: 24 },
-          4: { halign: 'right', fontStyle: 'bold', cellWidth: 18 }
+          0: { cellWidth: 23 },
+          2: { halign: 'right', cellWidth: 25 },
+          3: { halign: 'right', cellWidth: 20 },
+          4: { halign: 'right', fontStyle: 'bold', cellWidth: 22 },
+          5: { cellWidth: isLandscape ? 38 : 28 }
+        },
+        didParseCell(data) {
+          if ((data.section === 'head' || data.section === 'foot') && data.column.index >= 2 && data.column.index <= 4) {
+            data.cell.styles.halign = 'right';
+          }
         }
       });
-      nextY = (doc.lastAutoTable?.finalY || nextY) + 8;
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 6;
     }
   }
 
-  // Quadro opcional de assinaturas
+  // Nota rápida sobre regra de multiplicadores + Assinaturas
   if (opts.includeSignatures) {
-    if (nextY > pageH - 34) {
+    if (nextY > pageH - 38) {
       doc.addPage();
-      nextY = 24;
+      nextY = 20;
     } else {
-      nextY += 6;
+      nextY += 2;
     }
+
+    doc.setFontSize(7.4);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 116, 139);
+    const exHoliday = formatHHMM(applyMultiplierToMinutes(480, holidayMult));
+    const multText = sanitizePdfText(
+      `Regra de conversão: 08:00 em feriado (${holidayMult}x) equivalem a +${exHoliday} no banco de horas; hora extra a ${overtimeMult}x.`
+    );
+    doc.text(multText, margin, nextY, { maxWidth: pageW - margin * 2 });
+    nextY += 6;
+
     const lineW = (pageW - margin * 2 - 24) / 2;
-    const ySig = Math.max(nextY + 8, pageH - 26);
+    const ySig = Math.max(nextY + 8, pageH - 24);
 
     doc.setDrawColor(148, 163, 184);
     doc.line(margin, ySig, margin + lineW, ySig);
@@ -409,20 +586,20 @@ export function exportPDF(chronoEntries, settings, userEmailOrOptions = '', lega
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.text(`${ownerName} (Colaborador)`, margin + lineW / 2, ySig + 4.5, { align: 'center' });
-    doc.text('Gestao / Recursos Humanos', margin + lineW + 24 + lineW / 2, ySig + 4.5, { align: 'center' });
+    doc.text(sanitizePdfText(`${ownerName} (Colaborador)`), margin + lineW / 2, ySig + 4.5, { align: 'center' });
+    doc.text('Gestão / Recursos Humanos', margin + lineW + 24 + lineW / 2, ySig + 4.5, { align: 'center' });
   }
 
   // Rodapé paginado em todas as páginas
   const totalPages = doc.getNumberOfPages();
-  const codeNote = opts.integrityCode ? `  |  Cod. Verificacao: ${opts.integrityCode}` : '';
+  const codeNote = opts.integrityCode ? `  |  Cód. Verificação: ${opts.integrityCode}` : '';
   for (let p = 1; p <= totalPages; p += 1) {
     doc.setPage(p);
     doc.setFontSize(7.2);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(`SaldoHoras - Banco de Horas 100% em HH:MM${codeNote}`, margin, pageH - 6.5);
-    doc.text(`Pagina ${p} de ${totalPages}`, pageW - margin, pageH - 6.5, { align: 'right' });
+    doc.text(sanitizePdfText(`Gerado pelo SaldoHoras • Valores em horas:minutos (HH:MM)${codeNote}`), margin, pageH - 6.5);
+    doc.text(`Página ${p} de ${totalPages}`, pageW - margin, pageH - 6.5, { align: 'right' });
   }
 
   const safeSlug = ownerName.replace(/[^a-zA-Z0-9_-]+/g, '_') || 'Colaborador';
@@ -518,93 +695,402 @@ export function exportStructuredXML(rows, remainingMap, settings, options = {}) 
   triggerDownload(xml, 'application/xml;charset=utf-8;', `saldohoras-extrato-${getLocalDateISO()}.xml`);
 }
 
-function xmlCell(value, styleId = 'sCell', type = 'String') {
-  return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`;
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let c = i;
+    for (let k = 0; k < 8; k += 1) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32Bytes(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) {
+    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function toDosDateTime(dateObj = new Date()) {
+  const year = Math.max(1980, dateObj.getFullYear());
+  const dosTime = ((dateObj.getHours() & 0x1f) << 11) |
+    ((dateObj.getMinutes() & 0x3f) << 5) |
+    ((dateObj.getSeconds() >> 1) & 0x1f);
+  const dosDate = (((year - 1980) & 0x7f) << 9) |
+    (((dateObj.getMonth() + 1) & 0x0f) << 5) |
+    (dateObj.getDate() & 0x1f);
+  return { dosTime, dosDate };
 }
 
 /**
- * Gera planilha Excel nativa em XML (SpreadsheetML 2003) com 2 abas formatadas.
+ * Monta um arquivo ZIP padrão (STORE com CRC-32 e flag UTF-8) em Uint8Array.
  */
-export function generateExcelSpreadsheetXml(rows, remainingMap = new Map(), settings = {}, options = {}) {
+function buildZipArchive(files, now = new Date()) {
+  const encoder = new TextEncoder();
+  const { dosTime, dosDate } = toDosDateTime(now);
+  const localChunks = [];
+  const centralChunks = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.name);
+    const dataBytes = typeof file.content === 'string' ? encoder.encode(file.content) : file.content;
+    const crc = crc32Bytes(dataBytes);
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, dosTime, true);
+    lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, dataBytes.length, true);
+    lv.setUint32(22, dataBytes.length, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, dataBytes.length, true);
+    cv.setUint32(24, dataBytes.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+
+    localChunks.push(local, dataBytes);
+    centralChunks.push(central);
+    offset += local.length + dataBytes.length;
+  }
+
+  const centralSize = centralChunks.reduce((acc, c) => acc + c.length, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  const totalSize = offset + centralSize + eocd.length;
+  const out = new Uint8Array(totalSize);
+  let ptr = 0;
+  for (const chunk of [...localChunks, ...centralChunks, eocd]) {
+    out.set(chunk, ptr);
+    ptr += chunk.length;
+  }
+  return out;
+}
+
+function xlsxColLetter(indexZero) {
+  let n = indexZero + 1;
+  let col = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    col = String.fromCharCode(65 + rem) + col;
+    n = Math.floor((n - 1) / 26);
+  }
+  return col;
+}
+
+function xlsxCellXml(ref, spec) {
+  const styleIdx = Number.isInteger(spec?.s) ? spec.s : 0;
+  const val = spec?.v ?? '';
+  if (spec?.type === 'n') {
+    const num = Number(val);
+    return `<c r="${ref}" s="${styleIdx}"><v>${Number.isFinite(num) ? num : 0}</v></c>`;
+  }
+  const str = String(val);
+  if (!str) {
+    return `<c r="${ref}" s="${styleIdx}"/>`;
+  }
+  return `<c r="${ref}" s="${styleIdx}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(str)}</t></is></c>`;
+}
+
+function buildXlsxWorksheetXml(headers, dataRows, minWidths = []) {
+  const allRows = [
+    headers.map((h) => ({ v: h, s: 1 })),
+    ...dataRows
+  ];
+  const colWidths = headers.map((h, colIdx) => {
+    let maxLen = String(h).length;
+    for (const row of dataRows) {
+      const cell = row[colIdx];
+      const text = cell && cell.v !== undefined ? String(cell.v) : '';
+      if (text.length > maxLen) maxLen = text.length;
+    }
+    const minW = minWidths[colIdx] || 11;
+    return Math.min(48, Math.max(minW, maxLen + 4));
+  });
+
+  const colsXml = colWidths
+    .map((w, idx) => `<col min="${idx + 1}" max="${idx + 1}" width="${w.toFixed(1)}" customWidth="1"/>`)
+    .join('');
+
+  const sheetRowsXml = allRows
+    .map((row, rIdx) => {
+      if (!row || row.length === 0) return `<row r="${rIdx + 1}" ht="14" customHeight="1"/>`;
+      const rowNum = rIdx + 1;
+      const htAttr = rIdx === 0 ? ' ht="24" customHeight="1"' : ' ht="20" customHeight="1"';
+      const cellsXml = row
+        .map((cell, cIdx) => xlsxCellXml(`${xlsxColLetter(cIdx)}${rowNum}`, cell))
+        .join('');
+      return `<row r="${rowNum}"${htAttr}>${cellsXml}</row>`;
+    })
+    .join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetViews>
+    <sheetView workbookViewId="0">
+      <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
+    </sheetView>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="20"/>
+  <cols>${colsXml}</cols>
+  <sheetData>${sheetRowsXml}</sheetData>
+</worksheet>`;
+}
+
+/**
+ * Gera planilha Excel OOXML real (.xlsx) com 2 abas ("Extrato" e "Horas a Vencer"),
+ * cabeçalhos congelados, colunas auto-ajustadas e linha de totais.
+ */
+export function generateExcelXlsxBytes(rows, remainingMap = new Map(), settings = {}, options = {}) {
   const todayIso = getLocalDateISO();
   const globalRows = Array.isArray(options.globalChrono) ? options.globalChrono : rows;
   const recorteSummary = computeExportSummary(rows);
   const globalSummary = computeExportSummary(globalRows);
   const analytics = computeAnalyticsSummary(globalRows, remainingMap, settings.dailyMinutes, todayIso);
   const ownerName = settings.userName || options.userEmail || 'Colaborador';
+  const lastRunning = rows[rows.length - 1]?.runningMinutes ?? recorteSummary.projectedMinutes;
 
-  const summaryRowsXml = [
-    `<Row>${xmlCell('SaldoHoras — Relatório de Banco de Horas', 'sTitle')}</Row>`,
-    `<Row>${xmlCell('Colaborador', 'sBold')}${xmlCell(ownerName)}${xmlCell('Regra', 'sBold')}${xmlCell(`${getActiveRuleSummary(settings)} (${settings.stateUf || 'SP'})`)}</Row>`,
-    `<Row>${xmlCell('Jornada Base', 'sBold')}${xmlCell(`${formatHHMM(settings.dailyMinutes || 480)}/dia`)}${xmlCell('Escopo', 'sBold')}${xmlCell(options.scopeLabel || 'Extrato completo')}</Row>`,
-    `<Row>${xmlCell('Saldo Realizado (Conta)', 'sBold')}${xmlCell(formatHHMM(globalSummary.realizedMinutes, true), 'sCredit')}${xmlCell('Saldo Projetado (Conta)', 'sBold')}${xmlCell(formatHHMM(globalSummary.projectedMinutes, true), 'sBold')}</Row>`,
-    `<Row>${xmlCell('Créditos do Recorte', 'sBold')}${xmlCell(formatHHMM(recorteSummary.creditsMinutes, true), 'sCredit')}${xmlCell('Folgas do Recorte', 'sBold')}${xmlCell(formatHHMM(-recorteSummary.debitsMinutes, false), 'sDebit')}</Row>`,
-    '<Row></Row>',
-    `<Row>${xmlCell('Créditos Abertos (FIFO)', 'sHeader')}${xmlCell('Data Origem', 'sHeader')}${xmlCell('Total', 'sHeader')}${xmlCell('Já Compensado', 'sHeader')}${xmlCell('Restante', 'sHeader')}${xmlCell('Vencimento / Situação', 'sHeader')}</Row>`,
-    ...analytics.openBuckets.map((b) =>
-      `<Row>${xmlCell(b.title)}${xmlCell(formatDateBR(b.date))}${xmlCell(formatHHMM(b.totalMinutes))}${xmlCell(formatHHMM(b.usedMinutes))}${xmlCell(formatHHMM(b.remainingMinutes), 'sBold')}${xmlCell(b.badge.label)}</Row>`
-    )
-  ].join('\n      ');
+  const extractHeaders = [
+    'Data',
+    'Descrição',
+    'Tipo',
+    'Status',
+    'Horas Trabalhadas',
+    'Regra',
+    'Impacto (HH:MM)',
+    'Impacto Decimal (h)',
+    'Saldo Acumulado',
+    'Vencimento',
+    'Observações'
+  ];
 
-  const extractHeaders = ['Data', 'Evento / Descrição', 'Categoria', 'Tipo', 'Status', 'Trab. (HH:MM)', 'Multiplicador', 'Saldo (HH:MM)', 'Saldo Decimal (h)', 'Acumulado (HH:MM)', 'Vencimento', 'Observações'];
-  const extractHeaderXml = `<Row>${extractHeaders.map((h) => xmlCell(h, 'sHeader')).join('')}</Row>`;
-  const extractRowsXml = rows.map((i) => {
+  const extractRows = rows.map((i) => {
     const isCredit = i.type === 'credit';
-    const deltaStyle = isCredit ? 'sCredit' : 'sDebit';
     const dec = isCredit ? minutesToDecimalHours(i.minutes) : -minutesToDecimalHours(i.minutes);
-    return `<Row>` +
-      xmlCell(formatDateBR(i.date)) +
-      xmlCell(i.title || '') +
-      xmlCell(ENTRY_CATEGORIES[i.category]?.label || 'Manual') +
-      xmlCell(isCredit ? 'Crédito' : 'Débito') +
-      xmlCell(i.status === 'realized' ? 'Realizado' : 'Previsto') +
-      xmlCell(formatHHMM(i.workedMinutes ?? i.minutes, false)) +
-      xmlCell(Number(i.multiplier) || 1, 'sCell', 'Number') +
-      xmlCell(formatHHMM(i.deltaMinutes, true), deltaStyle) +
-      xmlCell(dec, deltaStyle, 'Number') +
-      xmlCell(formatHHMM(i.runningMinutes, true), 'sBold') +
-      xmlCell(i.expiry ? formatDateBR(i.expiry) : '') +
-      xmlCell(i.notes || '') +
-      `</Row>`;
-  }).join('\n      ');
+    return [
+      { v: formatDateBR(i.date), s: 0 },
+      { v: formatCleanEntryTitle(i), s: 0 },
+      { v: getEntryTypeDisplayLabel(i, false), s: 0 },
+      { v: i.status === 'realized' ? 'Realizado' : 'Previsto', s: 0 },
+      { v: formatHHMM(i.workedMinutes ?? i.minutes, false), s: 2 },
+      { v: formatRuleFactorDisplay(i), s: 3 },
+      { v: formatHHMM(i.deltaMinutes, true), s: isCredit ? 4 : 5 },
+      { v: dec, s: 6, type: 'n' },
+      { v: formatHHMM(i.runningMinutes, true), s: 2 },
+      { v: isCredit && i.expiry ? formatDateBR(i.expiry) : '-', s: 0 },
+      { v: i.notes || '', s: 0 }
+    ];
+  });
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Styles>
-    <Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Calibri" ss:Size="10"/></Style>
-    <Style ss:ID="sTitle"><Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#312E81"/></Style>
-    <Style ss:ID="sHeader"><Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#4F46E5" ss:Pattern="Solid"/></Style>
-    <Style ss:ID="sBold"><Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1"/></Style>
-    <Style ss:ID="sCredit"><Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#047857"/></Style>
-    <Style ss:ID="sDebit"><Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#BE123C"/></Style>
-    <Style ss:ID="sCell"><Font ss:FontName="Calibri" ss:Size="10"/></Style>
-  </Styles>
-  <Worksheet ss:Name="Resumo e FIFO">
-    <Table>
-      <Column ss:Width="170"/><Column ss:Width="140"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="90"/><Column ss:Width="160"/>
-      ${summaryRowsXml}
-    </Table>
-  </Worksheet>
-  <Worksheet ss:Name="Extrato Cronologico">
-    <Table>
-      <Column ss:Width="75"/><Column ss:Width="200"/><Column ss:Width="115"/><Column ss:Width="65"/><Column ss:Width="70"/><Column ss:Width="80"/><Column ss:Width="75"/><Column ss:Width="85"/><Column ss:Width="85"/><Column ss:Width="95"/><Column ss:Width="80"/><Column ss:Width="170"/>
-      ${extractHeaderXml}
-      ${extractRowsXml}
-    </Table>
-  </Worksheet>
-</Workbook>
-`;
+  const summaryDiffers = globalSummary.realizedMinutes !== globalSummary.projectedMinutes;
+  const balanceNote = summaryDiffers
+    ? `Saldo atual: ${formatHHMM(globalSummary.realizedMinutes, true)} | Projetado: ${formatHHMM(globalSummary.projectedMinutes, true)}`
+    : `Saldo atual disponível: ${formatHHMM(globalSummary.realizedMinutes, true)}`;
+
+  extractRows.push([
+    { v: 'TOTAL GERAL', s: 7 },
+    { v: `${rows.length} ${rows.length === 1 ? 'lançamento' : 'lançamentos'}`, s: 7 },
+    { v: '', s: 7 },
+    { v: '', s: 7 },
+    { v: formatHHMM(recorteSummary.workedMinutesTotal, false), s: 8 },
+    { v: '-', s: 7 },
+    { v: formatHHMM(recorteSummary.projectedMinutes, true), s: 8 },
+    { v: minutesToDecimalHours(recorteSummary.projectedMinutes), s: 9, type: 'n' },
+    { v: formatHHMM(lastRunning, true), s: 8 },
+    { v: '', s: 7 },
+    { v: balanceNote, s: 7 }
+  ]);
+
+  const fifoHeaders = ['Data Origem', 'Evento', 'Crédito Inicial', 'Já Usado', 'Disponível', 'Vencimento', 'Situação'];
+  const fifoRows = analytics.openBuckets.map((b) => {
+    const situacao = !b.expiry || !isValidISODate(b.expiry)
+      ? 'Sem vencimento'
+      : b.badge?.isExpired
+        ? 'Vencido'
+        : typeof b.badge?.daysRemaining === 'number' && b.badge.daysRemaining <= 60
+          ? `Vence em ${b.badge.daysRemaining} dias`
+          : 'Prazo longo';
+    return [
+      { v: formatDateBR(b.date), s: 0 },
+      { v: formatCleanEntryTitle(b), s: 0 },
+      { v: formatHHMM(b.totalMinutes), s: 2 },
+      { v: formatHHMM(b.usedMinutes), s: 2 },
+      { v: formatHHMM(b.remainingMinutes), s: 4 },
+      { v: b.expiry ? formatDateBR(b.expiry) : '-', s: 0 },
+      { v: situacao, s: 0 }
+    ];
+  });
+
+  const fifoInitialSum = analytics.openBuckets.reduce((acc, b) => acc + b.totalMinutes, 0);
+  const fifoUsedSum = analytics.openBuckets.reduce((acc, b) => acc + b.usedMinutes, 0);
+  fifoRows.push([
+    { v: 'TOTAL DISPONÍVEL', s: 12 },
+    { v: `${analytics.openBuckets.length} ${analytics.openBuckets.length === 1 ? 'crédito em aberto' : 'créditos em aberto'}`, s: 12 },
+    { v: formatHHMM(fifoInitialSum), s: 10 },
+    { v: formatHHMM(fifoUsedSum), s: 10 },
+    { v: formatHHMM(analytics.openRemainingMinutes), s: 10 },
+    { v: '', s: 12 },
+    { v: 'Compensação FIFO', s: 12 }
+  ]);
+  fifoRows.push([]);
+  fifoRows.push([{ v: 'RESUMO DA CONTA', s: 11 }, { v: options.scopeLabel || 'Extrato completo', s: 0 }]);
+  fifoRows.push([{ v: 'Colaborador', s: 11 }, { v: ownerName, s: 0 }]);
+  fifoRows.push([{ v: 'Regra de Banco', s: 11 }, { v: `${getActiveRuleSummary(settings)} (${settings.stateUf || 'SP'})`, s: 0 }]);
+  fifoRows.push([{ v: 'Jornada Diária', s: 11 }, { v: `${formatHHMM(settings.dailyMinutes || 480)}/dia`, s: 0 }]);
+  fifoRows.push([{ v: 'Saldo Atual Disponível', s: 11 }, { v: `${formatHHMM(globalSummary.realizedMinutes, true)} (${formatDaysFromMinutes(globalSummary.realizedMinutes, settings.dailyMinutes)})`, s: 4 }]);
+  if (summaryDiffers) {
+    fifoRows.push([{ v: 'Saldo Projetado', s: 11 }, { v: `${formatHHMM(globalSummary.projectedMinutes, true)} (${formatDaysFromMinutes(globalSummary.projectedMinutes, settings.dailyMinutes)})`, s: 0 }]);
+  }
+  fifoRows.push([{ v: 'Total de Créditos (Recorte)', s: 11 }, { v: formatHHMM(recorteSummary.creditsMinutes, true), s: 4 }]);
+  fifoRows.push([{ v: 'Folgas Utilizadas (Recorte)', s: 11 }, { v: formatHHMM(-recorteSummary.debitsMinutes, false), s: 5 }]);
+
+  const sheet1Xml = buildXlsxWorksheetXml(extractHeaders, extractRows, [13, 28, 20, 12, 18, 10, 16, 18, 17, 14, 24]);
+  const sheet2Xml = buildXlsxWorksheetXml(fifoHeaders, fifoRows, [14, 32, 16, 14, 14, 15, 22]);
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="7">
+    <font><sz val="10"/><color rgb="FF0F172A"/><name val="Calibri"/></font>
+    <font><b/><sz val="10"/><color rgb="FF0F172A"/><name val="Calibri"/></font>
+    <font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><b/><sz val="10"/><color rgb="FF047857"/><name val="Calibri"/></font>
+    <font><b/><sz val="10"/><color rgb="FFBE123C"/><name val="Calibri"/></font>
+    <font><sz val="10"/><color rgb="FF475569"/><name val="Calibri"/></font>
+    <font><b/><sz val="10"/><color rgb="FF065F46"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="5">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF312E81"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEEF2FF"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF0FDF4"/></patternFill></fill>
+  </fills>
+  <borders count="3">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFE2E8F0"/></left>
+      <right style="thin"><color rgb="FFE2E8F0"/></right>
+      <top style="thin"><color rgb="FFE2E8F0"/></top>
+      <bottom style="thin"><color rgb="FFE2E8F0"/></bottom>
+    </border>
+    <border>
+      <left style="thin"><color rgb="FFCBD5E1"/></left>
+      <right style="thin"><color rgb="FFCBD5E1"/></right>
+      <top style="thin"><color rgb="FF94A3B8"/></top>
+      <bottom style="thin"><color rgb="FF94A3B8"/></bottom>
+    </border>
+  </borders>
+  <cellStyleXfs count="1">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+  </cellStyleXfs>
+  <cellXfs count="13">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="2" fontId="1" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+  </cellXfs>
+</styleSheet>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Extrato" sheetId="1" r:id="rId1"/>
+    <sheet name="Horas a Vencer" sheetId="2" r:id="rId2"/>
+  </sheets>
+</workbook>`;
+
+  const workbookRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  return buildZipArchive([
+    { name: '[Content_Types].xml', content: contentTypesXml },
+    { name: '_rels/.rels', content: relsXml },
+    { name: 'xl/workbook.xml', content: workbookXml },
+    { name: 'xl/_rels/workbook.xml.rels', content: workbookRelsXml },
+    { name: 'xl/styles.xml', content: stylesXml },
+    { name: 'xl/worksheets/sheet1.xml', content: sheet1Xml },
+    { name: 'xl/worksheets/sheet2.xml', content: sheet2Xml }
+  ]);
 }
 
-export function exportExcelXML(rows, remainingMap, settings, options = {}) {
+export function exportExcelXLSX(rows, remainingMap, settings, options = {}) {
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new Error('Nenhum lançamento encontrado no recorte selecionado para exportar planilha Excel.');
   }
-  const xml = generateExcelSpreadsheetXml(rows, remainingMap, settings, options);
-  triggerDownload(xml, 'application/vnd.ms-excel;charset=utf-8;', `saldohoras-planilha-${getLocalDateISO()}.xls`);
+  const bytes = generateExcelXlsxBytes(rows, remainingMap, settings, options);
+  triggerDownload(
+    bytes,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    `saldohoras-extrato-${getLocalDateISO()}.xlsx`
+  );
 }
+
+export const exportExcelXML = exportExcelXLSX;
 
 /**
  * Monta visão limpa para impressão nativa / fallback offline de PDF (@media print).
@@ -618,114 +1104,148 @@ export function renderPrintReportSheet(containerEl, rows, settings, options = {}
   const ownerName = settings.userName || options.userEmail || 'Colaborador';
   const todayIso = getLocalDateISO();
   const analytics = computeAnalyticsSummary(globalRows, remainingMap, settings.dailyMinutes, todayIso);
+  const isFilteredRecorte = Boolean(options.globalChrono && globalRows.length !== rows.length);
+  const hasProjectedDiff = globalSummary.realizedMinutes !== globalSummary.projectedMinutes;
+  const hasAnyPlanned = rows.some((i) => i.status === 'planned');
+  const lastRunningMinutes = rows[rows.length - 1]?.runningMinutes ?? recorteSummary.projectedMinutes;
+  const holidayMult = Number(settings.holidayMultiplier) || 1.4;
+  const overtimeMult = Number(settings.overtimeMultiplier) || 1.5;
 
   const tableRowsHtml = rows.map((i) => {
     const isCredit = i.type === 'credit';
-    const rem = remainingMap.get(i.id) ?? i.minutes;
-    const fifoText = isCredit && i.expiry ? getExpiryBadge(i.expiry, rem, todayIso, i.minutes).label : '—';
+    const cleanTitle = formatCleanEntryTitle(i);
+    const cleanNote = getCleanEntryNotes(i);
     return `
       <tr>
-        <td>${escapeHtml(formatDateBR(i.date))}</td>
-        <td><strong>${escapeHtml(i.title || '')}</strong>${i.notes ? `<div style="font-size:10px;color:#64748b">${escapeHtml(i.notes)}</div>` : ''}</td>
-        <td>${escapeHtml(ENTRY_CATEGORIES[i.category]?.label || 'Manual')}</td>
-        <td>${i.status === 'realized' ? 'Realizado' : 'Previsto'}</td>
-        <td style="text-align:right;font-family:monospace">${escapeHtml(formatHHMM(i.workedMinutes ?? i.minutes, false))}</td>
-        <td style="text-align:center">${isCredit && Number(i.multiplier) !== 1 ? `${i.multiplier}x` : '1.0x'}</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700;color:${isCredit ? '#047857' : '#be123c'}">${escapeHtml(formatHHMM(i.deltaMinutes, true))}</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${escapeHtml(formatHHMM(i.runningMinutes, true))}</td>
-        <td>${escapeHtml(fifoText)}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;">${escapeHtml(formatDateBR(i.date))}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;"><strong>${escapeHtml(cleanTitle)}</strong>${cleanNote ? `<div style="font-size:10px;color:#64748b">Obs.: ${escapeHtml(cleanNote)}</div>` : ''}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;">${escapeHtml(getEntryTypeDisplayLabel(i, hasAnyPlanned))}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-family:monospace">${escapeHtml(formatHHMM(i.workedMinutes ?? i.minutes, false))}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;text-align:center">${escapeHtml(formatRuleFactorDisplay(i))}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-family:monospace;font-weight:700;color:${isCredit ? '#047857' : '#be123c'}">${escapeHtml(formatHHMM(i.deltaMinutes, true))}</td>
+        <td style="border:1px solid #cbd5e1;padding:5px;text-align:right;font-family:monospace;font-weight:700">${escapeHtml(formatHHMM(i.runningMinutes, true))}</td>
       </tr>
     `;
   }).join('');
 
+  const fifoInitialSum = analytics.openBuckets.reduce((acc, b) => acc + b.totalMinutes, 0);
+  const fifoUsedSum = analytics.openBuckets.reduce((acc, b) => acc + b.usedMinutes, 0);
   const fifoHtml = options.includeFifo !== false && analytics.openBuckets.length > 0
     ? `
-      <h2 style="font-size:13px;font-weight:700;margin:18px 0 6px;">Créditos em Aberto (Ordem FIFO)</h2>
+      <h2 style="font-size:13px;font-weight:700;margin:18px 0 2px;color:#0f172a;">Horas Disponíveis para Folga (Vencem Primeiro)</h2>
+      <p style="font-size:10.5px;color:#64748b;margin:0 0 6px;">As folgas tiradas abatem automaticamente os créditos que vencem primeiro.</p>
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead>
-          <tr style="background:#f1f5f9;">
-            <th style="border:1px solid #cbd5e1;padding:5px;text-align:left;">Origem</th>
+          <tr style="background:#f1f5f9;color:#0f172a;">
+            <th style="border:1px solid #cbd5e1;padding:5px;text-align:left;">Data Origem</th>
             <th style="border:1px solid #cbd5e1;padding:5px;text-align:left;">Evento</th>
-            <th style="border:1px solid #cbd5e1;padding:5px;text-align:right;">Total</th>
-            <th style="border:1px solid #cbd5e1;padding:5px;text-align:right;">Compensado</th>
-            <th style="border:1px solid #cbd5e1;padding:5px;text-align:right;">Restante</th>
-            <th style="border:1px solid #cbd5e1;padding:5px;text-align:left;">Prazo / Situação</th>
+            <th style="border:1px solid #cbd5e1;padding:5px;text-align:right;">Crédito Inicial</th>
+            <th style="border:1px solid #cbd5e1;padding:5px;text-align:right;">Já Usado</th>
+            <th style="border:1px solid #cbd5e1;padding:5px;text-align:right;">Disponível</th>
+            <th style="border:1px solid #cbd5e1;padding:5px;text-align:left;">Vencimento</th>
           </tr>
         </thead>
         <tbody>
           ${analytics.openBuckets.map((b) => `
             <tr>
               <td style="border:1px solid #cbd5e1;padding:4px 6px;">${escapeHtml(formatDateBR(b.date))}</td>
-              <td style="border:1px solid #cbd5e1;padding:4px 6px;">${escapeHtml(b.title)}</td>
+              <td style="border:1px solid #cbd5e1;padding:4px 6px;">${escapeHtml(formatCleanEntryTitle(b))}</td>
               <td style="border:1px solid #cbd5e1;padding:4px 6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(b.totalMinutes))}</td>
               <td style="border:1px solid #cbd5e1;padding:4px 6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(b.usedMinutes))}</td>
               <td style="border:1px solid #cbd5e1;padding:4px 6px;text-align:right;font-family:monospace;font-weight:700;">${escapeHtml(formatHHMM(b.remainingMinutes))}</td>
-              <td style="border:1px solid #cbd5e1;padding:4px 6px;">${escapeHtml(b.badge.label)}</td>
+              <td style="border:1px solid #cbd5e1;padding:4px 6px;">${escapeHtml(formatFifoExpiryClean(b))}</td>
             </tr>
           `).join('')}
         </tbody>
+        <tfoot>
+          <tr style="background:#f0fdf4;color:#065f46;font-weight:700;">
+            <td style="border:1px solid #cbd5e1;padding:5px 6px;">TOTAL DISPONÍVEL</td>
+            <td style="border:1px solid #cbd5e1;padding:5px 6px;">${analytics.openBuckets.length} créditos abertos</td>
+            <td style="border:1px solid #cbd5e1;padding:5px 6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(fifoInitialSum))}</td>
+            <td style="border:1px solid #cbd5e1;padding:5px 6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(fifoUsedSum))}</td>
+            <td style="border:1px solid #cbd5e1;padding:5px 6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(analytics.openRemainingMinutes))}</td>
+            <td style="border:1px solid #cbd5e1;padding:5px 6px;"></td>
+          </tr>
+        </tfoot>
       </table>
     `
     : '';
 
+  const exHoliday = formatHHMM(applyMultiplierToMinutes(480, holidayMult));
   const signaturesHtml = options.includeSignatures !== false
     ? `
-      <div style="display:flex;justify-content:space-between;gap:40px;margin-top:36px;">
+      <p style="font-size:10px;font-style:italic;color:#64748b;margin:16px 0 0;">Regra de conversão: 08:00 em feriado (${holidayMult}x) equivalem a +${escapeHtml(exHoliday)} no banco de horas; hora extra a ${overtimeMult}x.</p>
+      <div style="display:flex;justify-content:space-between;gap:40px;margin-top:30px;">
         <div style="flex:1;border-top:1px solid #64748b;padding-top:6px;text-align:center;font-size:11px;">${escapeHtml(ownerName)} (Colaborador)</div>
         <div style="flex:1;border-top:1px solid #64748b;padding-top:6px;text-align:center;font-size:11px;">Gestão / Recursos Humanos</div>
       </div>
     `
     : '';
 
+  const gridCols = hasProjectedDiff ? 4 : 3;
   containerEl.innerHTML = `
     <div style="font-family:Inter,Arial,sans-serif;color:#0f172a;padding:12px;">
-      <div style="border-bottom:2px solid #312e81;padding-bottom:10px;margin-bottom:12px;">
-        <h1 style="font-size:18px;font-weight:800;margin:0;">SaldoHoras — Extrato Oficial de Banco de Horas &amp; Folgas</h1>
+      <div style="border-top:4px solid #4f46e5;padding-top:10px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:12px;">
+        <h1 style="font-size:17px;font-weight:800;margin:0;">SaldoHoras — Extrato de Banco de Horas &amp; Folgas</h1>
         <p style="font-size:11px;color:#475569;margin:4px 0 0;">
           <strong>Colaborador:</strong> ${escapeHtml(ownerName)} &bull;
           <strong>Regra:</strong> ${escapeHtml(getActiveRuleSummary(settings))} (${escapeHtml(settings.stateUf || 'SP')}) &bull;
           <strong>Jornada:</strong> ${escapeHtml(formatHHMM(settings.dailyMinutes || 480))}/dia &bull;
           <strong>Escopo:</strong> ${escapeHtml(options.scopeLabel || 'Extrato completo')} &bull;
-          <strong>Emitido:</strong> ${escapeHtml(formatDateBR(todayIso))}
+          <strong>Emissão:</strong> ${escapeHtml(formatDateBR(todayIso))}
         </p>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;font-size:11px;">
-        <div style="border:1px solid #cbd5e1;padding:8px;border-radius:6px;">
-          <div style="color:#047857;font-weight:700;">Saldo Realizado</div>
-          <div style="font-size:13px;font-weight:800;font-family:monospace;">${escapeHtml(formatHHMM(globalSummary.realizedMinutes, true))}</div>
+      <div style="display:grid;grid-template-columns:repeat(${gridCols},1fr);gap:8px;margin-bottom:12px;font-size:11px;">
+        <div style="border:1px solid #bbf7d0;background:#f0fdf4;padding:8px;border-radius:6px;">
+          <div style="color:#047857;font-weight:700;font-size:10px;">${isFilteredRecorte ? 'SALDO ATUAL (CONTA)' : 'SALDO ATUAL DISPONÍVEL'}</div>
+          <div style="font-size:14px;font-weight:800;font-family:monospace;color:#065f46;">${escapeHtml(formatHHMM(globalSummary.realizedMinutes, true))}</div>
+          <div style="font-size:10px;color:#475569;">${escapeHtml(formatDaysFromMinutes(globalSummary.realizedMinutes, settings.dailyMinutes))} de folga</div>
         </div>
-        <div style="border:1px solid #cbd5e1;padding:8px;border-radius:6px;">
-          <div style="color:#4338ca;font-weight:700;">Saldo Projetado</div>
-          <div style="font-size:13px;font-weight:800;font-family:monospace;">${escapeHtml(formatHHMM(globalSummary.projectedMinutes, true))}</div>
+        ${hasProjectedDiff ? `
+        <div style="border:1px solid #c7d2fe;background:#eef2ff;padding:8px;border-radius:6px;">
+          <div style="color:#4338ca;font-weight:700;font-size:10px;">SALDO PROJETADO</div>
+          <div style="font-size:14px;font-weight:800;font-family:monospace;color:#312e81;">${escapeHtml(formatHHMM(globalSummary.projectedMinutes, true))}</div>
+          <div style="font-size:10px;color:#475569;">${escapeHtml(formatDaysFromMinutes(globalSummary.projectedMinutes, settings.dailyMinutes))} c/ previstos</div>
+        </div>` : ''}
+        <div style="border:1px solid #cbd5e1;background:#f8fafc;padding:8px;border-radius:6px;">
+          <div style="color:#334155;font-weight:700;font-size:10px;">TOTAL DE CRÉDITOS</div>
+          <div style="font-size:14px;font-weight:800;font-family:monospace;">${escapeHtml(formatHHMM(recorteSummary.creditsMinutes, true))}</div>
+          <div style="font-size:10px;color:#475569;">${recorteSummary.bonusMinutes > 0 ? `sendo +${escapeHtml(formatHHMM(recorteSummary.bonusMinutes))} de adicional` : `${recorteSummary.creditsCount} créditos`}</div>
         </div>
-        <div style="border:1px solid #cbd5e1;padding:8px;border-radius:6px;">
-          <div style="color:#0369a1;font-weight:700;">Créditos Recorte</div>
-          <div style="font-size:13px;font-weight:800;font-family:monospace;">${escapeHtml(formatHHMM(recorteSummary.creditsMinutes, true))}</div>
-        </div>
-        <div style="border:1px solid #cbd5e1;padding:8px;border-radius:6px;">
-          <div style="color:#be123c;font-weight:700;">Folgas Recorte</div>
-          <div style="font-size:13px;font-weight:800;font-family:monospace;">${escapeHtml(formatHHMM(-recorteSummary.debitsMinutes, false))}</div>
+        <div style="border:1px solid #fecdd3;background:#fff1f2;padding:8px;border-radius:6px;">
+          <div style="color:#be123c;font-weight:700;font-size:10px;">FOLGAS UTILIZADAS</div>
+          <div style="font-size:14px;font-weight:800;font-family:monospace;color:#9f1239;">${escapeHtml(formatHHMM(-recorteSummary.debitsMinutes, false))}</div>
+          <div style="font-size:10px;color:#475569;">${recorteSummary.debitsCount} ${recorteSummary.debitsCount === 1 ? 'registro' : 'registros'}</div>
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead>
-          <tr style="background:#312e81;color:#ffffff;">
+          <tr style="background:#f1f5f9;color:#0f172a;">
             <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Data</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Evento</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Categoria</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Status</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:right;">Trab.</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:center;">Fator</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:right;">Saldo</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:right;">Acum.</th>
-            <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Validade / FIFO</th>
+            <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Descrição</th>
+            <th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Tipo</th>
+            <th style="border:1px solid #cbd5e1;padding:6px;text-align:right;">Horas</th>
+            <th style="border:1px solid #cbd5e1;padding:6px;text-align:center;">Regra</th>
+            <th style="border:1px solid #cbd5e1;padding:6px;text-align:right;">Impacto</th>
+            <th style="border:1px solid #cbd5e1;padding:6px;text-align:right;">Saldo Acum.</th>
           </tr>
         </thead>
         <tbody>${tableRowsHtml}</tbody>
+        <tfoot>
+          <tr style="background:#eef2ff;color:#0f172a;font-weight:700;">
+            <td style="border:1px solid #cbd5e1;padding:6px;">TOTAL GERAL</td>
+            <td style="border:1px solid #cbd5e1;padding:6px;">${rows.length} ${rows.length === 1 ? 'lançamento' : 'lançamentos'}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px;"></td>
+            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(recorteSummary.workedMinutesTotal, false))}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">-</td>
+            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(recorteSummary.projectedMinutes, true))}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">${escapeHtml(formatHHMM(lastRunningMinutes, true))}</td>
+          </tr>
+        </tfoot>
       </table>
       ${fifoHtml}
       ${signaturesHtml}
-      ${options.integrityCode ? `<p style="font-size:10px;color:#64748b;margin-top:16px;">Código de verificação: ${escapeHtml(options.integrityCode)}</p>` : ''}
+      <p style="font-size:10px;color:#64748b;margin-top:16px;">Gerado pelo SaldoHoras &bull; Valores em horas:minutos (HH:MM)${options.integrityCode ? `  |  Cód. Verificação: ${escapeHtml(options.integrityCode)}` : ''}</p>
     </div>
   `;
 }
@@ -901,15 +1421,29 @@ export function buildCalendarEventsFromEntries(chronoEntries, remainingMap = new
   const dailyMins = Number(settings?.dailyMinutes) || 480;
 
   for (const item of chronoEntries || []) {
+    const cleanTitle = formatCleanEntryTitle(item) || 'Lançamento';
     if (item.status === 'planned' && isValidISODate(item.date)) {
-      const sign = item.type === 'credit' ? '+' : '-';
-      events.push({
-        uid: `planned-${item.id || item.date}`,
-        date: item.date,
-        summary: `SaldoHoras: ${item.title} (${sign}${formatHHMM(item.minutes)})`,
-        description: `${item.type === 'debit' ? 'Folga/saída prevista' : 'Crédito previsto'} • Equivalente a ${formatDaysFromMinutes(item.minutes, dailyMins)}. ${item.notes || ''}`.trim(),
-        alarmDaysBefore: 1
-      });
+      if (item.type === 'debit') {
+        const isGenericDebit = /^folga(\s+compensat[oó]ria|\s+solicitada|\s+agendada)?$/i.test(cleanTitle);
+        const titlePrefix = isGenericDebit
+          ? 'Folga agendada — Banco de Horas'
+          : `Folga agendada (${cleanTitle}) — Banco de Horas`;
+        events.push({
+          uid: `planned-${item.id || item.date}`,
+          date: item.date,
+          summary: `${titlePrefix} (${formatHHMM(-item.minutes)})`,
+          description: `Folga prevista no Banco de Horas • Equivalente a ${formatDaysFromMinutes(item.minutes, dailyMins)}. ${item.notes || ''}`.trim(),
+          alarmDaysBefore: 1
+        });
+      } else {
+        events.push({
+          uid: `planned-${item.id || item.date}`,
+          date: item.date,
+          summary: `${cleanTitle} — Banco de Horas (+${formatHHMM(item.minutes)})`,
+          description: `Crédito previsto no Banco de Horas • Equivalente a ${formatDaysFromMinutes(item.minutes, dailyMins)}. ${item.notes || ''}`.trim(),
+          alarmDaysBefore: 1
+        });
+      }
     }
     if (item.type === 'credit' && isValidISODate(item.expiry)) {
       const rem = remainingMap.get(item.id) ?? item.minutes;
@@ -917,7 +1451,7 @@ export function buildCalendarEventsFromEntries(chronoEntries, remainingMap = new
         events.push({
           uid: `expiry-${item.id || item.expiry}`,
           date: item.expiry,
-          summary: `Vencimento SaldoHoras: ${item.title} (${formatHHMM(rem)})`,
+          summary: `Vencimento de ${formatHHMM(rem)} no Banco de Horas (${cleanTitle})`,
           description: `Prazo limite FIFO para compensar ${formatHHMM(rem)} acumulados em ${formatDateBR(item.date)}.`,
           alarmDaysBefore: 15
         });

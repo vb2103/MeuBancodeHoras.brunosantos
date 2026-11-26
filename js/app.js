@@ -1377,7 +1377,7 @@ document.getElementById('exportExcelXmlBtn')?.addEventListener('click', async ()
       scopeLabel,
       globalChrono: chrono
     });
-    showToast('Planilha Excel (.xls) exportada!');
+    showToast('Planilha Excel (.xlsx) exportada!');
   } catch (err) {
     showToast(err.message || 'Erro ao gerar planilha Excel');
   } finally {
@@ -1412,10 +1412,10 @@ document.getElementById('exportIcsBtn')?.addEventListener('click', () => {
 
 document.getElementById('exportJsonMenuBtn').addEventListener('click', async () => {
   const { chrono } = computeChronologicalAndFIFO(entries);
-  const code = await computeIntegrityDigest(chrono, settings, 'Backup JSON Completo');
+  const code = await computeIntegrityDigest(chrono, settings, 'Backup Completo do Aplicativo');
   exportJSONBackup(settings, entries, code);
   closeExportMenu();
-  showToast('Backup JSON baixado!');
+  showToast('Backup do aplicativo baixado!');
 });
 
 document.getElementById('openExportModalBtn')?.addEventListener('click', () => {

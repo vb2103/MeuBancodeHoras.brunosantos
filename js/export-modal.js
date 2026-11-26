@@ -4,7 +4,7 @@ import {
   computeIntegrityDigest,
   downloadIcsEvents,
   exportCSV,
-  exportExcelXML,
+  exportExcelXLSX,
   exportJSONBackup,
   exportPDF,
   exportStructuredXML,
@@ -18,9 +18,30 @@ export function createExportModalManager(ctx) {
   const dateFromEl = document.getElementById('exportDateFrom');
   const dateToEl = document.getElementById('exportDateTo');
   const customRealizedOnlyEl = document.getElementById('exportCustomRealizedOnly');
+  const scopeGridEl = document.getElementById('exportScopeGrid');
+  const screenScopeLabelEl = document.getElementById('exportScopeScreenLabel');
+  const customScopeLabelEl = document.getElementById('exportScopeCustomLabel');
 
   function getActiveScope() {
     return document.querySelector('input[name="exportScope"]:checked')?.value || 'all';
+  }
+
+  function syncScopeOptionsVisibility(hasActiveFilters) {
+    if (screenScopeLabelEl) {
+      screenScopeLabelEl.classList.toggle('hidden', !hasActiveFilters);
+    }
+    if (scopeGridEl) {
+      scopeGridEl.classList.toggle('sm:grid-cols-4', Boolean(hasActiveFilters));
+      scopeGridEl.classList.toggle('sm:grid-cols-3', !hasActiveFilters);
+    }
+    if (customScopeLabelEl) {
+      customScopeLabelEl.classList.toggle('col-span-2', !hasActiveFilters);
+      customScopeLabelEl.classList.toggle('sm:col-span-1', !hasActiveFilters);
+    }
+    if (!hasActiveFilters && getActiveScope() === 'screen') {
+      const allRadio = document.querySelector('input[name="exportScope"][value="all"]');
+      if (allRadio) allRadio.checked = true;
+    }
   }
 
   function resolveScopedData() {
@@ -51,26 +72,40 @@ export function createExportModalManager(ctx) {
       scopeLabel = `Período ${rangeNote}${onlyRealized ? ' (só realizados)' : ''} (${rows.length} de ${chrono.length})`;
     }
 
-    return { chrono, remainingMap, rows, scopeLabel };
+    return { chrono, remainingMap, rows, scopeLabel, hasActiveFilters };
   }
 
   function refreshExportPreview() {
     const scope = getActiveScope();
     customBox?.classList.toggle('hidden', scope !== 'custom');
 
-    const { chrono, rows } = resolveScopedData();
+    const { chrono, rows, hasActiveFilters } = resolveScopedData();
+    syncScopeOptionsVisibility(hasActiveFilters);
+
     const recSum = computeExportSummary(rows);
     const globSum = computeExportSummary(chrono);
+    const balancesDiffer = recSum.projectedMinutes !== globSum.projectedMinutes;
 
     const countEl = document.getElementById('exportPreviewCount');
+    const balancesRowEl = document.getElementById('exportPreviewBalancesRow');
     const recSaldoEl = document.getElementById('exportPreviewRecorteSaldo');
     const globSaldoEl = document.getElementById('exportPreviewGlobalSaldo');
 
     if (countEl) {
-      countEl.textContent = rows.length
-        ? `${rows.length} de ${chrono.length} registros (${recSum.creditsCount} créditos • ${recSum.debitsCount} folgas)`
-        : '0 registros encontrados neste recorte';
+      if (!rows.length) {
+        countEl.textContent = '0 registros encontrados neste recorte';
+      } else {
+        const countText = rows.length === chrono.length
+          ? `${rows.length} ${rows.length === 1 ? 'registro' : 'registros'}`
+          : `${rows.length} de ${chrono.length} registros`;
+        const breakdown = `${recSum.creditsCount} ${recSum.creditsCount === 1 ? 'crédito' : 'créditos'} • ${recSum.debitsCount} ${recSum.debitsCount === 1 ? 'folga' : 'folgas'}`;
+        countEl.textContent = balancesDiffer
+          ? `${countText} (${breakdown})`
+          : `${countText} (${breakdown}) • Saldo: ${formatHHMM(recSum.projectedMinutes, true)}`;
+      }
     }
+
+    balancesRowEl?.classList.toggle('hidden', !balancesDiffer);
     if (recSaldoEl) recSaldoEl.textContent = formatHHMM(recSum.projectedMinutes, true);
     if (globSaldoEl) globSaldoEl.textContent = formatHHMM(globSum.projectedMinutes, true);
   }
@@ -78,6 +113,7 @@ export function createExportModalManager(ctx) {
   function openExportModal() {
     ctx.captureLastFocus();
     const { hasActiveFilters } = ctx.getExportContext();
+    syncScopeOptionsVisibility(hasActiveFilters);
     const preferredScope = hasActiveFilters ? 'screen' : 'all';
     const radio = document.querySelector(`input[name="exportScope"][value="${preferredScope}"]`);
     if (radio) radio.checked = true;
@@ -96,7 +132,6 @@ export function createExportModalManager(ctx) {
   ctx.registerExternalModal('exportModal', closeExportModal);
 
   document.getElementById('closeExportModalBtn')?.addEventListener('click', closeExportModal);
-  document.getElementById('cancelExportModalBtn')?.addEventListener('click', closeExportModal);
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeExportModal();
   });
@@ -138,10 +173,10 @@ export function createExportModalManager(ctx) {
     const opts = await buildExportOptions(data);
     try {
       exportPDF(data.rows, ctx.getSettings(), opts);
-      ctx.showToast('Relatório PDF oficial baixado!');
+      ctx.showToast('Relatório PDF baixado!');
     } catch (err) {
       if (err?.code === 'JSPDF_UNAVAILABLE') {
-        ctx.showToast('PDF offline indisponível — abrindo impressão nativa limpa...');
+        ctx.showToast('PDF offline indisponível — abrindo impressão...');
         triggerNativePrint(data.rows, opts);
       } else {
         ctx.showToast(err.message || 'Erro ao gerar PDF');
@@ -164,7 +199,7 @@ export function createExportModalManager(ctx) {
     const opts = await buildExportOptions(data);
     try {
       exportStructuredXML(data.rows, data.remainingMap, ctx.getSettings(), opts);
-      ctx.showToast('XML estruturado (.xml) baixado!');
+      ctx.showToast('Arquivo XML para RH baixado!');
     } catch (err) {
       ctx.showToast(err.message || 'Erro ao gerar XML');
     }
@@ -174,10 +209,10 @@ export function createExportModalManager(ctx) {
     const data = resolveScopedData();
     const opts = await buildExportOptions(data);
     try {
-      exportExcelXML(data.rows, data.remainingMap, ctx.getSettings(), opts);
-      ctx.showToast('Planilha Excel (.xls) baixada!');
+      exportExcelXLSX(data.rows, data.remainingMap, ctx.getSettings(), opts);
+      ctx.showToast('Planilha Excel (.xlsx) baixada!');
     } catch (err) {
-      ctx.showToast(err.message || 'Erro ao gerar Excel XML');
+      ctx.showToast(err.message || 'Erro ao gerar planilha Excel');
     }
   });
 
@@ -204,9 +239,9 @@ export function createExportModalManager(ctx) {
 
   document.getElementById('modalDownloadJsonBtn')?.addEventListener('click', async () => {
     const { chrono } = ctx.getExportContext();
-    const code = await computeIntegrityDigest(chrono, ctx.getSettings(), 'Backup JSON Completo');
+    const code = await computeIntegrityDigest(chrono, ctx.getSettings(), 'Backup Completo do Aplicativo');
     exportJSONBackup(ctx.getSettings(), ctx.getEntries(), code);
-    ctx.showToast('Backup JSON completo baixado!');
+    ctx.showToast('Backup salvo com sucesso!');
   });
 
   document.getElementById('exportModalImportJsonInput')?.addEventListener('change', (e) => {
