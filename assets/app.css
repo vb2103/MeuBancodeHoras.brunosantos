@@ -185,24 +185,36 @@ body {
     display: none !important;
   }
 
-  /* Busca & Filtros compactos e retráteis no mobile */
+  /* Busca & Filtros enxutos no mobile (sem card pesado, busca recolhível e chips livres) */
   .sh-filters-card {
-    padding: 0.75rem !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
   }
 
   .sh-filters-card > * + * {
-    margin-top: 0.5rem !important;
+    margin-top: 0 !important;
   }
 
   .sh-filter-row {
-    gap: 0.5rem !important;
+    gap: 0 !important;
+  }
+
+  .sh-search-row:not(.is-open) {
+    display: none !important;
+  }
+
+  .sh-search-row.is-open {
+    margin-bottom: 0.625rem !important;
   }
 
   .sh-filter-selects {
     display: none;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
-    padding-top: 0.25rem;
+    margin-bottom: 0.625rem;
   }
 
   .sh-filter-selects.is-open {
@@ -217,12 +229,13 @@ body {
   .sh-quick-pills-wrap {
     flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.5rem !important;
-    padding-top: 0.125rem !important;
+    gap: 0 !important;
+    padding-top: 0 !important;
   }
 
   .sh-quick-pills-scroll {
     flex: 1 1 0% !important;
+    width: 100% !important;
     min-width: 0 !important;
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
@@ -240,10 +253,12 @@ body {
     white-space: nowrap !important;
   }
 
-  .sh-filter-counter {
-    flex-shrink: 0 !important;
-    white-space: nowrap !important;
-    font-size: 0.6875rem !important;
+  .sh-icon-action-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   /* Área de toque confortável (>= 44px) nos botões de ação mobile */

@@ -14,7 +14,7 @@
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=16" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=17" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=16" />
+  <link rel="stylesheet" href="./assets/app.css?v=17" />
 
   <!-- Bibliotecas (Lucide, Chart.js, jsPDF + AutoTable, Supabase JS v2) -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -154,7 +154,7 @@
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h1 class="sh-brand-title text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">SaldoHoras</h1>
-            <span id="syncBadge" aria-label="Sincronização: Nuvem Ativa" title="Nuvem Ativa" class="sh-sync-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
+            <span id="syncBadge" aria-label="Sincronização: Nuvem Ativa" title="Nuvem Ativa" class="sh-sync-badge sh-mobile-hide inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
               <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               <span id="syncText" class="sh-mobile-hide">Nuvem Ativa</span>
             </span>
@@ -170,8 +170,8 @@
           <span class="hidden sm:inline">Feriados</span>
         </button>
 
-        <!-- Menu Exportar -->
-        <div class="relative" id="exportMenuWrapper">
+        <!-- Menu Exportar (Desktop — no Mobile centralizado na aba RH) -->
+        <div class="relative sh-mobile-hide" id="exportMenuWrapper">
           <button type="button" id="exportMenuBtn" aria-label="Opções de exportação" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-200 transition">
             <i data-lucide="download" class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0"></i>
             <span class="hidden md:inline">Exportar</span>
@@ -236,6 +236,10 @@
             <div class="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800">
               <p id="userMenuFullName" class="text-xs font-bold text-slate-900 dark:text-white truncate">Minha Conta</p>
               <p id="userMenuSubInfo" class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Sincronizado com Supabase</p>
+              <div id="userMenuSyncBadge" class="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
+                <span id="userMenuSyncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span id="userMenuSyncText">Nuvem Ativa</span>
+              </div>
             </div>
 
             <button type="button" id="openProfileBtn" role="menuitem" class="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition">
@@ -304,14 +308,10 @@
       </div>
     </div>
 
-    <!-- Faixa Contextual Regra/Jornada (exclusiva mobile) -->
-    <button type="button" id="mobileRuleStripBtn" class="sh-mobile-only-flex w-full items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 shadow-sm">
-      <span class="flex items-center gap-1.5 min-w-0">
-        <i data-lucide="briefcase" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
-        <span id="mobileRuleSummary" class="truncate font-medium">SINDPD-SP (SP) • Jornada 08:00/dia</span>
-      </span>
-      <span class="text-indigo-600 dark:text-indigo-400 font-semibold shrink-0">Alterar</span>
-    </button>
+    <!-- Aviso discreto exclusivo Mobile apenas se Offline ou Erro de Sync -->
+    <div id="mobileSyncAlertBanner" role="status" class="sh-mobile-only hidden px-3 py-2 rounded-xl border text-xs font-medium">
+      <span id="mobileSyncAlertText">Modo Offline</span>
+    </div>
 
     <!-- Banner de Alerta de Vencimento Real (FIFO) -->
     <div id="expiryAlertBanner" class="hidden bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -326,8 +326,38 @@
       </button>
     </div>
 
-    <!-- Cards de KPI -->
-    <section class="sh-kpi-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Hero Card Unificado Mobile (estilo app bancário — exclusivo < 768px) -->
+    <section id="mobileHeroCard" aria-label="Resumo do saldo" class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div>
+        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Seu saldo atual</span>
+        <div class="flex items-baseline gap-2.5 flex-wrap mt-0.5">
+          <span id="heroRealizedHours" class="text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white tracking-tight">+00:00</span>
+          <span id="heroRealizedDays" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">0,0 dias de folga</span>
+        </div>
+        <p id="heroProjectedRow" class="hidden mt-1.5 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+          Com lançamentos previstos: <strong id="heroProjectedHours" class="font-mono font-bold text-indigo-600 dark:text-indigo-400">+00:00</strong>
+        </p>
+      </div>
+
+      <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 text-xs tabular-nums">
+        <div>
+          <span class="text-slate-400 dark:text-slate-500">Entradas:</span>
+          <strong id="heroCreditsHours" class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-1">+00:00</strong>
+        </div>
+        <div class="text-right">
+          <span class="text-slate-400 dark:text-slate-500">Folgas:</span>
+          <strong id="heroDebitsHours" class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-1">-00:00</strong>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100/80 dark:border-slate-800/80 flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+        <span id="mobileRuleSummary" class="truncate">SINDPD-SP (SP) • Jornada 08:00/dia</span>
+        <button type="button" id="heroRuleEditBtn" class="text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 hover:underline">Alterar</button>
+      </div>
+    </section>
+
+    <!-- Cards de KPI (Desktop >= 768px preservado) -->
+    <section class="sh-kpi-grid sh-mobile-hide grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Saldo Atual (Realizado) -->
       <div class="sh-kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
         <div class="sh-kpi-head flex items-center justify-between mb-3">
@@ -407,26 +437,40 @@
 
     <!-- ==================== ABA 1: EXTRATO CRONOLÓGICO ==================== -->
     <section id="tabPanel-extrato" class="space-y-4">
+      <!-- Cabeçalho enxuto da lista Mobile (< 768px) -->
+      <div id="mobileListToolbar" class="sh-mobile-only-flex items-center justify-between gap-2">
+        <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 min-w-0">
+          <span>Lançamentos</span>
+          <span id="mobileListCount" class="text-slate-400 dark:text-slate-500 font-semibold tabular-nums">(0)</span>
+        </h2>
+
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" id="mobileSearchToggleBtn" aria-expanded="false" aria-controls="mobileSearchRow" aria-label="Buscar lançamentos" class="sh-icon-action-btn rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+
+          <button type="button" id="mobileFilterToggleBtn" aria-expanded="false" aria-controls="filterSelectsGroup" aria-label="Filtrar por ano" class="sh-icon-action-btn relative rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+            <span id="mobileFilterBadge" class="hidden absolute top-1.5 right-1.5 min-w-[14px] h-3.5 px-1 rounded-full bg-indigo-600 text-white text-[9px] font-bold leading-[14px] text-center">0</span>
+          </button>
+
+          <button type="button" id="mobileSortMirrorBtn" aria-label="Alternar ordem cronológica" class="sh-icon-action-btn rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+            <i data-lucide="arrow-up-down" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
       <div class="sh-filters-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
         <div class="sh-filter-row flex flex-col md:flex-row gap-3">
-          <div class="sh-search-row flex items-center gap-2 flex-1 min-w-0">
+          <div id="mobileSearchRow" class="sh-search-row flex items-center gap-2 flex-1 min-w-0">
             <div class="relative flex-1 min-w-0">
               <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-              <input type="text" id="searchInput" aria-label="Buscar lançamentos" placeholder="Buscar por evento, feriado ou observação... (atalho: /)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
+              <input type="text" id="searchInput" aria-label="Buscar lançamentos" placeholder="Buscar por evento, feriado ou observação... (atalho: /)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 md:bg-slate-50 md:dark:bg-slate-800/70 text-xs sm:text-sm focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
             </div>
-
-            <button type="button" id="mobileFilterToggleBtn" aria-expanded="false" aria-controls="filterSelectsGroup" aria-label="Abrir filtros avançados" class="sh-mobile-only-flex items-center justify-center gap-1 px-2.5 h-[42px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0 transition">
-              <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-500"></i>
-              <span id="mobileFilterBadge" class="hidden min-w-[16px] h-4 px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold leading-4 text-center">0</span>
-            </button>
-
-            <button type="button" id="mobileSortMirrorBtn" aria-label="Alternar ordem cronológica" class="sh-mobile-only-flex items-center justify-center w-[42px] h-[42px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-200 shrink-0 transition">
-              <i data-lucide="arrow-up-down" class="w-4 h-4 text-indigo-500"></i>
-            </button>
           </div>
 
           <div id="filterSelectsGroup" class="sh-filter-selects md:contents">
-            <select id="yearFilter" aria-label="Filtrar por ano" class="sh-filter-select px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="yearFilter" aria-label="Filtrar por ano" class="sh-filter-select px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 md:bg-slate-50 md:dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="all">Todos os anos</option>
             </select>
 
@@ -453,22 +497,22 @@
           <div class="sh-quick-pills-scroll flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span class="sh-mobile-hide text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">Filtros rápidos:</span>
             <button type="button" data-quick-filter="all" id="pill-all" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white transition">Todos</button>
-            <button type="button" data-quick-filter="credits" id="pill-credits" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Créditos (+)</button>
-            <button type="button" data-quick-filter="debits" id="pill-debits" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Folgas (-)</button>
+            <button type="button" data-quick-filter="credits" id="pill-credits" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Créditos</button>
+            <button type="button" data-quick-filter="debits" id="pill-debits" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Folgas</button>
             <button type="button" data-quick-filter="planned" id="pill-planned" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Previstos</button>
             <button type="button" data-quick-filter="holidays" id="pill-holidays" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Feriados</button>
-            <button type="button" data-quick-filter="expiring" id="pill-expiring" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Vencendo em breve</button>
+            <button type="button" data-quick-filter="expiring" id="pill-expiring" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Vencendo</button>
             <button type="button" data-quick-filter="thismonth" id="pill-thismonth" class="quick-pill px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition">Este Mês</button>
             <button type="button" id="clearFiltersBtn" class="hidden px-2.5 py-1 rounded-full text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
-              Limpar filtros
+              Limpar
             </button>
           </div>
-          <span id="filterCounter" class="sh-filter-counter text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 registros</span>
+          <span id="filterCounter" class="sh-filter-counter sh-mobile-hide text-xs text-slate-500 dark:text-slate-400 tabular-nums">0 registros</span>
         </div>
       </div>
 
-      <!-- Visão Mobile: Cards Empilhados -->
-      <div id="mobileCardsContainer" class="grid grid-cols-1 gap-3 md:hidden min-w-0"></div>
+      <!-- Visão Mobile: Cards Compactos (2 linhas, toque abre detalhes) -->
+      <div id="mobileCardsContainer" class="grid grid-cols-1 gap-2 md:hidden min-w-0"></div>
 
       <!-- Visão Desktop: Tabela Completa -->
       <div class="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
@@ -722,6 +766,22 @@
 
     <!-- ==================== ABA 3: COMUNICAÇÃO RH / GESTÃO ==================== -->
     <section id="tabPanel-comunicacao" class="hidden space-y-4">
+      <!-- Acesso rápido a Relatórios e Exportação no Mobile (centralizado na aba RH) -->
+      <div class="sh-mobile-only bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <button type="button" id="commOpenExportBtn" class="w-full flex items-center justify-between gap-3 text-left">
+          <span class="flex items-center gap-2.5 min-w-0">
+            <span class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <i data-lucide="file-down" class="w-4 h-4"></i>
+            </span>
+            <span class="min-w-0">
+              <strong class="block text-xs font-bold text-slate-900 dark:text-white truncate">Exportar Relatórios &amp; Backup</strong>
+              <span class="block text-[11px] text-slate-500 dark:text-slate-400 truncate">PDF, Excel (.xls), Planilha CSV, XML e Agenda</span>
+            </span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 shrink-0"></i>
+        </button>
+      </div>
+
       <!-- Contato do Gestor / RH (configurado direto no contexto de envio) -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:px-5 shadow-sm space-y-3">
         <div class="flex items-center justify-between gap-2">
@@ -1400,6 +1460,82 @@
         </button>
         <button type="button" id="closeProfileFooterBtn" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
           Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== BOTTOM SHEET: DETALHES DO LANÇAMENTO (MOBILE) ==================== -->
+  <div id="entryDetailModal" role="dialog" aria-modal="true" aria-labelledby="entryDetailTitle" class="sh-modal-backdrop sh-sheet-backdrop hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 modal-animate my-auto">
+      <div class="sh-sheet-header flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 id="entryDetailTitle" class="text-base font-bold text-slate-900 dark:text-white break-words">Detalhes</h2>
+            <span id="entryDetailStatusBadge" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">Realizado</span>
+          </div>
+          <p id="entryDetailSubtitle" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">—</p>
+        </div>
+        <button type="button" id="closeEntryDetailBtn" aria-label="Fechar detalhes do lançamento" class="sh-sheet-close-btn p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="sh-sheet-body space-y-4">
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3">
+          <div>
+            <span id="entryDetailTypeLabel" class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Impacto no banco</span>
+            <strong id="entryDetailDelta" class="text-2xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">+00:00</strong>
+          </div>
+          <div class="text-right">
+            <span class="text-[11px] text-slate-400 block">Saldo após registro</span>
+            <strong id="entryDetailRunning" class="text-sm font-bold font-mono tabular-nums text-slate-800 dark:text-slate-200">+00:00</strong>
+          </div>
+        </div>
+
+        <div class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+          <div class="py-2.5 flex items-center justify-between gap-3">
+            <span class="text-slate-500 dark:text-slate-400">Data</span>
+            <strong id="entryDetailDate" class="font-mono font-semibold text-slate-900 dark:text-white tabular-nums">—</strong>
+          </div>
+          <div class="py-2.5 flex items-center justify-between gap-3">
+            <span class="text-slate-500 dark:text-slate-400">Categoria</span>
+            <strong id="entryDetailCategory" class="font-semibold text-slate-900 dark:text-white">—</strong>
+          </div>
+          <div id="entryDetailCalcRow" class="py-2.5 flex items-center justify-between gap-3">
+            <span class="text-slate-500 dark:text-slate-400">Cálculo detalhado</span>
+            <strong id="entryDetailCalcText" class="font-mono font-semibold text-indigo-600 dark:text-indigo-400 tabular-nums text-right">—</strong>
+          </div>
+          <div id="entryDetailExpiryRow" class="hidden py-2.5 flex items-center justify-between gap-3">
+            <span class="text-slate-500 dark:text-slate-400">Validade / Prazo</span>
+            <strong id="entryDetailExpiryText" class="font-mono font-semibold text-slate-800 dark:text-slate-200 tabular-nums text-right">—</strong>
+          </div>
+          <div id="entryDetailNotesRow" class="hidden py-2.5 space-y-1">
+            <span class="text-slate-500 dark:text-slate-400 block">Observações</span>
+            <p id="entryDetailNotesText" class="text-slate-800 dark:text-slate-200 leading-relaxed break-words">—</p>
+          </div>
+        </div>
+
+        <div id="entryDetailPlannedActions" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <button type="button" id="entryDetailConfirmBtn" class="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            <span>Marcar como Realizado</span>
+          </button>
+          <button type="button" id="entryDetailIcsBtn" class="min-h-[44px] px-4 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+            <span>Salvar na Agenda</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sh-sheet-footer pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2.5">
+        <button type="button" id="entryDetailDeleteBtn" class="min-h-[44px] px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/70 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>Excluir</span>
+        </button>
+        <button type="button" id="entryDetailEditBtn" class="min-h-[44px] px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="pencil" class="w-4 h-4"></i>
+          <span>Editar</span>
         </button>
       </div>
     </div>

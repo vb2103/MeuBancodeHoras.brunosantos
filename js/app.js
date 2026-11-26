@@ -44,6 +44,9 @@ let analyticsRatioMode = 'composition'; // 'composition' | 'origin'
 let settings = createDefaultSettings();
 let entries = [];
 let toastTimer = null;
+let renderedChronoById = new Map();
+let renderedRemainingMap = new Map();
+let activeDetailEntryId = null;
 
 // ==================== TOAST & SYNC BADGE ====================
 function showToast(msg, options = {}) {
@@ -111,14 +114,35 @@ function setSyncStatus(state) {
   const badge = document.getElementById('syncBadge');
   const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
-  if (!badge || !text) return;
-
   const cfg = SYNC_STATUS_STYLES[state] || SYNC_STATUS_STYLES.ok;
-  text.textContent = cfg.text;
-  badge.title = cfg.text;
-  badge.setAttribute('aria-label', `Sincronização: ${cfg.text}`);
-  badge.className = `sh-sync-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
-  if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
+
+  if (badge && text) {
+    text.textContent = cfg.text;
+    badge.title = cfg.text;
+    badge.setAttribute('aria-label', `Sincronização: ${cfg.text}`);
+    badge.className = `sh-sync-badge sh-mobile-hide inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
+    if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
+  }
+
+  const menuBadge = document.getElementById('userMenuSyncBadge');
+  const menuDot = document.getElementById('userMenuSyncDot');
+  const menuText = document.getElementById('userMenuSyncText');
+  if (menuText) menuText.textContent = cfg.text;
+  if (menuBadge) {
+    menuBadge.className = `mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.badge}`;
+  }
+  if (menuDot) menuDot.className = `w-1.5 h-1.5 rounded-full ${cfg.dot}`;
+
+  const mobileAlert = document.getElementById('mobileSyncAlertBanner');
+  const mobileAlertText = document.getElementById('mobileSyncAlertText');
+  if (mobileAlert && mobileAlertText) {
+    const isAlertState = state === 'error' || state === 'offline';
+    mobileAlert.className = `sh-mobile-only px-3 py-2 rounded-xl border text-xs font-medium ${cfg.badge}${isAlertState ? '' : ' hidden'}`;
+    mobileAlert.style.display = isAlertState ? '' : 'none';
+    mobileAlertText.textContent = state === 'error'
+      ? 'Sem sincronização com a nuvem — tente novamente em instantes.'
+      : 'Modo offline — exibindo os dados salvos neste aparelho.';
+  }
 }
 
 // ==================== TEMA CLARO / ESCURO ====================
@@ -381,8 +405,29 @@ function buildActionButtonsHtml(item) {
   `;
 }
 
+function getMobileCompactCategoryLabel(item) {
+  const map = {
+    holiday: 'Feriado trabalhado',
+    overtime: 'Hora extra',
+    time_off: 'Folga',
+    adjustment: 'Ajuste de saldo'
+  };
+  if (map[item.category]) return map[item.category];
+  return item.type === 'credit' ? 'Crédito' : 'Folga';
+}
+
+function getMobileCompactTitle(item) {
+  const raw = String(item.title || '').trim();
+  if (item.category === 'holiday') {
+    const cleaned = raw.replace(/\s*\((?:plant[ãa]o\/)?feriado\)\s*$/i, '').trim();
+    if (cleaned) return cleaned;
+  }
+  return raw;
+}
+
 function syncMobileFilterIndicators() {
-  const fieldsToCheck = (typeof window !== 'undefined' && window.innerWidth < 768)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const fieldsToCheck = isMobile
     ? ['yearFilter']
     : ['yearFilter', 'typeFilter', 'statusFilter'];
   const activeCount = fieldsToCheck
@@ -399,13 +444,28 @@ function syncMobileFilterIndicators() {
     toggleBtn.classList.toggle('dark:border-indigo-700', activeCount > 0);
     toggleBtn.classList.toggle('dark:bg-indigo-950/40', activeCount > 0);
   }
+
+  const searchRow = document.getElementById('mobileSearchRow');
+  const searchBtn = document.getElementById('mobileSearchToggleBtn');
+  const hasQuery = Boolean(document.getElementById('searchInput')?.value.trim());
+  if (hasQuery && searchRow && isMobile) {
+    searchRow.classList.add('is-open');
+  }
+  const searchActive = Boolean(searchRow?.classList.contains('is-open')) || hasQuery;
+  if (searchBtn) {
+    searchBtn.setAttribute('aria-expanded', String(Boolean(searchRow?.classList.contains('is-open'))));
+    searchBtn.classList.toggle('border-indigo-400', searchActive);
+    searchBtn.classList.toggle('bg-indigo-50/80', searchActive);
+    searchBtn.classList.toggle('dark:border-indigo-700', searchActive);
+    searchBtn.classList.toggle('dark:bg-indigo-950/40', searchActive);
+  }
 }
 
 function syncSearchPlaceholder() {
   const input = document.getElementById('searchInput');
   if (!input) return;
   input.placeholder = window.innerWidth < 768
-    ? 'Buscar lançamento ou feriado...'
+    ? 'Buscar...'
     : 'Buscar por evento, feriado ou observação... (atalho: /)';
 }
 
@@ -415,6 +475,8 @@ function renderAll() {
   syncMobileFilterIndicators();
   const { chrono, remainingMap, urgentItems, summary, filtered, hasActiveFilters } = getFilteredEntriesState();
   const todayISO = getLocalDateISO();
+  renderedChronoById = new Map(chrono.map((item) => [item.id, item]));
+  renderedRemainingMap = remainingMap;
 
   const realizedEl = document.getElementById('kpiRealizedHours');
   realizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
@@ -443,6 +505,38 @@ function renderAll() {
   document.getElementById('kpiDebitsCount').textContent = `${summary.debitsCount} ${summary.debitsCount === 1 ? 'folga' : 'folgas'}`;
   document.getElementById('kpiJourneyLabel').textContent = `${formatHHMM(settings.dailyMinutes)}/dia`;
 
+  // Hero Card Unificado Mobile
+  const heroRealizedEl = document.getElementById('heroRealizedHours');
+  const heroDaysEl = document.getElementById('heroRealizedDays');
+  if (heroRealizedEl) {
+    heroRealizedEl.textContent = formatHHMM(summary.realizedMinutes, true);
+    if (summary.realizedMinutes > 0) {
+      heroRealizedEl.className = 'text-3xl font-extrabold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 tracking-tight';
+    } else if (summary.realizedMinutes < 0) {
+      heroRealizedEl.className = 'text-3xl font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400 tracking-tight';
+    } else {
+      heroRealizedEl.className = 'text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white tracking-tight';
+    }
+  }
+  if (heroDaysEl) {
+    const daysText = formatDaysFromMinutes(summary.realizedMinutes, settings.dailyMinutes);
+    heroDaysEl.textContent = summary.realizedMinutes >= 0 ? `${daysText} de folga` : daysText;
+    heroDaysEl.className = summary.realizedMinutes < 0
+      ? 'text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 tabular-nums'
+      : 'text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums';
+  }
+  const heroProjRow = document.getElementById('heroProjectedRow');
+  const heroProjHoursEl = document.getElementById('heroProjectedHours');
+  if (heroProjRow && heroProjHoursEl) {
+    const hasProjectedDiff = summary.projectedMinutes !== summary.realizedMinutes;
+    heroProjRow.classList.toggle('hidden', !hasProjectedDiff);
+    heroProjHoursEl.textContent = formatHHMM(summary.projectedMinutes, true);
+  }
+  const heroCreditsEl = document.getElementById('heroCreditsHours');
+  const heroDebitsEl = document.getElementById('heroDebitsHours');
+  if (heroCreditsEl) heroCreditsEl.textContent = formatHHMM(summary.creditsMinutes, true);
+  if (heroDebitsEl) heroDebitsEl.textContent = formatHHMM(-summary.debitsMinutes, false);
+
   const alertBanner = document.getElementById('expiryAlertBanner');
   if (urgentItems.length > 0 && summary.projectedMinutes > 0) {
     alertBanner.classList.remove('hidden');
@@ -459,6 +553,12 @@ function renderAll() {
 
   document.getElementById('filterCounter').textContent =
     `${visibleRows.length} de ${chrono.length} ${chrono.length === 1 ? 'registro' : 'registros'}`;
+  const mobileCountEl = document.getElementById('mobileListCount');
+  if (mobileCountEl) {
+    mobileCountEl.textContent = hasActiveFilters
+      ? `(${visibleRows.length}/${chrono.length})`
+      : `(${visibleRows.length})`;
+  }
 
   const tbody = document.getElementById('entriesTableBody');
   const mobileContainer = document.getElementById('mobileCardsContainer');
@@ -525,52 +625,35 @@ function renderAll() {
     }).join('');
 
     mobileContainer.innerHTML = visibleRows.map((item) => {
+      const safeId = escapeHtml(item.id);
       const isCredit = item.type === 'credit';
       const isRealized = item.status === 'realized';
-      const remMins = remainingMap.get(item.id) ?? item.minutes;
-      const expInfo = isCredit ? getExpiryBadge(item.expiry, remMins, todayISO, item.minutes) : null;
-      const multTag = isCredit && item.multiplier && Number(item.multiplier) !== 1
-        ? ` <span class="text-[11px] font-normal text-indigo-500">(${item.multiplier}x)</span>`
-        : '';
-      const catBadge = buildCategoryBadgeHtml(item, '');
-      const workedSub = buildWorkedSubtextHtml(item);
-
-      const borderAccent = isCredit
-        ? 'border-l-4 border-l-emerald-500 dark:border-l-emerald-500'
-        : 'border-l-4 border-l-rose-500 dark:border-l-rose-500';
+      const borderAccent = !isRealized
+        ? 'border-l-4 border-l-amber-500 dark:border-l-amber-500'
+        : isCredit
+          ? 'border-l-4 border-l-emerald-500 dark:border-l-emerald-500'
+          : 'border-l-4 border-l-rose-500 dark:border-l-rose-500';
+      const displayTitle = getMobileCompactTitle(item);
+      const simpleCat = getMobileCompactCategoryLabel(item);
+      const plannedPill = isRealized
+        ? ''
+        : '<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 shrink-0">Previsto</span>';
 
       return `
-        <div class="bg-white dark:bg-slate-900 border-y border-r border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl p-3.5 shadow-sm space-y-2.5 min-w-0 overflow-hidden">
-          <div class="flex items-start justify-between gap-2.5 min-w-0">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400 tabular-nums">${formatDateBR(item.date)}</span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${isRealized ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
-                  ${isRealized ? 'Realizado' : 'Previsto'}
-                </span>
-                ${catBadge}
-              </div>
-              <h4 class="font-bold text-sm text-slate-900 dark:text-white mt-1 break-words">${escapeHtml(item.title)}</h4>
-              ${item.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">${escapeHtml(item.notes)}</p>` : ''}
-            </div>
-            <div class="text-right shrink-0">
-              <div class="font-mono text-sm font-extrabold tabular-nums whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
-                ${formatHHMM(item.deltaMinutes, true)}${multTag}
-              </div>
-              ${workedSub}
+        <button type="button" data-entry-id="${safeId}" class="mobile-entry-card w-full min-h-[64px] text-left bg-white dark:bg-slate-900 border-y border-r border-slate-200 dark:border-slate-800 ${borderAccent} rounded-2xl px-3.5 py-2.5 shadow-sm flex items-center justify-between gap-3 active:scale-[0.99] hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition min-w-0">
+          <div class="min-w-0 flex-1">
+            <div class="font-semibold text-sm text-slate-900 dark:text-white truncate">${escapeHtml(displayTitle)}</div>
+            <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5 min-w-0">
+              <span class="font-mono tabular-nums shrink-0">${formatDateBR(item.date)}</span>
+              <span aria-hidden="true" class="shrink-0">•</span>
+              <span class="truncate">${escapeHtml(simpleCat)}</span>
+              ${plannedPill}
             </div>
           </div>
-
-          <div class="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs gap-2 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap min-w-0">
-              <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">Saldo: <strong class="font-mono tabular-nums text-slate-800 dark:text-slate-200">${formatHHMM(item.runningMinutes, true)}</strong></span>
-              ${expInfo && item.expiry ? `<span class="px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums max-w-full ${expInfo.badgeClass}">Venc: ${expInfo.label}</span>` : ''}
-            </div>
-            <div class="sh-mobile-card-actions flex items-center gap-1 shrink-0 ml-auto">
-              ${buildActionButtonsHtml(item)}
-            </div>
+          <div class="font-mono text-sm font-extrabold tabular-nums whitespace-nowrap shrink-0 ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+            ${formatHHMM(item.deltaMinutes, true)}
           </div>
-        </div>
+        </button>
       `;
     }).join('');
   }
@@ -607,6 +690,11 @@ async function handleConfirmRealized(id, btn) {
     entries = snapshot;
     renderAll();
     showToast('Erro ao confirmar na nuvem — alteração revertida');
+  } finally {
+    if (btn) {
+      delete btn.dataset.busy;
+      btn.disabled = false;
+    }
   }
 }
 
@@ -684,8 +772,122 @@ function handleEntryActionClick(e) {
   }
 }
 
+function closeEntryDetailModal() {
+  const modal = document.getElementById('entryDetailModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  activeDetailEntryId = null;
+  modals.restoreLastFocus();
+}
+
+function openEntryDetailModal(item) {
+  const modal = document.getElementById('entryDetailModal');
+  if (!modal || !item) return;
+
+  modals.captureLastFocus();
+  activeDetailEntryId = item.id;
+
+  const isCredit = item.type === 'credit';
+  const isRealized = item.status === 'realized';
+  const todayISO = getLocalDateISO();
+  const deltaMins = item.deltaMinutes ?? (isCredit ? item.minutes : -item.minutes);
+  const fullCategory = ENTRY_CATEGORIES[item.category]?.label || ENTRY_CATEGORIES.manual.label;
+  const remMins = renderedRemainingMap.get(item.id) ?? item.minutes;
+
+  document.getElementById('entryDetailTitle').textContent = item.title || 'Detalhes do lançamento';
+  document.getElementById('entryDetailSubtitle').textContent = `${getMobileCompactCategoryLabel(item)} • ${formatDateBR(item.date)}`;
+
+  const statusBadge = document.getElementById('entryDetailStatusBadge');
+  statusBadge.textContent = isRealized ? 'Realizado' : 'Previsto';
+  statusBadge.className = isRealized
+    ? 'px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+    : 'px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300';
+
+  document.getElementById('entryDetailTypeLabel').textContent = isCredit ? 'Crédito no banco' : 'Folga / saída';
+  const deltaEl = document.getElementById('entryDetailDelta');
+  deltaEl.textContent = formatHHMM(deltaMins, true);
+  deltaEl.className = `text-2xl font-extrabold font-mono tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`;
+
+  document.getElementById('entryDetailRunning').textContent = formatHHMM(item.runningMinutes ?? 0, true);
+  document.getElementById('entryDetailDate').textContent = formatDateBR(item.date);
+  document.getElementById('entryDetailCategory').textContent = fullCategory;
+
+  const calcTextEl = document.getElementById('entryDetailCalcText');
+  if (isCredit) {
+    const worked = Number(item.workedMinutes) > 0 ? Number(item.workedMinutes) : Number(item.minutes);
+    const mult = Number(item.multiplier || 1);
+    calcTextEl.textContent = `Trabalhado ${formatHHMM(worked)} × ${mult}x`;
+  } else {
+    calcTextEl.textContent = `${formatHHMM(item.minutes)} (${formatDaysFromMinutes(item.minutes, settings.dailyMinutes)})`;
+  }
+
+  const expiryRow = document.getElementById('entryDetailExpiryRow');
+  const expiryText = document.getElementById('entryDetailExpiryText');
+  const showExpiry = isCredit && Boolean(item.expiry);
+  expiryRow.classList.toggle('hidden', !showExpiry);
+  expiryRow.classList.toggle('flex', showExpiry);
+  if (showExpiry) {
+    const expInfo = getExpiryBadge(item.expiry, remMins, todayISO, item.minutes);
+    expiryText.textContent = `${formatDateBR(item.expiry)} (${expInfo.label})`;
+  }
+
+  const notesRow = document.getElementById('entryDetailNotesRow');
+  const notesText = document.getElementById('entryDetailNotesText');
+  const hasNotes = Boolean(item.notes && String(item.notes).trim());
+  notesRow.classList.toggle('hidden', !hasNotes);
+  notesText.textContent = hasNotes ? item.notes : '';
+
+  const plannedBox = document.getElementById('entryDetailPlannedActions');
+  plannedBox.classList.toggle('hidden', isRealized);
+  plannedBox.classList.toggle('grid', !isRealized);
+
+  modal.classList.remove('hidden');
+  window.lucide?.createIcons();
+}
+
 document.getElementById('entriesTableBody').addEventListener('click', handleEntryActionClick);
-document.getElementById('mobileCardsContainer').addEventListener('click', handleEntryActionClick);
+document.getElementById('mobileCardsContainer').addEventListener('click', (e) => {
+  const cardBtn = e.target.closest('.mobile-entry-card');
+  if (!cardBtn) return;
+  const entryId = cardBtn.dataset.entryId;
+  const item = renderedChronoById.get(entryId) || entries.find((x) => x.id === entryId);
+  if (item) openEntryDetailModal(item);
+});
+
+document.getElementById('entryDetailModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'entryDetailModal') closeEntryDetailModal();
+});
+document.getElementById('closeEntryDetailBtn')?.addEventListener('click', closeEntryDetailModal);
+
+document.getElementById('entryDetailConfirmBtn')?.addEventListener('click', async (e) => {
+  const id = activeDetailEntryId;
+  if (!id) return;
+  const btn = e.currentTarget;
+  closeEntryDetailModal();
+  await handleConfirmRealized(id, btn);
+});
+
+document.getElementById('entryDetailIcsBtn')?.addEventListener('click', () => {
+  const target = entries.find((item) => item.id === activeDetailEntryId);
+  if (!target) return;
+  const evs = buildCalendarEventsFromEntries([target], new Map(), settings);
+  downloadIcsEvents(evs, `saldohoras-${target.date}.ics`);
+  showToast('Evento .ICS baixado para sua agenda!');
+});
+
+document.getElementById('entryDetailEditBtn')?.addEventListener('click', () => {
+  const target = entries.find((item) => item.id === activeDetailEntryId);
+  if (!target) return;
+  closeEntryDetailModal();
+  modals.openEntryModal(target, true);
+});
+
+document.getElementById('entryDetailDeleteBtn')?.addEventListener('click', () => {
+  const id = activeDetailEntryId;
+  if (!id) return;
+  closeEntryDetailModal();
+  handleDeleteEntry(id);
+});
 
 // ==================== FILTROS, ABAS & ATALHOS ====================
 function setQuickPillVisual(filterName) {
@@ -782,6 +984,7 @@ function resetAllFilters() {
   document.getElementById('yearFilter').value = 'all';
   document.getElementById('typeFilter').value = 'all';
   document.getElementById('statusFilter').value = 'all';
+  document.getElementById('mobileSearchRow')?.classList.remove('is-open');
   applyQuickFilter('all');
 }
 
@@ -822,7 +1025,17 @@ function toggleSortOrder() {
 
 document.getElementById('sortOrderBtn').addEventListener('click', toggleSortOrder);
 document.getElementById('mobileSortMirrorBtn')?.addEventListener('click', toggleSortOrder);
-document.getElementById('mobileRuleStripBtn')?.addEventListener('click', () => modals.openSettingsModal());
+document.getElementById('heroRuleEditBtn')?.addEventListener('click', () => modals.openSettingsModal());
+document.getElementById('mobileSearchToggleBtn')?.addEventListener('click', () => {
+  const searchRow = document.getElementById('mobileSearchRow');
+  const searchInput = document.getElementById('searchInput');
+  if (!searchRow) return;
+  const isOpen = searchRow.classList.toggle('is-open');
+  syncMobileFilterIndicators();
+  if (isOpen && searchInput) {
+    setTimeout(() => searchInput.focus(), 40);
+  }
+});
 document.getElementById('mobileFilterToggleBtn')?.addEventListener('click', () => {
   const drawer = document.getElementById('filterSelectsGroup');
   const btn = document.getElementById('mobileFilterToggleBtn');
@@ -1223,6 +1436,9 @@ const exportModal = createExportModalManager({
   captureLastFocus: modals.captureLastFocus,
   restoreLastFocus: modals.restoreLastFocus
 });
+
+modals.registerExternalModal('entryDetailModal', closeEntryDetailModal);
+document.getElementById('commOpenExportBtn')?.addEventListener('click', () => exportModal.openExportModal());
 
 // Atalhos de teclado globais
 document.addEventListener('keydown', (e) => {
