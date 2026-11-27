@@ -885,7 +885,7 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   assert.match(landingHtml, /href="app\.html\?mode=login"/);
   assert.match(landingHtml, /href="app\.html\?mode=signup"/);
   assert.match(landingHtml, /href="app\.html\?mode=guest"/);
-  assert.match(landingHtml, /href="\.\/assets\/landing\.css\?v=28"/);
+  assert.match(landingHtml, /href="\.\/assets\/landing\.css\?v=29"/);
   assert.doesNotMatch(landingHtml, /cdn\.tailwindcss\.com/);
   assert.match(landingHtml, /id="demo-union"/);
   assert.match(landingHtml, /id="preview-device-mobile"/);
@@ -946,7 +946,7 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   // 5. sw.js inclui landing + landing.css + app.html + assets/og-cover.png e distingue rota app.html no fallback offline
   assert.match(swSource, /'\.\/app\.html'/);
   assert.match(swSource, /'\.\/index\.html'/);
-  assert.match(swSource, /'\.\/assets\/landing\.css\?v=28'/);
+  assert.match(swSource, /'\.\/assets\/landing\.css\?v=29'/);
   assert.match(swSource, /'\.\/assets\/og-cover\.png'/);
   assert.match(swSource, /isAppRoute/);
 });

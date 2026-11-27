@@ -437,16 +437,32 @@ function syncThemeUiLabels() {
   });
 }
 
+function syncThemeDocumentChrome(isDark) {
+  document.documentElement.style.backgroundColor = isDark ? '#090d16' : '#f8fafc';
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.setAttribute('content', isDark ? '#090d16' : '#4f46e5');
+  }
+}
+
 function initTheme() {
-  const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.documentElement.classList.toggle('dark', savedTheme === 'dark' || (!savedTheme && prefersDark));
+  let savedTheme = null;
+  try {
+    savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || localStorage.getItem('saldohoras_landing_theme');
+  } catch { /* ignore */ }
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+  document.documentElement.classList.toggle('dark', isDark);
+  syncThemeDocumentChrome(isDark);
   syncThemeUiLabels();
 }
 
 function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
-  localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+  try {
+    localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+  } catch { /* ignore */ }
+  syncThemeDocumentChrome(isDark);
   syncThemeUiLabels();
   if (!document.getElementById('tabPanel-graficos').classList.contains('hidden')) {
     renderAnalyticsTab();

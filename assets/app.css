@@ -722,6 +722,24 @@ html.dark input[type='time'] {
     padding-right: 0.625rem;
   }
 
+  .max-h-\[calc\(100vh-84px\)\] {
+    max-height: calc(100vh - 84px);
+    max-height: calc(100dvh - 84px);
+  }
+
+  .sh-user-sheet {
+    max-height: calc(100vh - 84px);
+    max-height: calc(100dvh - 84px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sh-user-sheet .sh-touch-h44 {
+    min-height: 34px !important;
+    padding-top: 0.4375rem;
+    padding-bottom: 0.4375rem;
+  }
+
   #desktopPrivacyToggleBtn[aria-pressed='true'] {
     border-color: rgba(99, 102, 241, 0.55);
     background-color: rgba(99, 102, 241, 0.1);
@@ -938,7 +956,9 @@ html.dark input[type='time'] {
 
   .sh-extrato-main .sh-filter-select {
     flex: 1 1 0% !important;
-    min-width: 120px !important;
+    min-width: 118px !important;
+    padding-left: 0.75rem !important;
+    padding-right: 1.5rem !important;
   }
 
   .sh-extrato-cards {
@@ -1299,16 +1319,17 @@ html.dark .t-error-msg {
 .sh-skeleton-overlay {
   z-index: 46;
   opacity: 1;
-  filter: blur(0);
-  transition:
-    opacity var(--reveal-dur) var(--reveal-ease),
-    filter var(--reveal-dur) var(--reveal-ease);
+  transition: opacity 220ms var(--reveal-ease);
 }
 
 .sh-skeleton-overlay.is-revealed {
   opacity: 0;
-  filter: blur(var(--reveal-blur));
   pointer-events: none;
+}
+
+.sh-skeleton-overlay.is-revealed .sh-skeleton-sync-pill {
+  opacity: 0;
+  transition: opacity 90ms ease;
 }
 
 .t-skel-pulse > * {

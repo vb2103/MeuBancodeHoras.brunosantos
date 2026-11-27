@@ -22,6 +22,87 @@ html, body {
       transition: transform 0.08s linear;
     }
 
+.scroll-mt-20 {
+      scroll-margin-top: 5rem;
+    }
+
+    .pt-6 {
+      padding-top: 1.5rem;
+    }
+
+    .pb-10 {
+      padding-bottom: 2.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .sm\:col-span-4 {
+        grid-column: span 4 / span 4;
+      }
+      .sm\:col-span-8 {
+        grid-column: span 8 / span 8;
+      }
+      .sm\:pb-14 {
+        padding-bottom: 3.5rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .lg\:pt-8 {
+        padding-top: 2rem;
+      }
+      .lg\:gap-8 {
+        gap: 2rem;
+      }
+    }
+
+    /* Primeira dobra enxuta em notebooks de menor altura (ex.: 1366x768) */
+    @media (min-width: 1024px) and (max-height: 820px) {
+      .sh-hero-section {
+        padding-top: 1.25rem !important;
+        padding-bottom: 1.5rem !important;
+      }
+      .sh-hero-grid {
+        gap: 1.5rem !important;
+      }
+      .sh-hero-copy {
+        gap: 0.75rem;
+      }
+      .sh-hero-copy > :not([hidden]) ~ :not([hidden]) {
+        --tw-space-y-reverse: 0;
+        margin-top: 0.875rem !important;
+      }
+      .sh-hero-title {
+        font-size: clamp(2rem, 3.05vw, 2.75rem) !important;
+        line-height: 1.08 !important;
+      }
+      .sh-hero-device-stage {
+        transform: scale(0.88);
+        transform-origin: top center;
+        margin-bottom: -48px;
+      }
+    }
+
+    /* Sessão ativa detectada sincronamente: oculta redundâncias e troca CTAs sem flash */
+    .sh-session-auth-label {
+      display: none;
+    }
+
+    html.sh-has-session .sh-session-default-label {
+      display: none;
+    }
+
+    html.sh-has-session .sh-session-auth-label {
+      display: inline;
+    }
+
+    html.sh-has-session .sh-session-hide {
+      display: none !important;
+    }
+
+    html.sh-has-session .sh-session-span-2 {
+      grid-column: span 2 / span 2 !important;
+    }
+
     .reveal {
       opacity: 0;
       transform: translateY(18px);

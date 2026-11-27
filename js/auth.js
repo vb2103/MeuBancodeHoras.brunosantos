@@ -64,7 +64,7 @@ export function setupAuth({
       return;
     }
     loadingOverlay.classList.add('is-revealed');
-    const ms = readCssMs('--reveal-dur', 400) + 20;
+    const ms = 240;
     setTimeout(() => {
       loadingOverlay.classList.add('hidden');
       loadingOverlay.classList.remove('is-revealed');

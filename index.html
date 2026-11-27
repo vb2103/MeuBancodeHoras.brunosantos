@@ -33,24 +33,40 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet" />
 
-  <!-- Aplica tema salvo antes do primeiro paint -->
+  <!-- Aplica tema e estado de sessão salvos antes do primeiro paint (zero flash) -->
   <script>
     (function () {
+      var doc = document.documentElement;
       try {
-        var saved = localStorage.getItem('saldohoras_landing_theme');
+        var saved = localStorage.getItem('saldohoras_theme') || localStorage.getItem('saldohoras_landing_theme');
         if (saved === 'light') {
-          document.documentElement.classList.remove('dark');
+          doc.classList.remove('dark');
         } else {
-          document.documentElement.classList.add('dark');
+          doc.classList.add('dark');
+          if (!saved) {
+            localStorage.setItem('saldohoras_theme', 'dark');
+          }
         }
       } catch (e) {
-        document.documentElement.classList.add('dark');
+        doc.classList.add('dark');
       }
+      try {
+        var rawSb = localStorage.getItem('sb-opctsxkugbljvghcgnvj-auth-token');
+        if (rawSb) {
+          var parsedSb = JSON.parse(rawSb);
+          var sessSb = parsedSb && (parsedSb.currentSession || parsedSb.session || parsedSb);
+          var hasUser = Boolean(sessSb && sessSb.user);
+          var hasToken = Boolean(sessSb && (sessSb.refresh_token || (sessSb.access_token && (!sessSb.expires_at || Number(sessSb.expires_at) * 1000 > Date.now()))));
+          if (hasUser && hasToken) {
+            doc.classList.add('sh-has-session');
+          }
+        }
+      } catch (e) {}
     })();
   </script>
 
   <!-- CSS Estático Compilado (Zero runtime JS / Offline-ready) -->
-  <link rel="stylesheet" href="./assets/landing.css?v=28" />
+  <link rel="stylesheet" href="./assets/landing.css?v=29" />
 
   <!-- Supabase JS v2 pinado com SRI (detecção silenciosa de sessão ativa) -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js" integrity="sha384-7i/4BYWz4Mn+lJfg2HWfEPfZQ7tmFKF3CTSKlXBpxWjNlLjcg+T6smpHG4gLmU1u" crossorigin="anonymous"></script>
@@ -77,11 +93,12 @@
         </span>
       </a>
 
-      <!-- Navegação Desktop (4 links objetivos) -->
-      <nav aria-label="Navegação principal" class="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600 dark:text-slate-300">
+      <!-- Navegação Desktop -->
+      <nav aria-label="Navegação principal" class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300">
         <a href="#simulador" data-section="simulador" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Simulador</a>
         <a href="#recursos" data-section="recursos" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Recursos</a>
         <a href="#comparativo" data-section="comparativo" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Comparativo</a>
+        <a href="#instalar" data-section="instalar" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Instalar</a>
         <a href="#faq" data-section="faq" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Dúvidas</a>
       </nav>
 
@@ -104,7 +121,7 @@
         <a
           id="nav-login-btn"
           href="app.html?mode=login"
-          class="hidden sm:inline-flex items-center justify-center px-3.5 h-10 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition shrink-0"
+          class="sh-session-hide hidden sm:inline-flex items-center justify-center px-3.5 h-10 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition shrink-0"
         >
           Entrar
         </a>
@@ -114,7 +131,10 @@
           href="app.html?mode=signup"
           class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-4 h-9 sm:h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-md shadow-indigo-600/25 transition shrink-0 whitespace-nowrap"
         >
-          <span id="nav-cta-text">Acessar App</span>
+          <span id="nav-cta-text">
+            <span class="sh-session-default-label">Acessar App</span>
+            <span class="sh-session-auth-label">Ir para o Painel</span>
+          </span>
           <svg aria-hidden="true" class="hidden sm:block w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
@@ -144,13 +164,17 @@
         <nav aria-label="Navegação mobile" class="px-4 py-3 flex flex-col gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
           <a href="#simulador" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Simulador de Feriados e Extras</a>
           <a href="#recursos" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Recursos</a>
-          <a href="#comparativo" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Comparativo &amp; App PWA</a>
+          <a href="#comparativo" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Comparativo</a>
+          <a href="#instalar" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Instalar PWA</a>
           <a href="#faq" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Dúvidas frequentes</a>
           <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2">
-            <a id="mobile-login-btn" href="app.html?mode=login" class="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center text-xs font-bold text-slate-700 dark:text-slate-200">Entrar</a>
-            <a id="mobile-signup-btn" href="app.html?mode=signup" class="py-2.5 px-3 rounded-xl bg-indigo-600 text-center text-xs font-bold text-white">Criar conta</a>
+            <a id="mobile-login-btn" href="app.html?mode=login" class="sh-session-hide py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center text-xs font-bold text-slate-700 dark:text-slate-200">Entrar</a>
+            <a id="mobile-signup-btn" href="app.html?mode=signup" class="sh-session-span-2 py-2.5 px-3 rounded-xl bg-indigo-600 text-center text-xs font-bold text-white">
+              <span class="sh-session-default-label">Criar conta</span>
+              <span class="sh-session-auth-label">Ir para o Painel</span>
+            </a>
           </div>
-          <a id="mobile-guest-btn" href="app.html?mode=guest" class="mt-1 py-2 text-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+          <a id="mobile-guest-btn" href="app.html?mode=guest" class="sh-session-hide mt-1 py-2 text-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
             Testar sem criar conta ›
           </a>
         </nav>
@@ -161,21 +185,21 @@
   <main id="topo">
 
     <!-- ==================== 1. HERO + PRÉVIA DUAL INTERATIVA ==================== -->
-    <section class="relative overflow-hidden pt-10 pb-14 sm:pt-14 sm:pb-20">
+    <section class="sh-hero-section relative overflow-hidden pt-6 pb-10 lg:pt-8 sm:pb-14">
       <div class="pointer-events-none absolute inset-0 hero-grid-bg" aria-hidden="true"></div>
       <div class="pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 w-[680px] h-[360px] rounded-full bg-indigo-600/15 dark:bg-indigo-500/15 blur-3xl" aria-hidden="true"></div>
 
       <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+        <div class="sh-hero-grid grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
 
-          <!-- Coluna Esquerda: Proposta direta (sem empilhar termos repetidos) -->
-          <div class="lg:col-span-6 space-y-5 text-center lg:text-left reveal">
+          <!-- Coluna Esquerda: Visível imediatamente sem reveal opacity:0 (evita flash em branco no F5) -->
+          <div class="sh-hero-copy lg:col-span-6 space-y-4 text-center lg:text-left">
             <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold">
               <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
               <span>Gratuito • Web &amp; App no Celular • Sem anúncios</span>
             </div>
 
-            <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
+            <h1 class="sh-hero-title text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
               Seu Banco de Horas e Folgas com
               <span class="bg-gradient-to-r from-indigo-600 via-violet-600 to-emerald-600 dark:from-indigo-400 dark:via-violet-400 dark:to-emerald-400 bg-clip-text text-transparent">
                 precisão de minuto
@@ -192,7 +216,10 @@
                 href="app.html?mode=signup"
                 class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 transition-all"
               >
-                <span id="hero-signup-text">Criar conta grátis</span>
+                <span id="hero-signup-text">
+                  <span class="sh-session-default-label">Criar conta grátis</span>
+                  <span class="sh-session-auth-label">Ir para o Painel</span>
+                </span>
                 <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
@@ -201,13 +228,13 @@
               <a
                 id="hero-login-btn"
                 href="app.html?mode=login"
-                class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white dark:bg-surface-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-700/90 transition"
+                class="sh-session-hide inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white dark:bg-surface-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-700/90 transition"
               >
                 <span>Já tenho conta</span>
               </a>
             </div>
 
-            <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 text-xs">
+            <div id="hero-guest-row" class="sh-session-hide flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 text-xs">
               <a id="hero-guest-link" href="app.html?mode=guest" class="inline-flex items-center gap-1.5 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
                 <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><circle cx="12" cy="12" r="9" /></svg>
                 <span>Testar agora sem criar conta</span>
@@ -217,9 +244,9 @@
             </div>
           </div>
 
-          <!-- Coluna Direita: Prévia Dual (Celular PWA + Computador Web 100% Clicáveis) -->
-          <div class="lg:col-span-6 flex flex-col items-center reveal" style="--reveal-delay: 120ms;">
-            <div class="mb-4 inline-flex items-center p-1 rounded-2xl bg-white/90 dark:bg-surface-900/90 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <!-- Coluna Direita: Prévia Dual (visível no primeiro paint, ajustada para notebooks <= 820px de altura) -->
+          <div class="sh-hero-device-stage lg:col-span-6 flex flex-col items-center">
+            <div class="mb-3 inline-flex items-center p-1 rounded-2xl bg-white/90 dark:bg-surface-900/90 border border-slate-200 dark:border-slate-800 shadow-sm">
               <button
                 type="button"
                 data-device-preview="mobile"
@@ -268,7 +295,7 @@
                     <span class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-400/40 text-[10px] font-bold text-indigo-200 flex items-center justify-center">VB</span>
                   </div>
 
-                  <div class="p-3.5 bg-surface-950 min-h-[348px]">
+                  <div class="p-3.5 bg-surface-950">
                     <!-- EXTRATO -->
                     <div id="mock-screen-extrato" class="mock-screen space-y-3 animate-tab-in">
                       <div class="rounded-2xl bg-surface-900 border border-slate-800 p-3.5 space-y-2.5">
@@ -334,51 +361,59 @@
                       </div>
                     </div>
 
-                    <!-- FERIADOS -->
+                    <!-- FERIADOS (Alinhado ao topo, sem espaço vazio) -->
                     <div id="mock-screen-feriados" class="mock-screen hidden space-y-2.5 animate-tab-in">
                       <div class="flex items-center justify-between">
                         <div>
                           <p class="text-xs font-extrabold text-white">Calendário Oficial</p>
-                          <p class="text-[10px] text-slate-400">Atualizado automaticamente • UF: SP</p>
+                          <p class="text-[10px] text-slate-400">Nacionais + Estaduais • UF: SP</p>
                         </div>
                         <span class="px-2 py-0.5 rounded-lg bg-indigo-600/20 text-indigo-300 font-mono text-[10px] font-bold">2026</span>
                       </div>
 
                       <div class="space-y-2">
-                        <div class="rounded-xl bg-surface-900 border border-slate-800 p-2.5 flex items-center justify-between">
-                          <div>
-                            <p class="text-xs font-bold text-white">Tiradentes</p>
-                            <p class="text-[10px] text-slate-400">21/04 • Terça-feira</p>
+                        <div class="rounded-xl bg-surface-900 border border-slate-800 px-3 py-2.5 flex items-center justify-between gap-2">
+                          <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate">Tiradentes</p>
+                            <p class="text-[10px] text-slate-400">21/04 • Terça • Ponte de folga</p>
                           </div>
-                          <span class="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-bold">Lançado</span>
+                          <span class="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-bold shrink-0">+11:12</span>
                         </div>
 
-                        <div class="rounded-xl bg-surface-900 border border-slate-800 p-2.5 flex items-center justify-between">
-                          <div>
-                            <p class="text-xs font-bold text-white">Revolução Const. (SP)</p>
-                            <p class="text-[10px] text-slate-400">09/07 • Quinta-feira</p>
+                        <div class="rounded-xl bg-surface-900 border border-slate-800 px-3 py-2.5 flex items-center justify-between gap-2">
+                          <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate">Revolução Const. (SP)</p>
+                            <p class="text-[10px] text-slate-400">09/07 • Quinta • Estadual</p>
                           </div>
-                          <span class="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-bold">Lançado</span>
+                          <span class="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-bold shrink-0">+11:12</span>
                         </div>
 
-                        <div class="rounded-xl bg-surface-900 border border-indigo-500/40 p-2.5 flex items-center justify-between">
-                          <div>
-                            <p class="text-xs font-bold text-white">Natal</p>
-                            <p class="text-[10px] text-slate-400">25/12 • Sexta-feira</p>
+                        <div class="rounded-xl bg-surface-900 border border-slate-800 px-3 py-2.5 flex items-center justify-between gap-2">
+                          <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate">Consciência Negra</p>
+                            <p class="text-[10px] text-slate-400">20/11 • Sexta • Lançado</p>
                           </div>
-                          <span class="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold">+ Adicionar</span>
+                          <span class="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-bold shrink-0">Lançado</span>
+                        </div>
+
+                        <div class="rounded-xl bg-surface-900 border border-indigo-500/40 px-3 py-2.5 flex items-center justify-between gap-2">
+                          <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate">Natal</p>
+                            <p class="text-[10px] text-slate-400">25/12 • Sexta • 1,4x</p>
+                          </div>
+                          <span class="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold shrink-0">+ Lançar</span>
                         </div>
                       </div>
 
                       <div class="rounded-xl bg-indigo-950/50 border border-indigo-500/30 p-2.5 text-[10px] text-indigo-200 leading-relaxed">
-                        Consulte pontes de folga sem alterar dados existentes — adicione só os feriados trabalhados.
+                        Sugestão de pontes e importação individual — seus lançamentos atuais nunca são apagados.
                       </div>
                     </div>
 
                     <!-- GRÁFICOS -->
-                    <div id="mock-screen-graficos" class="mock-screen hidden space-y-3 animate-tab-in">
+                    <div id="mock-screen-graficos" class="mock-screen hidden space-y-2.5 animate-tab-in">
                       <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-3 space-y-1.5">
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-100">Simulador Rápido</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-100">Simulador de Folga</p>
                         <div class="flex items-baseline justify-between">
                           <span class="text-xs font-bold text-white">Folgar 2 dias (-16:00)</span>
                           <span class="font-mono text-xs font-extrabold text-emerald-300">Resta +72:48</span>
@@ -416,16 +451,61 @@
                           </div>
                         </div>
                       </div>
+
+                      <div class="grid grid-cols-2 gap-2 text-[10px]">
+                        <div class="rounded-xl bg-surface-900 border border-slate-800 px-3 py-2 flex items-center justify-between">
+                          <span class="text-slate-400">Bônus 1,4x</span>
+                          <span class="font-mono font-bold text-emerald-400">+19:12</span>
+                        </div>
+                        <div class="rounded-xl bg-surface-900 border border-slate-800 px-3 py-2 flex items-center justify-between">
+                          <span class="text-slate-400">A vencer</span>
+                          <span class="font-mono font-bold text-amber-300">09:36</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- RH & EXPORTAÇÕES (Clicável no celular) -->
+                    <div id="mock-screen-rh" class="mock-screen hidden space-y-2.5 animate-tab-in">
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <p class="text-xs font-extrabold text-white">Comunicação com RH</p>
+                          <p class="text-[10px] text-slate-400">Texto pronto para aprovação</p>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 text-[9px] font-bold">1 clique</span>
+                      </div>
+
+                      <div class="rounded-2xl bg-surface-900 border border-slate-800 p-3 space-y-2">
+                        <div class="flex items-center justify-between text-[10px]">
+                          <span class="text-indigo-300 font-bold">WhatsApp / E-mail</span>
+                          <span class="text-slate-400 font-mono">SINDPD-SP</span>
+                        </div>
+                        <p class="text-[10px] text-slate-300 leading-relaxed font-mono bg-surface-950 rounded-xl p-2.5 border border-slate-800/80">
+                          Olá! Meu banco de horas atual está em +88:48 (11,1 dias). Gostaria de alinhar folga em 26/11 (-08:00).
+                        </p>
+                        <div class="grid grid-cols-2 gap-2">
+                          <span class="py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold text-center">Enviar E-mail</span>
+                          <span class="py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold text-center">WhatsApp</span>
+                        </div>
+                      </div>
+
+                      <div class="rounded-xl bg-surface-900 border border-slate-800 p-2.5 space-y-1.5">
+                        <p class="text-[10px] font-bold text-slate-300">Arquivos prontos para enviar</p>
+                        <div class="grid grid-cols-3 gap-1.5 text-[9px] font-bold text-center">
+                          <span class="py-1 rounded-lg bg-rose-500/15 text-rose-300">PDF</span>
+                          <span class="py-1 rounded-lg bg-emerald-500/15 text-emerald-300">Excel</span>
+                          <span class="py-1 rounded-lg bg-sky-500/15 text-sky-300">CSV / .ICS</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <!-- Barra Inferior Mobile -->
                   <div class="px-2 py-2 bg-surface-900 border-t border-slate-800 grid grid-cols-5 items-center text-[9px] font-bold">
-                    <button type="button" data-mock-tab="extrato" class="mock-tab-btn flex flex-col items-center gap-0.5 text-indigo-400 cursor-pointer">
+                    <button type="button" data-mock-tab="extrato" aria-pressed="true" class="mock-tab-btn flex flex-col items-center gap-0.5 text-indigo-400 cursor-pointer">
                       <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg>
                       <span>Extrato</span>
                     </button>
-                    <button type="button" data-mock-tab="feriados" class="mock-tab-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <button type="button" data-mock-tab="feriados" aria-pressed="false" class="mock-tab-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200 cursor-pointer">
                       <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18" /></svg>
                       <span>Feriados</span>
                     </button>
@@ -434,14 +514,14 @@
                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
                       </span>
                     </div>
-                    <button type="button" data-mock-tab="graficos" class="mock-tab-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <button type="button" data-mock-tab="graficos" aria-pressed="false" class="mock-tab-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200 cursor-pointer">
                       <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 20V10M12 20V4M6 20v-6" /></svg>
                       <span>Gráficos</span>
                     </button>
-                    <div class="flex flex-col items-center gap-0.5 text-slate-400">
+                    <button type="button" data-mock-tab="rh" aria-pressed="false" class="mock-tab-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200 cursor-pointer">
                       <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                       <span>RH</span>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -722,7 +802,7 @@
 
             <p id="preview-device-hint" class="mt-3 text-[11px] font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5 text-center">
               <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
-              <span>Clique em <strong>Extrato</strong>, <strong>Feriados</strong> ou <strong>Gráficos</strong> no celular acima</span>
+              <span>Toque em <strong>Extrato</strong>, <strong>Feriados</strong>, <strong>Gráficos</strong> ou <strong>RH</strong> no celular acima</span>
             </p>
           </div>
         </div>
@@ -730,7 +810,7 @@
     </section>
 
     <!-- ==================== 2. SIMULADOR INTERATIVO DE FERIADOS E HORAS EXTRAS ==================== -->
-    <section id="simulador" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-surface-900/40">
+    <section id="simulador" class="scroll-mt-20 py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-surface-900/40">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center max-w-2xl mx-auto mb-8 space-y-2 reveal">
           <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Simulador ao vivo</span>
@@ -749,14 +829,14 @@
                 </label>
                 <select
                   id="demo-union"
-                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer"
+                  class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer"
                 >
-                  <option value="sindpd" selected>SINDPD-SP — TI (Feriado 1,4x • Extra 1,5x)</option>
-                  <option value="industria">Indústria / Metalúrgicos (Feriado 2,0x • Extra 1,5x)</option>
-                  <option value="bancarios">Bancários / Financeiro (Feriado 2,0x • Extra 1,5x)</option>
-                  <option value="saude">Saúde / Clínicas (Feriado 2,0x • Extra 1,5x)</option>
-                  <option value="comercio">Comércio &amp; Varejo (Feriado 1,0x • Extra 1,5x)</option>
-                  <option value="servicos">Acordo CLT Padrão (Feriado 1,0x • Extra 1,0x)</option>
+                  <option value="sindpd" selected>SINDPD-SP — TI (1,4x • +40%)</option>
+                  <option value="industria">Indústria / Metal. (2,0x • 08:48)</option>
+                  <option value="bancarios">Bancários (2,0x • 06:00)</option>
+                  <option value="saude">Saúde / Clínicas (2,0x)</option>
+                  <option value="comercio">Comércio &amp; Varejo (1,0x)</option>
+                  <option value="servicos">Acordo CLT Padrão (1:1)</option>
                 </select>
               </div>
               <div class="sm:col-span-5">
@@ -820,7 +900,10 @@
                 href="app.html?mode=signup&amp;preset=sindpd&amp;cat=holiday&amp;h=8&amp;m=0"
                 class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs transition"
               >
-                <span id="demo-save-text">Salvar isso na minha conta</span>
+                <span id="demo-save-text">
+                  <span class="sh-session-default-label">Salvar isso na minha conta</span>
+                  <span class="sh-session-auth-label">Ir para o Painel</span>
+                </span>
                 <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
@@ -828,7 +911,7 @@
               <a
                 id="demo-guest-link"
                 href="app.html?mode=guest&amp;preset=sindpd&amp;cat=holiday&amp;h=8&amp;m=0"
-                class="w-full inline-flex items-center justify-center py-1.5 text-[11px] font-semibold text-indigo-100 hover:text-white underline decoration-white/40 transition"
+                class="sh-session-hide w-full inline-flex items-center justify-center py-1.5 text-[11px] font-semibold text-indigo-100 hover:text-white underline decoration-white/40 transition"
               >
                 Pré-lançar agora sem criar conta
               </a>
@@ -839,7 +922,7 @@
     </section>
 
     <!-- ==================== 3. RECURSOS ESSENCIAIS (SEM REPETIÇÃO) ==================== -->
-    <section id="recursos" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80">
+    <section id="recursos" class="scroll-mt-20 py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div class="text-center max-w-2xl mx-auto space-y-2 reveal">
           <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Feito para o dia a dia</span>
@@ -926,7 +1009,7 @@
     </section>
 
     <!-- ==================== 4. COMPARATIVO + INSTALAÇÃO PWA ==================== -->
-    <section id="comparativo" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-surface-900/30">
+    <section id="comparativo" class="scroll-mt-20 py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-surface-900/30">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div class="text-center max-w-2xl mx-auto space-y-2 reveal">
           <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Comparativo prático</span>
@@ -971,7 +1054,7 @@
         </div>
 
         <!-- Guia Compacto de Instalação PWA -->
-        <div id="instalar" class="reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-5">
+        <div id="instalar" class="scroll-mt-20 reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-5">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Sem loja de aplicativos</span>
@@ -1021,7 +1104,7 @@
     </section>
 
     <!-- ==================== 5. FAQ OBJETIVO + CTA FINAL ==================== -->
-    <section id="faq" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80">
+    <section id="faq" class="scroll-mt-20 py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80">
       <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div class="text-center space-y-2 reveal">
           <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Dúvidas frequentes</span>
@@ -1093,7 +1176,10 @@
               href="app.html?mode=signup"
               class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold text-sm shadow-lg transition"
             >
-              <span id="footer-signup-text">Criar conta grátis</span>
+              <span id="footer-signup-text">
+                <span class="sh-session-default-label">Criar conta grátis</span>
+                <span class="sh-session-auth-label">Ir para o Painel</span>
+              </span>
               <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -1101,7 +1187,7 @@
             <a
               id="footer-guest-btn"
               href="app.html?mode=guest"
-              class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-3 rounded-2xl border border-white/30 bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition"
+              class="sh-session-hide w-full sm:w-auto inline-flex items-center justify-center px-5 py-3 rounded-2xl border border-white/30 bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition"
             >
               Testar sem conta
             </a>
@@ -1170,7 +1256,7 @@
           var isDark = document.documentElement.classList.toggle('dark');
           syncThemeMeta(isDark);
           try {
-            localStorage.setItem('saldohoras_landing_theme', isDark ? 'dark' : 'light');
+            localStorage.setItem('saldohoras_theme', isDark ? 'dark' : 'light');
           } catch (e) {}
         });
       }
@@ -1340,7 +1426,7 @@
           if (desktopDevicePanel) desktopDevicePanel.classList.toggle('hidden', target !== 'desktop');
           if (deviceHint) {
             deviceHint.innerHTML = target === 'mobile'
-              ? '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span><span>Clique em <strong>Extrato</strong>, <strong>Feriados</strong> ou <strong>Gráficos</strong> no celular acima</span>'
+              ? '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span><span>Toque em <strong>Extrato</strong>, <strong>Feriados</strong>, <strong>Gráficos</strong> ou <strong>RH</strong> no celular acima</span>'
               : '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span><span>Clique nas <strong>abas</strong>, digite na <strong>busca</strong> ou teste o <strong>olho de privacidade</strong> acima</span>';
           }
         });
@@ -1429,7 +1515,7 @@
         webMockSearch.addEventListener('input', applyWebMockFilters);
       }
 
-      // Abas clicáveis no mockup mobile
+      // Abas clicáveis no mockup mobile (Extrato / Feriados / Gráficos / RH)
       var mockTabBtns = document.querySelectorAll('.mock-tab-btn');
       var mockScreens = document.querySelectorAll('.mock-screen');
       mockTabBtns.forEach(function (btn) {
@@ -1437,6 +1523,7 @@
           var tab = btn.dataset.mockTab;
           mockTabBtns.forEach(function (b) {
             var active = b.dataset.mockTab === tab;
+            b.setAttribute('aria-pressed', String(active));
             b.classList.toggle('text-indigo-400', active);
             b.classList.toggle('text-slate-400', !active);
           });
@@ -1542,21 +1629,26 @@
         .map(function (link) { return document.getElementById(link.dataset.section); })
         .filter(Boolean);
 
-      if ('IntersectionObserver' in window && trackedSections.length > 0) {
-        var spyObserver = new IntersectionObserver(
-          function (entries) {
-            entries.forEach(function (entry) {
-              if (entry.isIntersecting) {
-                var activeId = entry.target.id;
-                desktopNavLinks.forEach(function (link) {
-                  link.classList.toggle('is-active', link.dataset.section === activeId);
-                });
-              }
-            });
-          },
-          { rootMargin: '-30% 0px -55% 0px', threshold: 0.05 }
-        );
-        trackedSections.forEach(function (sec) { spyObserver.observe(sec); });
+      function updateScrollSpy(scrollTop) {
+        if (trackedSections.length === 0) return;
+        var doc = document.documentElement;
+        var triggerLine = Math.max(148, Math.round(window.innerHeight * 0.28));
+        var activeId = null;
+
+        if ((scrollTop + window.innerHeight) >= (doc.scrollHeight - 28)) {
+          activeId = trackedSections[trackedSections.length - 1].id;
+        } else {
+          for (var i = 0; i < trackedSections.length; i += 1) {
+            var rect = trackedSections[i].getBoundingClientRect();
+            if (rect.top <= triggerLine) {
+              activeId = trackedSections[i].id;
+            }
+          }
+        }
+
+        desktopNavLinks.forEach(function (link) {
+          link.classList.toggle('is-active', Boolean(activeId) && link.dataset.section === activeId);
+        });
       }
 
       var revealEls = document.querySelectorAll('.reveal');
@@ -1593,6 +1685,7 @@
           backToTopBtn.classList.toggle('pointer-events-none', !show);
           backToTopBtn.classList.toggle('translate-y-3', !show);
         }
+        updateScrollSpy(scrollTop);
       }
 
       window.addEventListener('scroll', onScroll, { passive: true });
@@ -1605,8 +1698,34 @@
       }
 
       // =========================================================================
-      // 6. DETECÇÃO LEVE DE SESSÃO ATIVA NO SUPABASE
+      // 6. DETECÇÃO SÍNCRONA + VERIFICAÇÃO LEVE DE SESSÃO ATIVA NO SUPABASE
       // =========================================================================
+      function applySessionUI(active) {
+        hasActiveSession = Boolean(active);
+        document.documentElement.classList.toggle('sh-has-session', hasActiveSession);
+
+        var navCta = document.getElementById('nav-cta-btn');
+        var mobileSignup = document.getElementById('mobile-signup-btn');
+        var heroSignup = document.getElementById('hero-signup-btn');
+        var footerSignup = document.getElementById('footer-signup-btn');
+
+        if (hasActiveSession) {
+          if (navCta) navCta.href = 'app.html';
+          if (mobileSignup) mobileSignup.href = 'app.html';
+          if (heroSignup) heroSignup.href = 'app.html';
+          if (footerSignup) footerSignup.href = 'app.html';
+          if (demoSaveLink) demoSaveLink.href = 'app.html';
+        } else {
+          if (navCta) navCta.href = 'app.html?mode=signup';
+          if (mobileSignup) mobileSignup.href = 'app.html?mode=signup';
+          if (heroSignup) heroSignup.href = 'app.html?mode=signup';
+          if (footerSignup) footerSignup.href = 'app.html?mode=signup';
+          updateDemoCalculator(false);
+        }
+      }
+
+      applySessionUI(document.documentElement.classList.contains('sh-has-session'));
+
       async function detectActiveSession() {
         try {
           if (typeof window.supabase === 'undefined') return;
@@ -1616,44 +1735,9 @@
           );
           var res = await sb.auth.getSession();
           var data = res && res.data;
-          if (data && data.session && data.session.user) {
-            hasActiveSession = true;
-            var navCta = document.getElementById('nav-cta-btn');
-            var navCtaText = document.getElementById('nav-cta-text');
-            var navLogin = document.getElementById('nav-login-btn');
-            var mobileLogin = document.getElementById('mobile-login-btn');
-            var mobileSignup = document.getElementById('mobile-signup-btn');
-            var mobileGuest = document.getElementById('mobile-guest-btn');
-            var heroSignup = document.getElementById('hero-signup-btn');
-            var heroSignupText = document.getElementById('hero-signup-text');
-            var heroLogin = document.getElementById('hero-login-btn');
-            var footerSignup = document.getElementById('footer-signup-btn');
-            var footerSignupText = document.getElementById('footer-signup-text');
-            var footerGuest = document.getElementById('footer-guest-btn');
-            var demoSaveText = document.getElementById('demo-save-text');
-
-            if (navCta) navCta.href = 'app.html';
-            if (navCtaText) navCtaText.textContent = 'Ir para o Painel';
-            if (navLogin) navLogin.classList.add('hidden');
-            if (mobileLogin) mobileLogin.classList.add('hidden');
-            if (mobileGuest) mobileGuest.classList.add('hidden');
-            if (mobileSignup) {
-              mobileSignup.href = 'app.html';
-              mobileSignup.textContent = 'Ir para o Painel';
-              mobileSignup.classList.add('col-span-2');
-            }
-            if (heroSignup) heroSignup.href = 'app.html';
-            if (heroSignupText) heroSignupText.textContent = 'Ir para o Painel';
-            if (heroLogin) heroLogin.classList.add('hidden');
-            if (footerSignup) footerSignup.href = 'app.html';
-            if (footerSignupText) footerSignupText.textContent = 'Ir para o Painel';
-            if (footerGuest) footerGuest.classList.add('hidden');
-            if (demoSaveLink) demoSaveLink.href = 'app.html';
-            if (demoSaveText) demoSaveText.textContent = 'Ir para o Painel';
-            if (demoGuestLink) demoGuestLink.classList.add('hidden');
-          }
+          applySessionUI(Boolean(data && data.session && data.session.user));
         } catch (err) {
-          // Modo offline/preview mantém os links padrão
+          // Modo offline/preview mantém detecção local
         }
       }
 

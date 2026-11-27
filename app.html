@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#4f46e5" />
+  <meta name="theme-color" content="#090d16" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,6 +12,39 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icons/icon.svg" />
   <link rel="apple-touch-icon" href="./assets/icons/icon-192.png" />
   <title>SaldoHoras — Banco de Horas &amp; Folgas</title>
+
+  <!-- Tema síncrono antes do primeiro paint + fundo crítico (zero flash branco na transição) -->
+  <style id="sh-critical-theme">
+    html.dark,
+    html.dark body,
+    html.dark #loadingOverlay,
+    html.dark .sh-skeleton-overlay {
+      background-color: #090d16 !important;
+      color-scheme: dark;
+    }
+
+    html:not(.dark),
+    html:not(.dark) body,
+    html:not(.dark) #loadingOverlay,
+    html:not(.dark) .sh-skeleton-overlay {
+      background-color: #f8fafc !important;
+      color-scheme: light;
+    }
+  </style>
+  <script>
+    (function () {
+      try {
+        var doc = document.documentElement;
+        var saved = localStorage.getItem('saldohoras_theme') || localStorage.getItem('saldohoras_landing_theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = saved ? saved === 'dark' : prefersDark;
+        doc.classList.toggle('dark', isDark);
+        doc.style.backgroundColor = isDark ? '#090d16' : '#f8fafc';
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', isDark ? '#090d16' : '#4f46e5');
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Open Graph / WhatsApp / LinkedIn / Twitter -->
   <meta name="description" content="Acompanhe seu saldo, feriados, vencimentos e gere extrato oficial para o RH. Use no celular e no computador." />
@@ -31,7 +64,7 @@
   <meta name="twitter:image" content="https://vb2103.github.io/MeuBancodeHoras.brunosantos/assets/og-cover.png" />
 
   <!-- Tailwind CSS Compilado (Produção & PWA Offline) -->
-  <link rel="stylesheet" href="./assets/tailwind.css?v=28" />
+  <link rel="stylesheet" href="./assets/tailwind.css?v=29" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,7 +72,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=28" />
+  <link rel="stylesheet" href="./assets/app.css?v=29" />
 
   <!-- Bibliotecas críticas pinadas com SRI (Chart.js e jsPDF carregam sob demanda) -->
   <script defer src="https://unpkg.com/lucide@1.81.0/dist/umd/lucide.min.js" integrity="sha384-I2eWHxO0tZqgUh5VERQyal+mmk2fGHjoqeYV3JjQb2aoe800N7hrumBW5rUGaN+b" crossorigin="anonymous"></script>
@@ -187,7 +220,7 @@
 
   <!-- ==================== SKELETON DE CARREGAMENTO INICIAL ==================== -->
   <div id="loadingOverlay" aria-busy="true" aria-label="Carregando SaldoHoras" class="sh-skeleton-overlay fixed inset-0 z-40 bg-slate-50 dark:bg-slate-950 overflow-hidden">
-    <div class="sh-skeleton-header border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/90 px-4 sm:px-6 lg:px-8">
+    <div class="sh-skeleton-header border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 sm:px-6 lg:px-8">
       <div class="sh-header-inner h-14 md:h-16 max-w-7xl w-full mx-auto flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 t-skel-pulse">
           <div class="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
@@ -196,11 +229,19 @@
             <div class="hidden sm:block h-3.5 w-64 rounded-lg bg-slate-200 dark:bg-slate-800"></div>
           </div>
         </div>
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Sincronizando SaldoHoras...</span>
+        <div class="flex items-center gap-2 t-skel-pulse shrink-0">
+          <div class="hidden md:block h-9 w-16 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+          <div class="hidden sm:block h-9 w-16 rounded-xl bg-indigo-50 dark:bg-indigo-950/60"></div>
+          <div class="h-9 w-20 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+        </div>
       </div>
     </div>
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4 t-skel-pulse">
-      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+      <div class="sh-skeleton-sync-pill inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <span class="t-skel-pulse inline-flex"><span class="w-2 h-2 rounded-full bg-indigo-500"></span></span>
+        <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Sincronizando SaldoHoras...</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 t-skel-pulse">
         <div class="min-h-[76px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-2.5">
           <div class="h-2.5 w-20 rounded bg-slate-200 dark:bg-slate-800"></div>
           <div class="h-7 w-28 rounded-lg bg-slate-200 dark:bg-slate-800"></div>
@@ -209,7 +250,7 @@
         <div class="hidden md:block min-h-[76px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"></div>
         <div class="hidden md:block min-h-[76px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"></div>
       </div>
-      <div class="space-y-2.5 pt-2">
+      <div class="space-y-2.5 pt-2 t-skel-pulse">
         <div class="h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"></div>
         <div class="h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"></div>
         <div class="h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"></div>
@@ -335,25 +376,25 @@
 
           <div id="userMenuBackdrop" aria-hidden="true" class="sh-user-backdrop hidden md:hidden"></div>
 
-          <div id="userDropdown" role="menu" aria-labelledby="userMenuBtn" data-origin="top-right" class="sh-export-dropdown sh-user-sheet t-dropdown hidden absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-40">
+          <div id="userDropdown" role="menu" aria-labelledby="userMenuBtn" data-origin="top-right" class="sh-export-dropdown sh-user-sheet t-dropdown hidden absolute right-0 mt-2 w-64 max-h-[calc(100vh-84px)] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1 z-40">
             <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto my-1"></div>
 
             <!-- Grupo: Conta & Sincronização -->
-            <div class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
-              <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Conta &amp; Sincronização</p>
+            <div class="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-0.5">Conta &amp; Sincronização</p>
               <p id="userMenuFullName" class="text-sm font-bold text-slate-900 dark:text-white truncate">Minha Conta</p>
               <p id="userMenuSubInfo" class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Backup automático na nuvem</p>
-              <div id="userMenuSyncBadge" class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
+              <div id="userMenuSyncBadge" class="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70">
                 <span id="userMenuSyncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 <span id="userMenuSyncText">Sincronizado agora</span>
               </div>
-              <button type="button" id="guestActivateCloudBtn" role="menuitem" class="hidden sh-touch-h44 w-full mt-2.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center justify-center gap-2">
+              <button type="button" id="guestActivateCloudBtn" role="menuitem" class="hidden sh-touch-h44 w-full mt-2 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center justify-center gap-2">
                 <i data-lucide="cloud" class="w-4 h-4 shrink-0"></i>
                 <span class="truncate">Criar conta / Entrar (ativar nuvem)</span>
               </button>
             </div>
 
-            <div id="userMenuProfileGroup" class="py-1">
+            <div id="userMenuProfileGroup" class="py-0.5">
               <button type="button" id="openProfileBtn" role="menuitem" class="sh-touch-h44 w-full px-4 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition">
                 <i data-lucide="shield-check" class="w-4 h-4 text-indigo-500 shrink-0"></i>
                 <span class="truncate">Meu Perfil &amp; Segurança</span>
@@ -362,8 +403,8 @@
             </div>
 
             <!-- Grupo: Configurações -->
-            <div class="border-t border-slate-100 dark:border-slate-800 pt-1.5 pb-1">
-              <p class="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Configurações</p>
+            <div class="border-t border-slate-100 dark:border-slate-800 py-1">
+              <p class="px-4 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Configurações</p>
               <button type="button" id="openSettingsBtn" role="menuitem" class="sh-touch-h44 w-full px-4 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition">
                 <i data-lucide="sliders-horizontal" class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0"></i>
                 <span class="truncate">Sindicato &amp; Jornada</span>
@@ -382,8 +423,8 @@
             </div>
 
             <!-- Grupo: Aplicativo -->
-            <div class="border-t border-slate-100 dark:border-slate-800 pt-1.5 pb-1">
-              <p class="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Aplicativo</p>
+            <div class="border-t border-slate-100 dark:border-slate-800 py-1">
+              <p class="px-4 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Aplicativo</p>
               <button type="button" id="themeToggle" role="menuitem" aria-label="Alternar tema claro ou escuro" class="sh-touch-h44 w-full px-4 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition">
                 <span id="menuThemeIconSwap" class="t-icon-swap shrink-0" data-state="a">
                   <span class="t-icon" data-icon="a"><i data-lucide="moon" class="w-4 h-4 text-indigo-500"></i></span>
@@ -416,7 +457,7 @@
             </div>
 
             <!-- Rodapé isolado: Sair / Voltar -->
-            <div class="mt-1 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+            <div class="pt-1 border-t border-slate-100 dark:border-slate-800">
               <button type="button" id="logoutBtn" role="menuitem" class="sh-touch-h44 w-full px-4 py-2 text-left text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-3 transition">
                 <i data-lucide="log-out" class="w-4 h-4 shrink-0"></i>
                 <span class="truncate">Sair da conta</span>
@@ -425,9 +466,9 @@
                 <i data-lucide="arrow-left" class="w-4 h-4 shrink-0"></i>
                 <span class="truncate">Voltar para tela de login</span>
               </button>
-              <div class="mt-1 pt-1 border-t border-slate-100 dark:border-slate-800">
-                <button type="button" id="checkUpdatesMenuBtn" role="menuitem" class="w-full min-h-[36px] px-4 py-2 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                  SaldoHoras v1.1.1 • Verificar atualizações
+              <div class="mt-0.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <button type="button" id="checkUpdatesMenuBtn" role="menuitem" class="w-full py-2 px-4 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                  SaldoHoras v1.1.2 • Verificar atualizações
                 </button>
               </div>
             </div>
@@ -652,24 +693,24 @@
           </div>
 
           <div id="filterSelectsGroup" class="sh-filter-selects md:contents">
-            <select id="yearFilter" aria-label="Filtrar por ano" class="sh-filter-select sh-touch-h44 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 md:bg-slate-50 md:dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="yearFilter" aria-label="Filtrar por ano" class="sh-filter-select sh-touch-h44 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 md:bg-slate-50 md:dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="all">Todos os anos</option>
             </select>
 
-            <select id="typeFilter" aria-label="Filtrar por tipo" class="sh-filter-select sh-mobile-hide sh-touch-h44 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="typeFilter" aria-label="Filtrar por tipo" class="sh-filter-select sh-mobile-hide sh-touch-h44 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="all">Todos os tipos</option>
               <option value="credit">Créditos (+ Feriados/Extras)</option>
               <option value="debit">Débitos (- Folgas/Saídas)</option>
             </select>
 
-            <select id="statusFilter" aria-label="Filtrar por status" class="sh-filter-select sh-mobile-hide sh-touch-h44 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="all">Todos os status</option>
+            <select id="statusFilter" aria-label="Filtrar por status" class="sh-filter-select sh-mobile-hide sh-touch-h44 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="all">Todos status</option>
               <option value="realized">Realizados</option>
               <option value="planned">Previstos</option>
             </select>
           </div>
 
-          <button type="button" id="sortOrderBtn" class="sh-mobile-hide sh-touch-h44 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 transition shrink-0">
+          <button type="button" id="sortOrderBtn" class="sh-mobile-hide sh-touch-h44 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 transition shrink-0">
             <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-indigo-500"></i>
             <span id="sortOrderLabel">Mais antigos</span>
           </button>
