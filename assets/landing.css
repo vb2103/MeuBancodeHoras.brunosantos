@@ -34,6 +34,24 @@ html, body {
       padding-bottom: 2.5rem;
     }
 
+    .bottom-4 {
+      bottom: 1rem;
+    }
+
+    .right-3 {
+      right: 0.75rem;
+    }
+
+    .bg-indigo-600\/80 {
+      background-color: rgb(79 70 229 / 0.8);
+    }
+
+    .backdrop-blur-sm {
+      --tw-backdrop-blur: blur(4px);
+      -webkit-backdrop-filter: var(--tw-backdrop-blur);
+      backdrop-filter: var(--tw-backdrop-blur);
+    }
+
     @media (min-width: 640px) {
       .sm\:col-span-4 {
         grid-column: span 4 / span 4;
@@ -43,6 +61,25 @@ html, body {
       }
       .sm\:pb-14 {
         padding-bottom: 3.5rem;
+      }
+      .sm\:bottom-5 {
+        bottom: 1.25rem;
+      }
+      .sm\:right-5 {
+        right: 1.25rem;
+      }
+      .sm\:w-11 {
+        width: 2.75rem;
+      }
+      .sm\:h-11 {
+        height: 2.75rem;
+      }
+      .sm\:rounded-2xl {
+        border-radius: 1rem;
+      }
+      .sm\:bg-indigo-600 {
+        --tw-bg-opacity: 1;
+        background-color: rgb(79 70 229 / var(--tw-bg-opacity, 1));
       }
     }
 

@@ -33,12 +33,13 @@ export function createExportModalManager(ctx) {
       screenScopeLabelEl.classList.toggle('hidden', !hasActiveFilters);
     }
     if (scopeGridEl) {
+      scopeGridEl.classList.toggle('grid-cols-2', Boolean(hasActiveFilters));
+      scopeGridEl.classList.toggle('grid-cols-3', !hasActiveFilters);
       scopeGridEl.classList.toggle('sm:grid-cols-4', Boolean(hasActiveFilters));
       scopeGridEl.classList.toggle('sm:grid-cols-3', !hasActiveFilters);
     }
     if (customScopeLabelEl) {
-      customScopeLabelEl.classList.toggle('col-span-2', !hasActiveFilters);
-      customScopeLabelEl.classList.toggle('sm:col-span-1', !hasActiveFilters);
+      customScopeLabelEl.classList.remove('col-span-2');
     }
     if (!hasActiveFilters && getActiveScope() === 'screen') {
       const allRadio = document.querySelector('input[name="exportScope"][value="all"]');

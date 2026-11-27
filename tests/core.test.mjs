@@ -60,6 +60,7 @@ import {
   computeChronologicalAndFIFO,
   computePunchBalance,
   formatDaysFromMinutes,
+  formatExpiringQuickPillLabel,
   formatHHMM,
   formatUrgentExpiryCardNote,
   getExpiryBadge,
@@ -68,6 +69,7 @@ import {
   isWriteOffEntry,
   maskPrivacyDays,
   maskPrivacyHours,
+  maskPrivacyTemplateText,
   parseDurationToMinutes
 } from '../js/time.js';
 
@@ -885,7 +887,7 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   assert.match(landingHtml, /href="app\.html\?mode=login"/);
   assert.match(landingHtml, /href="app\.html\?mode=signup"/);
   assert.match(landingHtml, /href="app\.html\?mode=guest"/);
-  assert.match(landingHtml, /href="\.\/assets\/landing\.css\?v=29"/);
+  assert.match(landingHtml, /href="\.\/assets\/landing\.css\?v=31"/);
   assert.doesNotMatch(landingHtml, /cdn\.tailwindcss\.com/);
   assert.match(landingHtml, /id="demo-union"/);
   assert.match(landingHtml, /id="preview-device-mobile"/);
@@ -946,17 +948,28 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   // 5. sw.js inclui landing + landing.css + app.html + assets/og-cover.png e distingue rota app.html no fallback offline
   assert.match(swSource, /'\.\/app\.html'/);
   assert.match(swSource, /'\.\/index\.html'/);
-  assert.match(swSource, /'\.\/assets\/landing\.css\?v=29'/);
-  assert.match(swSource, /'\.\/assets\/app\.css\?v=30'/);
+  assert.match(swSource, /'\.\/assets\/landing\.css\?v=31'/);
+  assert.match(swSource, /'\.\/assets\/app\.css\?v=31'/);
   assert.match(swSource, /'\.\/assets\/og-cover\.png'/);
   assert.match(swSource, /isAppRoute/);
 
   const appHtmlSource = fs.readFileSync(new URL('../app.html', import.meta.url), 'utf8');
-  assert.match(appHtmlSource, /href="\.\/assets\/app\.css\?v=30"/);
+  assert.match(appHtmlSource, /href="\.\/assets\/app\.css\?v=31"/);
   assert.match(appHtmlSource, /class="[^"]*sh-auth-card/);
   assert.match(appHtmlSource, /sm:grid-cols-12/);
   assert.match(appHtmlSource, /sm:col-span-8/);
   assert.match(appHtmlSource, /sm:col-span-4/);
+  assert.match(appHtmlSource, /id="exportScopeGrid" class="grid grid-cols-3/);
+  assert.match(appHtmlSource, /pb-\[calc\(1\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
+  assert.match(landingHtml, /id="btn-back-to-top"[\s\S]*?w-9 h-9[\s\S]*?bottom-4 right-3/);
   assert.match(authSource, /showLoadingOverlay\(\)/);
   assert.match(authSource, /forgotBtn\?\.classList\.toggle\('hidden',\s*mode !== 'login'\)/);
+
+  assert.equal(formatExpiringQuickPillLabel({ count: 2, hasExpired: true, hasUpcoming: false }), 'Vencidos (2)');
+  assert.equal(formatExpiringQuickPillLabel({ count: 3, hasExpired: false, hasUpcoming: true }), 'Vencendo (3)');
+  assert.equal(formatExpiringQuickPillLabel({ count: 4, hasExpired: true, hasUpcoming: true }), 'Prazos (4)');
+  assert.equal(
+    maskPrivacyTemplateText('Saldo: +11:12 (1,4 dias)\nFolga: -08:00\nData: 20/11/2026'),
+    'Saldo: ••••• (•• dias)\nFolga: •••••\nData: 20/11/2026'
+  );
 });

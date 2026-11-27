@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.1.3';
+export const APP_VERSION = '1.1.4';
 export const APP_PUBLIC_URL = 'https://vb2103.github.io/MeuBancodeHoras.brunosantos/';
 export const SUPABASE_URL = 'https://opctsxkugbljvghcgnvj.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_nClSbvyd31jCHu1qpz4t-w_tUJ0RzUh';

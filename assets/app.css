@@ -819,6 +819,13 @@ html.dark input[type='time'] {
 }
 
 @media (min-width: 640px) {
+  .sm\:hidden {
+    display: none;
+  }
+  .sm\:px-2\.5 {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
   .sm\:grid-cols-12 {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
@@ -828,6 +835,10 @@ html.dark input[type='time'] {
   .sm\:col-span-4 {
     grid-column: span 4 / span 4;
   }
+}
+
+.pb-\[calc\(1\.5rem\+env\(safe-area-inset-bottom\)\)\] {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important;
 }
 
 @media (min-width: 640px) and (max-height: 820px) {

@@ -557,3 +557,26 @@ export function maskPrivacyDays(daysStr, includeSuffix = false) {
   const prefix = hasNegative ? '-' : '';
   return includeSuffix ? `${prefix}•• dias de folga` : `${prefix}•• dias`;
 }
+
+/**
+ * Mascara valores numéricos em horas e dias dentro dos modelos da aba RH,
+ * mantendo datas (DD/MM/AAAA), títulos e estrutura legíveis.
+ */
+export function maskPrivacyTemplateText(text) {
+  return String(text ?? '')
+    .replace(/[+-]?\b\d{2,}:\d{2}\b/g, '•••••')
+    .replace(/-?\b\d+(?:,\d+)?\s+dias\b/g, '•• dias');
+}
+
+/**
+ * Define rótulo dinâmico da pílula de prazos conforme vencidos/próximos/misto.
+ */
+export function formatExpiringQuickPillLabel(alertSummary) {
+  const count = Number(alertSummary?.count) || 0;
+  if (count <= 0) return 'Vencendo';
+  const hasExpired = Boolean(alertSummary?.hasExpired);
+  const hasUpcoming = Boolean(alertSummary?.hasUpcoming);
+  if (hasExpired && hasUpcoming) return `Prazos (${count})`;
+  if (hasExpired) return `Vencidos (${count})`;
+  return `Vencendo (${count})`;
+}

@@ -67,6 +67,7 @@ import {
   buildExpiryAlertSummary,
   computeChronologicalAndFIFO,
   formatDaysFromMinutes,
+  formatExpiringQuickPillLabel,
   formatHHMM,
   formatUrgentExpiryCardNote,
   getExpiryBadge,
@@ -74,7 +75,8 @@ import {
   isInitialBalanceEntry,
   isWriteOffEntry,
   maskPrivacyDays,
-  maskPrivacyHours
+  maskPrivacyHours,
+  maskPrivacyTemplateText
 } from './time.js';
 import {
   clearAllInlineErrors,
@@ -1219,8 +1221,8 @@ function renderAll() {
   updateSimulator(summary.projectedMinutes);
   const { emailText, whatsappText } = buildCommunicationTemplates(chrono, settings);
   defaultTemplatesCache = { emailTemplate: emailText, whatsappTemplate: whatsappText };
-  document.getElementById('emailTemplate').value = emailText;
-  document.getElementById('whatsappTemplate').value = whatsappText;
+  document.getElementById('emailTemplate').value = getVisibleTemplateText('emailTemplate');
+  document.getElementById('whatsappTemplate').value = getVisibleTemplateText('whatsappTemplate');
   syncTemplateResetButton('emailTemplate');
   syncTemplateResetButton('whatsappTemplate');
 
@@ -1230,11 +1232,25 @@ function renderAll() {
   renderLucideIcons(document.getElementById('tabPanel-extrato'));
 }
 
+function getVisibleTemplateText(templateId) {
+  const raw = defaultTemplatesCache[templateId] ?? '';
+  return privacyMode ? maskPrivacyTemplateText(raw) : raw;
+}
+
+function getOutboundTemplateText(templateId) {
+  const el = document.getElementById(templateId);
+  if (!el) return '';
+  if (privacyMode && el.value === getVisibleTemplateText(templateId)) {
+    return defaultTemplatesCache[templateId] ?? el.value;
+  }
+  return el.value ?? '';
+}
+
 function syncTemplateResetButton(templateId) {
   const el = document.getElementById(templateId);
   const resetBtn = document.querySelector(`[data-for-template="${templateId}"]`);
   if (!el || !resetBtn) return;
-  const isModified = el.value !== (defaultTemplatesCache[templateId] ?? '');
+  const isModified = el.value !== getVisibleTemplateText(templateId);
   resetBtn.classList.toggle('hidden', !isModified);
   resetBtn.classList.toggle('inline-flex', isModified);
 }
@@ -1571,7 +1587,7 @@ function syncExpiringQuickPill(alertSummary) {
 
   const hasUrgent = Boolean(alertSummary && alertSummary.count > 0);
   if (hasUrgent) {
-    if (labelEl) labelEl.textContent = `Vencendo (${alertSummary.count})`;
+    if (labelEl) labelEl.textContent = formatExpiringQuickPillLabel(alertSummary);
     expPill.classList.remove('hidden');
     expPill.classList.add('inline-flex');
     if (allPill && expPill.previousElementSibling !== allPill) {
@@ -1936,14 +1952,14 @@ document.querySelectorAll('[data-action="regen-messages"]').forEach((btn) => {
     defaultTemplatesCache = { emailTemplate: emailText, whatsappTemplate: whatsappText };
     const targetId = btn.dataset.forTemplate;
     if (targetId === 'emailTemplate') {
-      document.getElementById('emailTemplate').value = emailText;
+      document.getElementById('emailTemplate').value = getVisibleTemplateText('emailTemplate');
       syncTemplateResetButton('emailTemplate');
     } else if (targetId === 'whatsappTemplate') {
-      document.getElementById('whatsappTemplate').value = whatsappText;
+      document.getElementById('whatsappTemplate').value = getVisibleTemplateText('whatsappTemplate');
       syncTemplateResetButton('whatsappTemplate');
     } else {
-      document.getElementById('emailTemplate').value = emailText;
-      document.getElementById('whatsappTemplate').value = whatsappText;
+      document.getElementById('emailTemplate').value = getVisibleTemplateText('emailTemplate');
+      document.getElementById('whatsappTemplate').value = getVisibleTemplateText('whatsappTemplate');
       syncTemplateResetButton('emailTemplate');
       syncTemplateResetButton('whatsappTemplate');
     }
@@ -1953,13 +1969,26 @@ document.querySelectorAll('[data-action="regen-messages"]').forEach((btn) => {
 
 document.querySelectorAll('[data-copy-target]').forEach((btn) => {
   btn.addEventListener('click', async () => {
-    const copied = await copyElementText(btn.dataset.copyTarget);
+    const targetId = btn.dataset.copyTarget;
+    let copied = false;
+    if ((targetId === 'emailTemplate' || targetId === 'whatsappTemplate') && privacyMode) {
+      const outbound = getOutboundTemplateText(targetId);
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(outbound);
+          copied = true;
+        }
+      } catch { /* fallback below */ }
+    }
+    if (!copied) {
+      copied = await copyElementText(targetId);
+    }
     showToast(copied ? (btn.dataset.copyToast || 'Copiado!') : 'Não foi possível copiar automaticamente');
   });
 });
 
 document.getElementById('openMailClientBtn').addEventListener('click', () => {
-  const body = document.getElementById('emailTemplate').value;
+  const body = getOutboundTemplateText('emailTemplate');
   const to = settings.managerEmail || '';
   const subject = encodeURIComponent(`Alinhamento Banco de Horas — ${settings.userName || getLocalDateISO().slice(0, 4)}`);
   window.open(`mailto:${to}?subject=${subject}&body=${encodeURIComponent(body)}`, '_blank');
@@ -2033,7 +2062,7 @@ document.getElementById('commManagerForm')?.addEventListener('submit', async (e)
 });
 
 document.getElementById('openWhatsAppBtn').addEventListener('click', () => {
-  const text = encodeURIComponent(document.getElementById('whatsappTemplate').value);
+  const text = encodeURIComponent(getOutboundTemplateText('whatsappTemplate'));
   const phone = settings.managerPhone || '';
   window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
 });

@@ -461,7 +461,7 @@ function renderRatioDonutChart(analytics, mode, isDark, textColor, privacyMode =
             <span class="w-2.5 h-2.5 rounded-full ${i.dot} shrink-0"></span>
             <span class="truncate">${escapeHtml(i.label)}</span>
           </span>
-          <span class="font-mono font-semibold text-slate-900 dark:text-white tabular-nums shrink-0">${fmtH(i.mins)} (${pct}%)</span>
+          <span class="font-mono font-semibold text-slate-900 dark:text-white tabular-nums shrink-0">${fmtH(i.mins)} (${privacyMode ? '••%' : `${pct}%`})</span>
         </div>
       `;
     }).join('');
