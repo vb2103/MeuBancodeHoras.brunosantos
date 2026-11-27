@@ -56,6 +56,11 @@ export function setupAuth({
   const authTabs = document.getElementById('authTabs');
   const loadingOverlay = document.getElementById('loadingOverlay');
 
+  function showLoadingOverlay() {
+    if (!loadingOverlay) return;
+    loadingOverlay.classList.remove('hidden', 'is-revealed');
+  }
+
   function revealLoadingOverlay() {
     if (!loadingOverlay || loadingOverlay.classList.contains('hidden')) return;
     if (prefersReducedMotion()) {
@@ -125,7 +130,7 @@ export function setupAuth({
     resendBtn.classList.add('hidden');
     emailWrap.classList.remove('hidden');
     emailInput.required = true;
-    forgotBtn.classList.remove('hidden');
+    forgotBtn?.classList.toggle('hidden', mode !== 'login');
 
     if (mode === 'login') {
       authTabs.classList.remove('hidden');
@@ -321,10 +326,13 @@ export function setupAuth({
           }
           onToast('Senha atualizada com sucesso!');
           switchAuthMode('login');
-          closeAnimatedModal(authScreen);
           if (data?.user) {
+            showLoadingOverlay();
+            closeAnimatedModal(authScreen);
             loadedUserId = data.user.id;
             await onSessionReady(data.user);
+          } else {
+            closeAnimatedModal(authScreen);
           }
         }
       }
@@ -459,9 +467,10 @@ export function setupAuth({
     }
 
     loadedUserId = session.user.id;
+    showLoadingOverlay();
     closeAnimatedModal(authScreen);
     await onSessionReady(session.user, { event });
   });
 
-  return { switchAuthMode, openAuthModal, performLogout, revealLoadingOverlay };
+  return { switchAuthMode, openAuthModal, performLogout, showLoadingOverlay, revealLoadingOverlay };
 }

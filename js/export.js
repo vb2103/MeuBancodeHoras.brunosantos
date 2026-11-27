@@ -1305,8 +1305,8 @@ export function buildCommunicationTemplates(chronoEntries, settings) {
     : `✅ *Saldo atual disponível:* ${formatHHMM(realizedMins, true)} (${formatDaysFromMinutes(realizedMins, settings.dailyMinutes)})`;
 
   const whatsappClosing = hasPlannedDebits
-    ? `Podemos confirmar essas datas? — _${senderName}_`
-    : `Segue meu saldo atualizado para conferência. — _${senderName}_`;
+    ? `Podemos confirmar essas datas?\n\n— _${senderName}_`
+    : `Segue meu saldo atualizado para conferência.\n\n— _${senderName}_`;
 
   const emailText =
     `Assunto: Alinhamento de Banco de Horas${hasPlannedDebits ? ' e Folgas Compensatórias' : ''} — ${senderName}

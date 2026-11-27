@@ -72,7 +72,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="./assets/app.css?v=29" />
+  <link rel="stylesheet" href="./assets/app.css?v=30" />
 
   <!-- Bibliotecas críticas pinadas com SRI (Chart.js e jsPDF carregam sob demanda) -->
   <script defer src="https://unpkg.com/lucide@1.81.0/dist/umd/lucide.min.js" integrity="sha384-I2eWHxO0tZqgUh5VERQyal+mmk2fGHjoqeYV3JjQb2aoe800N7hrumBW5rUGaN+b" crossorigin="anonymous"></script>
@@ -82,12 +82,12 @@
   <a href="#mainContent" class="sh-skip-link">Ir para o conteúdo principal</a>
 
   <!-- ==================== TELA DE AUTENTICAÇÃO (SUPABASE) ==================== -->
-  <div id="authScreen" role="dialog" aria-modal="true" aria-labelledby="authBrandTitle" class="sh-modal-backdrop t-modal hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-    <div class="sh-modal-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 my-auto">
-      <div class="flex items-center justify-between mb-4">
+  <div id="authScreen" role="dialog" aria-modal="true" aria-labelledby="authBrandTitle" class="sh-modal-backdrop t-modal hidden fixed inset-0 z-50 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="sh-modal-panel sh-auth-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 my-auto">
+      <div class="sh-auth-header flex items-center justify-between mb-3">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
-            <i data-lucide="clock-4" class="w-6 h-6"></i>
+          <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+            <i data-lucide="clock-4" class="w-5 h-5 sm:w-6 sm:h-6"></i>
           </div>
           <div class="min-w-0">
             <h1 id="authBrandTitle" class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">SaldoHoras</h1>
@@ -103,7 +103,7 @@
       </div>
 
       <!-- Selo multiplataforma (Celular + Computador) -->
-      <div class="mb-4 p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center gap-2.5 text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 leading-snug">
+      <div class="sh-auth-badge mb-3 p-2.5 sm:p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center gap-2.5 text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 leading-snug">
         <span class="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
           <i data-lucide="smartphone" class="w-4 h-4"></i>
         </span>
@@ -113,7 +113,7 @@
       </div>
 
       <!-- Abas Login / Cadastro -->
-      <div id="authTabs" role="tablist" aria-label="Modo de acesso" class="t-tabs grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-5 text-sm font-medium">
+      <div id="authTabs" role="tablist" aria-label="Modo de acesso" class="sh-auth-tabs t-tabs grid grid-cols-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-3.5 text-sm font-medium">
         <span class="t-tabs-pill" aria-hidden="true"></span>
         <button type="button" id="tabAuthLogin" role="tab" aria-selected="true" class="t-tab sh-touch-h44 py-2 rounded-lg text-slate-900 dark:text-white font-semibold">
           Entrar
@@ -124,13 +124,13 @@
       </div>
 
       <!-- Sugestão de Regra vinda do Simulador -->
-      <div id="authPresetNotice" class="hidden mb-4 p-3 rounded-xl text-xs leading-relaxed border border-emerald-200 dark:border-emerald-800/70 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200"></div>
+      <div id="authPresetNotice" class="hidden mb-3 p-3 rounded-xl text-xs leading-relaxed border border-emerald-200 dark:border-emerald-800/70 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200"></div>
 
       <!-- Alertas de Autenticação -->
-      <div id="authAlert" role="alert" class="hidden mb-4 p-3.5 rounded-xl text-xs leading-relaxed border"></div>
+      <div id="authAlert" role="alert" class="hidden mb-3 p-3 rounded-xl text-xs leading-relaxed border"></div>
 
       <!-- Formulário -->
-      <form id="authForm" class="space-y-4">
+      <form id="authForm" class="sh-auth-form space-y-3">
         <div id="authNameWrapper" class="t-input-wrap hidden">
           <label for="authName" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Seu Nome Completo</label>
           <input type="text" id="authName" autocomplete="name" placeholder="Ex.: Vítor Santos" class="t-input sh-touch-h44 w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
@@ -196,8 +196,8 @@
       </form>
 
       <!-- Modo Testar sem criar conta (Local-first) -->
-      <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2 text-center">
-        <button type="button" id="startGuestModeBtn" class="sh-touch-h44 w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 transition flex items-center justify-center gap-2">
+      <div class="sh-auth-guest mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-center">
+        <button type="button" id="startGuestModeBtn" class="sh-touch-h44 w-full py-2 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 transition flex items-center justify-center gap-2">
           <i data-lucide="play-circle" class="w-4 h-4 text-indigo-500 shrink-0"></i>
           <span>Testar sem criar conta</span>
         </button>
@@ -206,7 +206,7 @@
         </p>
       </div>
 
-      <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+      <div class="sh-auth-footer mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
         <a href="./" class="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0">
           ‹ Página inicial
         </a>
@@ -1103,7 +1103,7 @@
               </button>
             </div>
 
-            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            <textarea id="emailTemplate" aria-label="Modelo de e-mail para RH" rows="16" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
           <div class="sh-email-actions space-y-2 pt-2">
@@ -1147,7 +1147,7 @@
               </button>
             </div>
 
-            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="12" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            <textarea id="whatsappTemplate" aria-label="Modelo de mensagem para WhatsApp" rows="15" class="sh-comm-textarea resize-none w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
           </div>
 
           <div class="flex flex-wrap items-center gap-2.5 pt-2">
@@ -1204,9 +1204,9 @@
 
   <!-- ==================== MODAL: NOVO / EDITAR LANÇAMENTO (HH:MM) ==================== -->
   <div id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" class="sh-modal-backdrop sh-sheet-backdrop t-modal hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 my-auto">
+    <div class="sh-modal-panel sh-sheet-panel bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg md:max-h-[88dvh] p-6 my-auto flex flex-col overflow-hidden">
       <div aria-hidden="true" class="sh-mobile-only w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 shrink-0"></div>
-      <div class="sh-sheet-header flex items-center justify-between gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+      <div class="sh-sheet-header flex items-center justify-between gap-2 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <div class="flex items-center gap-1.5 min-w-0">
           <button type="button" id="backToEntryIntentBtn" aria-label="Voltar para escolha de tipo" class="hidden sh-touch-44 -ml-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 items-center justify-center transition shrink-0">
             <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -1218,11 +1218,11 @@
         </button>
       </div>
 
-      <form id="entryForm" class="sh-sheet-form mt-4 space-y-4">
+      <form id="entryForm" class="sh-sheet-form flex-1 min-h-0 flex flex-col overflow-hidden mt-4">
         <input type="hidden" id="entryId" />
         <input type="hidden" id="entryTypeValue" value="credit" />
 
-        <div class="sh-sheet-body space-y-4">
+        <div class="sh-sheet-body flex-1 min-h-0 overflow-y-auto space-y-4">
           <!-- Selo discreto de contexto (exibido quando vem direto de um feriado travado) -->
           <div id="entryContextBadge" class="hidden items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
             <i data-lucide="calendar-days" class="w-4 h-4 text-indigo-500 shrink-0"></i>
@@ -1439,7 +1439,7 @@
           </div>
         </div>
 
-        <div class="sh-sheet-footer pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div class="sh-sheet-footer shrink-0 pt-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
           <button type="submit" id="entrySubmitBtn" class="w-full min-h-[46px] px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition">
             Salvar +08:00
           </button>
@@ -1561,8 +1561,8 @@
               <button type="button" role="tab" aria-selected="false" id="customModeBtn" class="t-tab sh-touch-h44 px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 text-center">Manual</button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div class="sm:col-span-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+              <div class="sm:col-span-8">
                 <div id="unionSelectBox" class="hidden">
                   <label for="settingUnionCode" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sindicato / Categoria</label>
                   <select id="settingUnionCode" class="sh-touch-h44 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
@@ -1574,7 +1574,7 @@
                 </div>
               </div>
 
-              <div>
+              <div class="sm:col-span-4">
                 <label for="settingStateUf" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Estado (Feriados)</label>
                 <select id="settingStateUf" class="sh-touch-h44 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500"></select>
               </div>

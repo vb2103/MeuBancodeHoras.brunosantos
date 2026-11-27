@@ -469,7 +469,7 @@ test('buildCommunicationTemplates adapta saldo, bloco de folgas e fechamento con
 
   assert.match(tplNoPlanned.whatsappText, /\*Saldo atual disponível:\* \+03:12/);
   assert.doesNotMatch(tplNoPlanned.whatsappText, /\*Saldo projetado:\*/);
-  assert.match(tplNoPlanned.whatsappText, /Segue meu saldo atualizado para conferência\. — _Vitor Bruno_$/);
+  assert.match(tplNoPlanned.whatsappText, /Segue meu saldo atualizado para conferência\.\n\n— _Vitor Bruno_$/);
   assert.doesNotMatch(tplNoPlanned.whatsappText, /Podemos confirmar essas datas\?/);
 
   const withPlanned = computeChronologicalAndFIFO([
@@ -486,7 +486,7 @@ test('buildCommunicationTemplates adapta saldo, bloco de folgas e fechamento con
   assert.match(tplWithPlanned.whatsappText, /\*Saldo disponível hoje:\* \+11:12/);
   assert.match(tplWithPlanned.whatsappText, /\*Saldo projetado:\* \+03:12/);
   assert.match(tplWithPlanned.whatsappText, /04\/12\/2026: Folga Ponte/);
-  assert.match(tplWithPlanned.whatsappText, /Podemos confirmar essas datas\? — _Vitor Bruno_$/);
+  assert.match(tplWithPlanned.whatsappText, /Podemos confirmar essas datas\?\n\n— _Vitor Bruno_$/);
 });
 
 test('ponto noturno (cruzando meia-noite), breakMinutes, privacidade e lançamentos especiais', () => {
@@ -947,6 +947,16 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   assert.match(swSource, /'\.\/app\.html'/);
   assert.match(swSource, /'\.\/index\.html'/);
   assert.match(swSource, /'\.\/assets\/landing\.css\?v=29'/);
+  assert.match(swSource, /'\.\/assets\/app\.css\?v=30'/);
   assert.match(swSource, /'\.\/assets\/og-cover\.png'/);
   assert.match(swSource, /isAppRoute/);
+
+  const appHtmlSource = fs.readFileSync(new URL('../app.html', import.meta.url), 'utf8');
+  assert.match(appHtmlSource, /href="\.\/assets\/app\.css\?v=30"/);
+  assert.match(appHtmlSource, /class="[^"]*sh-auth-card/);
+  assert.match(appHtmlSource, /sm:grid-cols-12/);
+  assert.match(appHtmlSource, /sm:col-span-8/);
+  assert.match(appHtmlSource, /sm:col-span-4/);
+  assert.match(authSource, /showLoadingOverlay\(\)/);
+  assert.match(authSource, /forgotBtn\?\.classList\.toggle\('hidden',\s*mode !== 'login'\)/);
 });
