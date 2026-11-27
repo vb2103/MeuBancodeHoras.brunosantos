@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#090d16" />
-  <meta name="description" content="SaldoHoras — Controle exato de banco de horas em HH:MM, feriados trabalhados por sindicato ou ramo da empresa, alertas de vencimento FIFO e folgas compensatórias." />
+  <meta name="description" content="SaldoHoras — Controle exato de banco de horas em HH:MM, feriados e horas extras por sindicato, alertas FIFO e folgas compensatórias." />
   <title>SaldoHoras — Seu Banco de Horas &amp; Folgas no Controle Exato</title>
 
   <!-- Favicon SVG dedicado -->
@@ -15,7 +15,7 @@
   <meta property="og:locale" content="pt_BR" />
   <meta property="og:site_name" content="SaldoHoras" />
   <meta property="og:title" content="SaldoHoras — Banco de Horas &amp; Folgas em HH:MM" />
-  <meta property="og:description" content="Calcule feriados trabalhados pela regra do seu sindicato ou ramo (como 1,4x no SINDPD-SP), controle vencimentos em ordem FIFO e use no computador ou celular." />
+  <meta property="og:description" content="Calcule feriados e extras pela regra do seu sindicato (1,4x no SINDPD-SP), acompanhe prazos em ordem FIFO e use no celular ou computador." />
   <meta property="og:url" content="https://vb2103.github.io/MeuBancodeHoras.brunosantos/" />
   <meta property="og:image" content="https://vb2103.github.io/MeuBancodeHoras.brunosantos/assets/og-cover.png" />
   <meta property="og:image:secure_url" content="https://vb2103.github.io/MeuBancodeHoras.brunosantos/assets/og-cover.png" />
@@ -25,7 +25,7 @@
   <meta property="og:image:alt" content="SaldoHoras — Controle de Banco de Horas e Folgas em HH:MM" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="SaldoHoras — Banco de Horas &amp; Folgas em HH:MM" />
-  <meta name="twitter:description" content="Substitua planilhas quebradas por um app em nuvem com precisão de minuto, feriados automáticos e exportação PDF/CSV." />
+  <meta name="twitter:description" content="Substitua planilhas quebradas por um app gratuito com precisão em HH:MM, feriados automáticos e exportação pronta para o RH." />
   <meta name="twitter:image" content="https://vb2103.github.io/MeuBancodeHoras.brunosantos/assets/og-cover.png" />
 
   <!-- Fontes: Inter e JetBrains Mono -->
@@ -49,167 +49,11 @@
     })();
   </script>
 
-  <!-- Tailwind CSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace']
-          },
-          colors: {
-            surface: {
-              950: '#090d16',
-              900: '#0f1629',
-              850: '#151e34'
-            }
-          }
-        }
-      }
-    };
-  </script>
+  <!-- CSS Estático Compilado (Zero runtime JS / Offline-ready) -->
+  <link rel="stylesheet" href="./assets/landing.css?v=28" />
 
-  <!-- Supabase JS v2 pinado com SRI (detecção leve e silenciosa de sessão ativa) -->
+  <!-- Supabase JS v2 pinado com SRI (detecção silenciosa de sessão ativa) -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.min.js" integrity="sha384-7i/4BYWz4Mn+lJfg2HWfEPfZQ7tmFKF3CTSKlXBpxWjNlLjcg+T6smpHG4gLmU1u" crossorigin="anonymous"></script>
-
-  <style>
-    html, body {
-      overflow-x: clip;
-      max-width: 100%;
-    }
-
-    .hero-grid-bg {
-      background-image:
-        linear-gradient(to right, rgba(99, 102, 241, 0.08) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
-      background-size: 38px 38px;
-      mask-image: radial-gradient(ellipse 75% 65% at 50% 30%, #000 35%, transparent 100%);
-      -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 30%, #000 35%, transparent 100%);
-    }
-
-    #reading-progress {
-      transform-origin: left center;
-      transform: scaleX(0);
-      transition: transform 0.08s linear;
-    }
-
-    .reveal {
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
-      transition-delay: var(--reveal-delay, 0ms);
-    }
-    .reveal.is-visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @keyframes floatSlow {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-7px); }
-    }
-    .animate-float-slow {
-      animation: floatSlow 6s ease-in-out infinite;
-    }
-
-    @keyframes tabFadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-tab-in {
-      animation: tabFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    @keyframes resultPop {
-      0% { transform: scale(1); }
-      40% { transform: scale(1.06); }
-      100% { transform: scale(1); }
-    }
-    .animate-pop {
-      animation: resultPop 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .nav-link {
-      position: relative;
-      padding-block: 0.25rem;
-    }
-    .nav-link::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: -2px;
-      height: 2px;
-      border-radius: 9999px;
-      background: linear-gradient(90deg, #6366f1, #34d399);
-      transform: scaleX(0);
-      transform-origin: center;
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .nav-link.is-active {
-      color: #4f46e5;
-    }
-    .dark .nav-link.is-active {
-      color: #ffffff;
-    }
-    .nav-link.is-active::after {
-      transform: scaleX(1);
-    }
-
-    .mobile-drawer {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
-      opacity: 0;
-    }
-    .mobile-drawer.is-open {
-      grid-template-rows: 1fr;
-      opacity: 1;
-    }
-    .mobile-drawer > div {
-      overflow: hidden;
-    }
-
-    .faq-panel {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
-      opacity: 0;
-    }
-    .faq-item.is-open .faq-panel {
-      grid-template-rows: 1fr;
-      opacity: 1;
-    }
-    .faq-panel > div {
-      overflow: hidden;
-    }
-    .faq-item.is-open .faq-chevron {
-      transform: rotate(180deg);
-    }
-
-    @media (max-width: 767px) {
-      input, select, textarea {
-        font-size: 16px !important;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .reveal {
-        opacity: 1 !important;
-        transform: none !important;
-        transition: none !important;
-      }
-      .animate-float-slow, .animate-tab-in, .animate-pop {
-        animation: none !important;
-      }
-      html {
-        scroll-behavior: auto !important;
-      }
-    }
-  </style>
 </head>
 <body class="bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-slate-100 font-sans antialiased selection:bg-indigo-500/25 selection:text-indigo-900 dark:selection:text-indigo-200 transition-colors duration-200">
 
@@ -218,10 +62,9 @@
     <div id="reading-progress" class="h-full w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400"></div>
   </div>
 
-  <!-- ==================== CABEÇALHO FIXO ==================== -->
+  <!-- ==================== CABEÇALHO FIXO ENXUTO ==================== -->
   <header class="sticky top-0 z-40 bg-white/90 dark:bg-surface-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
     <div class="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
-      <!-- Marca -->
       <a href="#topo" class="flex items-center gap-2 sm:gap-2.5 shrink-0 group min-w-0">
         <span class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/25 group-hover:scale-105 transition-transform shrink-0">
           <svg aria-hidden="true" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
@@ -234,17 +77,14 @@
         </span>
       </a>
 
-      <!-- Navegação Desktop com ScrollSpy -->
-      <nav aria-label="Navegação principal" class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300">
+      <!-- Navegação Desktop (4 links objetivos) -->
+      <nav aria-label="Navegação principal" class="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600 dark:text-slate-300">
         <a href="#simulador" data-section="simulador" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Simulador</a>
         <a href="#recursos" data-section="recursos" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Recursos</a>
         <a href="#comparativo" data-section="comparativo" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Comparativo</a>
-        <a href="#como-funciona" data-section="como-funciona" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Como funciona</a>
-        <a href="#instalar" data-section="instalar" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Instalar</a>
         <a href="#faq" data-section="faq" class="nav-link hover:text-indigo-600 dark:hover:text-white transition">Dúvidas</a>
       </nav>
 
-      <!-- Ações do Topo -->
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <button
           id="btn-theme-toggle"
@@ -298,20 +138,21 @@
       </div>
     </div>
 
-    <!-- Gaveta de Navegação Mobile -->
+    <!-- Gaveta Mobile -->
     <div id="mobile-nav-drawer" class="mobile-drawer md:hidden border-t border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-surface-950/95 backdrop-blur-md">
       <div>
         <nav aria-label="Navegação mobile" class="px-4 py-3 flex flex-col gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
-          <a href="#simulador" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Simulador de Feriados</a>
+          <a href="#simulador" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Simulador de Feriados e Extras</a>
           <a href="#recursos" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Recursos</a>
-          <a href="#comparativo" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Planilha vs. SaldoHoras</a>
-          <a href="#como-funciona" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Como funciona</a>
-          <a href="#instalar" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Instalar no celular (PWA)</a>
+          <a href="#comparativo" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Comparativo &amp; App PWA</a>
           <a href="#faq" class="mobile-nav-link px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition">Dúvidas frequentes</a>
           <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2">
             <a id="mobile-login-btn" href="app.html?mode=login" class="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center text-xs font-bold text-slate-700 dark:text-slate-200">Entrar</a>
             <a id="mobile-signup-btn" href="app.html?mode=signup" class="py-2.5 px-3 rounded-xl bg-indigo-600 text-center text-xs font-bold text-white">Criar conta</a>
           </div>
+          <a id="mobile-guest-btn" href="app.html?mode=guest" class="mt-1 py-2 text-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+            Testar sem criar conta ›
+          </a>
         </nav>
       </div>
     </div>
@@ -319,19 +160,19 @@
 
   <main id="topo">
 
-    <!-- ==================== HERO SECTION ==================== -->
-    <section class="relative overflow-hidden pt-10 pb-16 sm:pt-16 sm:pb-24">
+    <!-- ==================== 1. HERO + PRÉVIA DUAL INTERATIVA ==================== -->
+    <section class="relative overflow-hidden pt-10 pb-14 sm:pt-14 sm:pb-20">
       <div class="pointer-events-none absolute inset-0 hero-grid-bg" aria-hidden="true"></div>
       <div class="pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 w-[680px] h-[360px] rounded-full bg-indigo-600/15 dark:bg-indigo-500/15 blur-3xl" aria-hidden="true"></div>
 
       <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
 
-          <!-- Coluna Esquerda: Proposta de Valor -->
-          <div class="lg:col-span-6 space-y-6 text-center lg:text-left reveal">
+          <!-- Coluna Esquerda: Proposta direta (sem empilhar termos repetidos) -->
+          <div class="lg:col-span-6 space-y-5 text-center lg:text-left reveal">
             <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold">
               <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
-              <span>100% Gratuito • Web &amp; App PWA • Nuvem Privada</span>
+              <span>Gratuito • Web &amp; App no Celular • Sem anúncios</span>
             </div>
 
             <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
@@ -342,9 +183,7 @@
             </h1>
 
             <p class="text-base sm:text-lg text-slate-700 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              Chega de planilhas quebradas ou perder folgas por vencimento. Calcule feriados trabalhados pela regra do seu
-              <strong class="text-slate-900 dark:text-white font-semibold">sindicato ou ramo da empresa</strong> (como <span class="font-mono font-bold text-emerald-700 dark:text-emerald-400">1,4x</span> no SINDPD-SP),
-              acompanhe prazos em ordem <strong class="text-slate-900 dark:text-white font-semibold">FIFO</strong> e sincronize tudo entre computador e celular.
+              Substitua planilhas manuais por um painel claro que converte horas extras e feriados pela regra do seu acordo, prioriza folgas antes do vencimento e deixa tudo pronto para alinhar com o RH.
             </p>
 
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 pt-1">
@@ -368,25 +207,18 @@
               </a>
             </div>
 
-            <div class="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-xs font-medium text-slate-600 dark:text-slate-400">
-              <span class="inline-flex items-center gap-1.5">
-                <svg aria-hidden="true" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                Cálculo exato em HH:MM
-              </span>
-              <span class="inline-flex items-center gap-1.5">
-                <svg aria-hidden="true" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                Feriados automáticos todo ano
-              </span>
-              <span class="inline-flex items-center gap-1.5">
-                <svg aria-hidden="true" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                PDF, CSV &amp; WhatsApp RH
-              </span>
+            <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 text-xs">
+              <a id="hero-guest-link" href="app.html?mode=guest" class="inline-flex items-center gap-1.5 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><circle cx="12" cy="12" r="9" /></svg>
+                <span>Testar agora sem criar conta</span>
+              </a>
+              <span class="hidden sm:inline text-slate-400">•</span>
+              <span class="text-slate-600 dark:text-slate-400">Salva neste aparelho e sincroniza quando quiser</span>
             </div>
           </div>
 
-          <!-- Coluna Direita: Mockup Interativo Dual (Celular PWA + Computador Web) -->
-          <div class="lg:col-span-6 flex flex-col items-center reveal" style="--reveal-delay: 140ms;">
-            <!-- Alternador Celular / Computador -->
+          <!-- Coluna Direita: Prévia Dual (Celular PWA + Computador Web 100% Clicáveis) -->
+          <div class="lg:col-span-6 flex flex-col items-center reveal" style="--reveal-delay: 120ms;">
             <div class="mb-4 inline-flex items-center p-1 rounded-2xl bg-white/90 dark:bg-surface-900/90 border border-slate-200 dark:border-slate-800 shadow-sm">
               <button
                 type="button"
@@ -420,7 +252,6 @@
                 <div class="pointer-events-none absolute -inset-4 rounded-[2.6rem] bg-gradient-to-tr from-indigo-600/25 via-violet-500/10 to-emerald-500/20 blur-2xl -z-10" aria-hidden="true"></div>
 
                 <div class="rounded-[2.2rem] bg-surface-900 border-[5px] border-slate-800 shadow-2xl shadow-indigo-950/50 overflow-hidden text-slate-100">
-                  <!-- Topo Mobile -->
                   <div class="px-4 pt-3.5 pb-2.5 bg-surface-950/90 border-b border-slate-800/80 flex items-center justify-between">
                     <div class="flex items-center gap-2">
                       <span class="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
@@ -434,13 +265,11 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Nuvem
                       </span>
                     </div>
-                    <span class="w-7 h-7 rounded-full bg-indigo-600/30 border border-indigo-400/40 text-[10px] font-bold text-indigo-200 flex items-center justify-center">VB</span>
+                    <span class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-400/40 text-[10px] font-bold text-indigo-200 flex items-center justify-center">VB</span>
                   </div>
 
-                  <!-- Conteúdo Dinâmico das Abas do Celular -->
                   <div class="p-3.5 bg-surface-950 min-h-[348px]">
-
-                    <!-- TELA 1: EXTRATO -->
+                    <!-- EXTRATO -->
                     <div id="mock-screen-extrato" class="mock-screen space-y-3 animate-tab-in">
                       <div class="rounded-2xl bg-surface-900 border border-slate-800 p-3.5 space-y-2.5">
                         <div class="flex items-center justify-between text-[11px] text-slate-400">
@@ -505,7 +334,7 @@
                       </div>
                     </div>
 
-                    <!-- TELA 2: FERIADOS -->
+                    <!-- FERIADOS -->
                     <div id="mock-screen-feriados" class="mock-screen hidden space-y-2.5 animate-tab-in">
                       <div class="flex items-center justify-between">
                         <div>
@@ -542,11 +371,11 @@
                       </div>
 
                       <div class="rounded-xl bg-indigo-950/50 border border-indigo-500/30 p-2.5 text-[10px] text-indigo-200 leading-relaxed">
-                        Adicione apenas os feriados em que trabalhou. Seus lançamentos antigos nunca são apagados.
+                        Consulte pontes de folga sem alterar dados existentes — adicione só os feriados trabalhados.
                       </div>
                     </div>
 
-                    <!-- TELA 3: GRÁFICOS -->
+                    <!-- GRÁFICOS -->
                     <div id="mock-screen-graficos" class="mock-screen hidden space-y-3 animate-tab-in">
                       <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-3 space-y-1.5">
                         <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-100">Simulador Rápido</p>
@@ -588,10 +417,9 @@
                         </div>
                       </div>
                     </div>
-
                   </div>
 
-                  <!-- Barra Inferior Interativa Mobile -->
+                  <!-- Barra Inferior Mobile -->
                   <div class="px-2 py-2 bg-surface-900 border-t border-slate-800 grid grid-cols-5 items-center text-[9px] font-bold">
                     <button type="button" data-mock-tab="extrato" class="mock-tab-btn flex flex-col items-center gap-0.5 text-indigo-400 cursor-pointer">
                       <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg>
@@ -619,13 +447,12 @@
               </div>
             </div>
 
-            <!-- Prévia 2: Painel Desktop Atualizado (2 Colunas + Filtros Clicáveis + Modo Privacidade) -->
+            <!-- Prévia 2: Painel Desktop Web 100% Interativo -->
             <div id="preview-device-desktop" class="hidden w-full animate-tab-in">
               <div class="relative w-full max-w-[560px] mx-auto animate-float-slow">
                 <div class="pointer-events-none absolute -inset-4 rounded-3xl bg-gradient-to-tr from-indigo-600/20 via-violet-500/10 to-emerald-500/20 blur-2xl -z-10" aria-hidden="true"></div>
 
                 <div class="rounded-2xl bg-[#070b14] border border-slate-700/90 shadow-2xl shadow-indigo-950/50 overflow-hidden text-slate-100">
-                  <!-- Barra do Navegador -->
                   <div class="px-3 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center gap-2">
                     <div class="flex items-center gap-1.5 shrink-0">
                       <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
@@ -637,10 +464,10 @@
                     </div>
                   </div>
 
-                  <!-- Cabeçalho Fiel da Nova Versão Web -->
+                  <!-- Cabeçalho Fiel + Botões de Aba Clicáveis no Desktop Mockup -->
                   <div class="px-3 py-2 bg-[#0b101d] border-b border-slate-800/90 flex items-center justify-between gap-2">
                     <div class="flex items-center gap-1.5 shrink-0">
-                      <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                      <span class="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center">
                         <svg aria-hidden="true" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
                           <circle cx="12" cy="12" r="9" />
                           <path stroke-linecap="round" d="M12 7v5l3 2" />
@@ -651,38 +478,37 @@
                     </div>
 
                     <div class="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-[#0f1629] border border-slate-800 text-[8.5px] font-semibold">
-                      <span class="px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300">Extrato</span>
-                      <span class="px-1.5 py-0.5 text-slate-400">Feriados</span>
-                      <span class="px-1.5 py-0.5 text-slate-400">Gráficos</span>
-                      <span class="px-1.5 py-0.5 text-slate-400">RH</span>
+                      <button type="button" data-web-tab="extrato" class="web-mock-tab-btn px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 cursor-pointer transition">Extrato</button>
+                      <button type="button" data-web-tab="feriados" class="web-mock-tab-btn px-1.5 py-0.5 rounded-md text-slate-400 hover:text-white cursor-pointer transition">Feriados</button>
+                      <button type="button" data-web-tab="graficos" class="web-mock-tab-btn px-1.5 py-0.5 rounded-md text-slate-400 hover:text-white cursor-pointer transition">Gráficos</button>
+                      <button type="button" data-web-tab="rh" class="web-mock-tab-btn px-1.5 py-0.5 rounded-md text-slate-400 hover:text-white cursor-pointer transition">RH</button>
                     </div>
 
                     <div class="flex items-center gap-1 shrink-0">
-                      <span class="hidden sm:inline-flex px-1.5 py-1 rounded-md border border-slate-800 bg-[#0f1629] text-[8px] font-semibold text-slate-300">Exportar ▾</span>
-                      <span class="px-2 py-1 rounded-md bg-indigo-600 text-[8px] font-bold text-white">+ Novo</span>
+                      <span class="hidden sm:inline-flex items-center h-6 px-1.5 rounded-md border border-slate-800 bg-[#0f1629] text-[8px] font-semibold text-slate-300">Exportar ▾</span>
+                      <span class="inline-flex items-center h-6 px-2 rounded-md bg-indigo-600 text-[8px] font-bold text-white">+ Novo</span>
                       <button
                         id="desktop-mock-eye-btn"
                         type="button"
                         aria-pressed="false"
                         title="Testar Modo Privacidade (ocultar/mostrar saldo)"
                         aria-label="Alternar privacidade dos valores na prévia"
-                        class="w-6 h-6 rounded-lg border border-slate-700 bg-[#0f1629] hover:border-indigo-400 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer"
+                        class="w-6 h-6 rounded-md border border-slate-700 bg-[#0f1629] hover:border-indigo-400 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
                       >
                         <svg aria-hidden="true" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                       </button>
-                      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-700 bg-[#0f1629] text-[8px] font-bold text-slate-200">
-                        <span class="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white text-[7px] flex items-center justify-center">VB</span>
+                      <span class="inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-slate-700 bg-[#0f1629] text-[8px] font-bold text-slate-200">
+                        <span class="w-3.5 h-3.5 rounded bg-indigo-600 text-white text-[7px] flex items-center justify-center">VB</span>
                         <span>Vitor</span>
                       </span>
                     </div>
                   </div>
 
-                  <!-- Corpo em 2 Colunas da Nova Versão Web -->
-                  <div class="p-3 bg-[#070b14] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-start">
-                    <!-- Coluna Esquerda: Card de Saldo Atual -->
+                  <!-- Tela Web 1: Extrato (2 colunas + Busca Real + Filtros Clicáveis) -->
+                  <div id="web-screen-extrato" class="web-mock-screen p-3 bg-[#070b14] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-start min-h-[290px]">
                     <div class="sm:col-span-5 rounded-xl bg-[#0e1526] border border-slate-800/90 p-3 space-y-2">
                       <div class="flex items-center justify-between text-[9px] text-slate-400">
                         <span>Seu saldo atual</span>
@@ -706,7 +532,7 @@
                           <span class="mock-secret-val px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[8px] font-bold" data-real="3,3 dias de folga">3,3 dias de folga</span>
                         </div>
                         <p class="text-[8.5px] text-slate-400 mt-1">
-                          Com lançamentos previstos: <strong class="mock-secret-val font-mono text-indigo-300" data-real="+15:12">+15:12</strong>
+                          Com previstos: <strong class="mock-secret-val font-mono text-indigo-300" data-real="+15:12">+15:12</strong>
                         </p>
                       </div>
 
@@ -721,14 +547,19 @@
                       </div>
                     </div>
 
-                    <!-- Coluna Direita: Busca, Filtros Clicáveis e Cards Limpos -->
                     <div class="sm:col-span-7 space-y-2">
                       <div class="rounded-xl bg-[#0e1526] border border-slate-800/90 p-2.5 space-y-2">
-                        <div class="px-2.5 py-1.5 rounded-lg bg-[#090d16] border border-slate-800 text-[8.5px] text-slate-400 flex items-center gap-1.5">
-                          <svg aria-hidden="true" class="w-3 h-3 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <div class="relative flex items-center">
+                          <svg aria-hidden="true" class="w-3 h-3 text-slate-500 absolute left-2.5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
                           </svg>
-                          <span class="truncate">Buscar por evento, feriado... (atalho: /)</span>
+                          <input
+                            id="web-mock-search"
+                            type="text"
+                            aria-label="Filtrar lançamentos de demonstração"
+                            placeholder="Buscar evento ou feriado..."
+                            class="w-full pl-7 pr-2 py-1 rounded-lg bg-[#090d16] border border-slate-800 text-[9px] text-slate-200 placeholder-slate-500 focus:border-indigo-500 outline-none"
+                          />
                         </div>
                         <div class="flex flex-wrap items-center gap-1 text-[8px] font-semibold">
                           <button type="button" data-web-filter="all" class="web-mock-filter px-2 py-0.5 rounded-full bg-indigo-600 text-white transition cursor-pointer">Todos</button>
@@ -740,9 +571,8 @@
                         <p id="web-mock-count" class="text-[8px] text-slate-400 font-medium">5 de 5 registros</p>
                       </div>
 
-                      <!-- Lista Interativa de Cards -->
-                      <div id="web-mock-list" class="space-y-1.5 min-h-[210px]">
-                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="credit feriado">
+                      <div id="web-mock-list" class="space-y-1.5 min-h-[195px]">
+                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="credit feriado" data-search="finados feriado trabalhado">
                           <div class="flex items-center gap-2 min-w-0">
                             <span class="w-0.5 h-6 rounded-full bg-emerald-400 shrink-0"></span>
                             <div class="min-w-0">
@@ -753,7 +583,7 @@
                           <span class="mock-secret-val font-mono text-[10px] font-bold text-emerald-400 shrink-0" data-real="+11:12">+11:12</span>
                         </div>
 
-                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="folga">
+                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="folga" data-search="folga compensatoria">
                           <div class="flex items-center gap-2 min-w-0">
                             <span class="w-0.5 h-6 rounded-full bg-rose-400 shrink-0"></span>
                             <div class="min-w-0">
@@ -764,7 +594,7 @@
                           <span class="mock-secret-val font-mono text-[10px] font-bold text-rose-400 shrink-0" data-real="-08:00">-08:00</span>
                         </div>
 
-                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="credit feriado">
+                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="credit feriado" data-search="consciencia negra feriado trabalhado">
                           <div class="flex items-center gap-2 min-w-0">
                             <span class="w-0.5 h-6 rounded-full bg-emerald-400 shrink-0"></span>
                             <div class="min-w-0">
@@ -775,7 +605,7 @@
                           <span class="mock-secret-val font-mono text-[10px] font-bold text-emerald-400 shrink-0" data-real="+11:12">+11:12</span>
                         </div>
 
-                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="credit">
+                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="credit" data-search="hora extra plantao">
                           <div class="flex items-center gap-2 min-w-0">
                             <span class="w-0.5 h-6 rounded-full bg-emerald-400 shrink-0"></span>
                             <div class="min-w-0">
@@ -786,13 +616,13 @@
                           <span class="mock-secret-val font-mono text-[10px] font-bold text-emerald-400 shrink-0" data-real="+12:00">+12:00</span>
                         </div>
 
-                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="folga previsto">
+                        <div class="web-mock-card rounded-xl bg-[#0e1526] border border-slate-800/90 px-2.5 py-1.5 flex items-center justify-between gap-2" data-tags="folga previsto" data-search="folga planejada previsto natal">
                           <div class="flex items-center gap-2 min-w-0">
                             <span class="w-0.5 h-6 rounded-full bg-amber-400 shrink-0"></span>
                             <div class="min-w-0">
-                              <p class="text-[9.5px] font-bold text-white truncate">Fechamento de ciclo — Páscoa</p>
+                              <p class="text-[9.5px] font-bold text-white truncate">Ponte Natal planejada</p>
                               <p class="text-[8px] text-slate-400 flex items-center gap-1 truncate">
-                                <span>26/11/2026 • Baixa de saldo</span>
+                                <span>24/12/2026 • Folga</span>
                                 <span class="px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[7px]">Previsto</span>
                               </p>
                             </div>
@@ -802,56 +632,146 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- Tela Web 2: Feriados -->
+                  <div id="web-screen-feriados" class="web-mock-screen hidden p-3.5 bg-[#070b14] min-h-[290px] space-y-2.5 animate-tab-in">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <p class="text-[11px] font-extrabold text-white">Calendário Oficial &amp; Pontes</p>
+                        <p class="text-[8.5px] text-slate-400">Nacionais + Estaduais (SP) • Adição seletiva</p>
+                      </div>
+                      <span class="px-2 py-0.5 rounded-lg bg-indigo-600/20 text-indigo-300 font-mono text-[9px] font-bold">UF: SP • 2026</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div class="rounded-xl bg-[#0e1526] border border-slate-800 p-2.5 flex items-center justify-between">
+                        <div>
+                          <p class="text-[9.5px] font-bold text-white">Finados</p>
+                          <p class="text-[8px] text-slate-400">02/11 • Segunda</p>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[8px] font-bold">Lançado</span>
+                      </div>
+                      <div class="rounded-xl bg-[#0e1526] border border-slate-800 p-2.5 flex items-center justify-between">
+                        <div>
+                          <p class="text-[9.5px] font-bold text-white">Consciência Negra</p>
+                          <p class="text-[8px] text-slate-400">20/11 • Sexta</p>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[8px] font-bold">Lançado</span>
+                      </div>
+                      <div class="rounded-xl bg-[#0e1526] border border-indigo-500/40 p-2.5 flex items-center justify-between">
+                        <div>
+                          <p class="text-[9.5px] font-bold text-white">Natal</p>
+                          <p class="text-[8px] text-slate-400">25/12 • Sexta</p>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[8px] font-bold">+ Trabalhei</span>
+                      </div>
+                      <div class="rounded-xl bg-[#0e1526] border border-amber-500/30 p-2.5 flex items-center justify-between">
+                        <div>
+                          <p class="text-[9.5px] font-bold text-white">Sugestão de Ponte</p>
+                          <p class="text-[8px] text-amber-300">Emendar 24/12 (-08:00)</p>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[8px] font-bold">.ICS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Tela Web 3: Gráficos & Simulador -->
+                  <div id="web-screen-graficos" class="web-mock-screen hidden p-3.5 bg-[#070b14] min-h-[290px] grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-stretch animate-tab-in">
+                    <div class="rounded-xl bg-[#0e1526] border border-slate-800 p-3 flex flex-col justify-between">
+                      <div>
+                        <p class="text-[10px] font-bold text-white">Evolução por Mês</p>
+                        <p class="text-[8px] text-slate-400">Créditos vs. Folgas em HH:MM</p>
+                      </div>
+                      <div class="h-28 flex items-end justify-between gap-2 pt-3">
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-emerald-500/80 rounded-t h-12"></div><span class="text-[8px] text-slate-400">Set</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-emerald-500/80 rounded-t h-16"></div><span class="text-[8px] text-slate-400">Out</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-emerald-500/80 rounded-t h-24"></div><span class="text-[8px] text-slate-400">Nov</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-rose-500/80 rounded-t h-14"></div><span class="text-[8px] text-slate-400">Folga</span></div>
+                      </div>
+                    </div>
+                    <div class="rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 p-3 flex flex-col justify-between text-white">
+                      <div>
+                        <p class="text-[8.5px] font-bold uppercase tracking-wider text-indigo-100">Simulador de Folga</p>
+                        <p class="text-xs font-extrabold mt-1">Tirar 2 dias seguidos</p>
+                      </div>
+                      <div class="space-y-1.5">
+                        <div class="flex justify-between text-[9px]"><span>Debita</span><span class="font-mono font-bold">-16:00</span></div>
+                        <div class="flex justify-between text-[10px] pt-1 border-t border-white/20"><span>Saldo restante</span><span class="font-mono font-extrabold text-emerald-300">+10:24</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Tela Web 4: RH & Exportações -->
+                  <div id="web-screen-rh" class="web-mock-screen hidden p-3.5 bg-[#070b14] min-h-[290px] space-y-2.5 animate-tab-in">
+                    <div class="flex items-center justify-between">
+                      <p class="text-[10.5px] font-bold text-white">Mensagem pronta para Gestor / RH</p>
+                      <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[8px] font-bold">WhatsApp &amp; E-mail</span>
+                    </div>
+                    <div class="rounded-xl bg-[#0e1526] border border-slate-800 p-2.5 text-[8.5px] font-mono text-slate-300 leading-relaxed">
+                      Olá! Segue atualização do meu banco de horas (SINDPD-SP): saldo atual de <span class="text-emerald-400 font-bold">+26:24</span> (3,3 dias), considerando feriados em 1,4x e folga prevista em 24/12.
+                    </div>
+                    <div class="grid grid-cols-4 gap-1.5 text-[8px] font-bold text-center">
+                      <span class="py-1.5 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30">PDF Executivo</span>
+                      <span class="py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Excel (.xlsx)</span>
+                      <span class="py-1.5 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30">CSV / .ICS</span>
+                      <span class="py-1.5 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">Backup JSON</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Dica sutil de interatividade -->
             <p id="preview-device-hint" class="mt-3 text-[11px] font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5 text-center">
               <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
               <span>Clique em <strong>Extrato</strong>, <strong>Feriados</strong> ou <strong>Gráficos</strong> no celular acima</span>
             </p>
           </div>
-
         </div>
       </div>
     </section>
 
-    <!-- ==================== CALCULADORA INTERATIVA DE FERIADOS ==================== -->
-    <section id="simulador" class="py-14 sm:py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-surface-900/40">
+    <!-- ==================== 2. SIMULADOR INTERATIVO DE FERIADOS E HORAS EXTRAS ==================== -->
+    <section id="simulador" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-surface-900/40">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center max-w-2xl mx-auto mb-10 space-y-2 reveal">
-          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Teste agora sem cadastro</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Quanto vale seu feriado trabalhado?</h2>
+        <div class="text-center max-w-2xl mx-auto mb-8 space-y-2 reveal">
+          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Simulador ao vivo</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Quanto vale seu turno ou feriado trabalhado?</h2>
           <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            Escolha seu sindicato ou ramo da empresa e veja na hora quanto entra no seu banco de horas em <span class="font-mono font-semibold">HH:MM</span>.
+            Escolha a categoria e veja quanto entra no banco em <span class="font-mono font-semibold">HH:MM</span> com a regra exata aplicada no app.
           </p>
         </div>
 
         <div class="reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-900/5 dark:shadow-black/30 p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <!-- Controles -->
-          <div class="lg:col-span-7 space-y-5">
-            <div>
-              <label for="demo-union" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
-                Sindicato ou Ramo da Empresa
-              </label>
-              <select
-                id="demo-union"
-                class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer"
-              >
-                <option value="sindpd" selected>SINDPD-SP — Tecnologia / TI (Feriado 1,4x / +40%)</option>
-                <option value="industria">Indústria / Metalúrgicos (Feriado 2,0x / +100%)</option>
-                <option value="bancarios">Bancários / Financeiro (Feriado 1,5x / +50%)</option>
-                <option value="saude">Saúde / Escala 12x36 (Feriado 2,0x / +100%)</option>
-                <option value="comercio">Comércio &amp; Varejo (Compensação 1,0x / 1:1)</option>
-                <option value="servicos">Serviços / CLT Padrão (Compensação 1,0x / 1:1)</option>
-              </select>
+          <div class="lg:col-span-7 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+              <div class="sm:col-span-7">
+                <label for="demo-union" class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  Sindicato ou Ramo
+                </label>
+                <select
+                  id="demo-union"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer"
+                >
+                  <option value="sindpd" selected>SINDPD-SP — TI (Feriado 1,4x • Extra 1,5x)</option>
+                  <option value="industria">Indústria / Metalúrgicos (Feriado 2,0x • Extra 1,5x)</option>
+                  <option value="bancarios">Bancários / Financeiro (Feriado 2,0x • Extra 1,5x)</option>
+                  <option value="saude">Saúde / Clínicas (Feriado 2,0x • Extra 1,5x)</option>
+                  <option value="comercio">Comércio &amp; Varejo (Feriado 1,0x • Extra 1,5x)</option>
+                  <option value="servicos">Acordo CLT Padrão (Feriado 1,0x • Extra 1,0x)</option>
+                </select>
+              </div>
+              <div class="sm:col-span-5">
+                <span class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">Tipo de registro</span>
+                <div class="grid grid-cols-2 p-1 rounded-xl bg-slate-100 dark:bg-surface-950 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+                  <button type="button" data-sim-cat="holiday" aria-pressed="true" class="sim-cat-btn py-1.5 rounded-lg bg-indigo-600 text-white transition cursor-pointer">Feriado</button>
+                  <button type="button" data-sim-cat="overtime" aria-pressed="false" class="sim-cat-btn py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition cursor-pointer">Hora Extra</button>
+                </div>
+              </div>
             </div>
 
             <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Tempo trabalhado no feriado</span>
-                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Atalhos rápidos</span>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Tempo trabalhado</span>
+                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Atalhos</span>
               </div>
               <div class="flex flex-wrap gap-1.5 mb-3">
                 <button type="button" data-quick-h="4" data-quick-m="0" class="quick-shift-btn px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 hover:border-indigo-500 text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer">04:00</button>
@@ -864,24 +784,23 @@
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label for="demo-hours" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Horas</label>
-                  <input id="demo-hours" type="number" min="0" max="24" value="8" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white font-mono text-base font-bold focus:border-indigo-500 outline-none" />
+                  <input id="demo-hours" type="number" min="0" max="24" value="8" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white font-mono text-base font-bold focus:border-indigo-500 outline-none" />
                 </div>
                 <div>
                   <label for="demo-minutes" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Minutos</label>
-                  <input id="demo-minutes" type="number" min="0" max="59" value="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white font-mono text-base font-bold focus:border-indigo-500 outline-none" />
+                  <input id="demo-minutes" type="number" min="0" max="59" value="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-white font-mono text-base font-bold focus:border-indigo-500 outline-none" />
                 </div>
               </div>
             </div>
 
             <p id="demo-rule-desc" class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Regra SINDPD-SP (Banco de Horas): cada 01:00 trabalhada em feriado gera 01:24 (+40%) em horas para compensação, sem precisar fazer contas manuais.
+              Regra SINDPD-SP (Banco de Horas): jornada 08:00/dia, hora extra 1,5x e feriado trabalhado 1,4x (+40% em horas: 08:00 = 11:12).
             </p>
           </div>
 
-          <!-- Cartão de Resultado -->
           <div class="lg:col-span-5 rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 text-white p-6 space-y-4 shadow-lg shadow-indigo-900/30">
             <div class="flex items-center justify-between text-xs text-indigo-100 font-semibold">
-              <span>Crédito no Banco de Horas</span>
+              <span id="demo-card-label">Crédito por Feriado Trabalhado</span>
               <span id="demo-badge-mult" class="px-2 py-0.5 rounded-full bg-white/15 font-mono font-bold">1,4x</span>
             </div>
 
@@ -895,451 +814,305 @@
               <span id="demo-result-days" class="font-mono font-bold text-white">1,4 dias</span>
             </div>
 
-            <a
-              id="demo-save-link"
-              href="app.html?mode=signup&amp;preset=sindpd&amp;h=8&amp;m=0"
-              class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs transition"
-            >
-              <span id="demo-save-text">Salvar isso na minha conta</span>
-              <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </a>
+            <div class="space-y-2">
+              <a
+                id="demo-save-link"
+                href="app.html?mode=signup&amp;preset=sindpd&amp;cat=holiday&amp;h=8&amp;m=0"
+                class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs transition"
+              >
+                <span id="demo-save-text">Salvar isso na minha conta</span>
+                <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </a>
+              <a
+                id="demo-guest-link"
+                href="app.html?mode=guest&amp;preset=sindpd&amp;cat=holiday&amp;h=8&amp;m=0"
+                class="w-full inline-flex items-center justify-center py-1.5 text-[11px] font-semibold text-indigo-100 hover:text-white underline decoration-white/40 transition"
+              >
+                Pré-lançar agora sem criar conta
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ==================== RECURSOS PRINCIPAIS + FORMATOS SUPORTADOS ==================== -->
-    <section id="recursos" class="py-16 sm:py-24 border-t border-slate-200/80 dark:border-slate-800/80">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+    <!-- ==================== 3. RECURSOS ESSENCIAIS (SEM REPETIÇÃO) ==================== -->
+    <section id="recursos" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div class="text-center max-w-2xl mx-auto space-y-2 reveal">
-          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Tudo no mesmo lugar</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Pensado para quem realmente usa Banco de Horas</h2>
-          <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            Cada detalhe foi construído para eliminar erros de conta e facilitar o alinhamento de folgas com seu gestor ou RH.
-          </p>
+          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Feito para o dia a dia</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">O que o aplicativo resolve por você</h2>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <!-- Card 1 -->
-          <div class="reveal group rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300">
-            <div class="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="9" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" />
-              </svg>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-2.5">
+            <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" /></svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Precisão Real em HH:MM</h3>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Minutos Inteiros &amp; Ponto</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Todos os cálculos rodam internamente em minutos inteiros — sem arredondamentos estranhos. Lance jornadas como <span class="font-mono font-semibold">08:48</span> ou folgas de <span class="font-mono font-semibold">01:30</span> com exatidão.
+              Calcule pela batida de ponto (entrada, pausa e saída) ou lance durações como <span class="font-mono font-semibold">08:48</span> sem distorções decimais.
             </p>
           </div>
 
-          <!-- Card 2 -->
-          <div class="reveal group rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300" style="--reveal-delay: 60ms;">
-            <div class="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-2.5" style="--reveal-delay: 50ms;">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Regras por Sindicato ou Ramo</h3>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Acordos &amp; Modo Personalizado</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Escolha seu sindicato (como SINDPD-SP com feriado <span class="font-mono font-semibold">1,4x</span>) ou informe o ramo da empresa. Se preferir, personalize jornada, multiplicador e prazo manualmente.
+              Presets de sindicatos e ramos prontos para uso, com liberdade para ajustar jornada diária, fatores e validade do seu acordo.
             </p>
           </div>
 
-          <!-- Card 3 -->
-          <div class="reveal group rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300" style="--reveal-delay: 120ms;">
-            <div class="w-11 h-11 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
+          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-2.5" style="--reveal-delay: 100ms;">
+            <div class="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18" /></svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Calendário de Feriados Dinâmico</h3>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Folga em Vários Dias + Feriados</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Atualiza o ano e os feriados nacionais/estaduais automaticamente. Consulte sem alterar nada ou adicione apenas os feriados em que trabalhou, sem duplicar nem apagar dados.
+              Marque múltiplos dias salteados no mini calendário com feriados da sua UF e receba avisos inteligentes de pontes para emendar.
             </p>
           </div>
 
-          <!-- Card 4 -->
-          <div class="reveal group rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300" style="--reveal-delay: 40ms;">
-            <div class="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-2.5" style="--reveal-delay: 50ms;">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Alertas de Vencimento FIFO</h3>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Vencimentos FIFO Reais</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Cada folga tirada abate automaticamente os créditos mais antigos primeiro. O sistema só alerta horas que realmente ainda estão abertas e próximas de expirar.
+              Folgas tiradas quitam os saldos mais antigos primeiro. O alerta só acende quando realmente existe crédito em aberto prestes a vencer.
             </p>
           </div>
 
-          <!-- Card 5 -->
-          <div class="reveal group rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300" style="--reveal-delay: 90ms;">
-            <div class="w-11 h-11 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
+          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-2.5" style="--reveal-delay: 100ms;">
+            <div class="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400 flex items-center justify-center">
+              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Comunicação RH &amp; Relatórios</h3>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Virada de Ciclo &amp; Histórico</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Gere e-mails formais e mensagens de WhatsApp com seu saldo atualizado em 1 clique. Exporte tudo em <strong>PDF, CSV, Excel, Agenda (.ics) ou Backup JSON</strong>.
+              Encerre ciclos antigos levando seu saldo acumulado com prazos preservados e consulte extratos anteriores quando precisar.
             </p>
           </div>
 
-          <!-- Card 6 -->
-          <div class="reveal group rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3 hover:border-indigo-400/60 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300" style="--reveal-delay: 140ms;">
-            <div class="w-11 h-11 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
+          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-2.5" style="--reveal-delay: 150ms;">
+            <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+              <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Nuvem Privada + Modo Privacidade</h3>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Offline Real + Modo Discreto</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Isolamento por usuário (RLS) no Supabase e botão de olho na barra superior para ocultar seu saldo com <span class="font-mono">•••••</span> quando estiver em telas compartilhadas.
+              Funciona sem internet com sincronização automática ao reconectar e botão rápido para ocultar saldos em telas compartilhadas.
             </p>
           </div>
         </div>
 
-        <!-- Vitrine Compacta de Formatos de Exportação & RH -->
+        <!-- Faixa Única de Exportação & Comunicação -->
         <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div class="text-center md:text-left">
-            <p class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Pronto para RH, gestor e conferência</p>
-            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Exporte ou compartilhe seus dados no formato que precisar</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Exportações &amp; Envio</p>
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Gere comprovantes ou mensagens prontas em 1 clique</p>
           </div>
           <div class="flex flex-wrap items-center justify-center gap-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-900/60 text-xs font-bold text-rose-700 dark:text-rose-300">PDF Executivo</span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/70 dark:border-emerald-900/60 text-xs font-bold text-emerald-700 dark:text-emerald-300">Excel / CSV</span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/70 dark:border-indigo-900/60 text-xs font-bold text-indigo-700 dark:text-indigo-300">Agenda .ICS</span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300">Backup JSON</span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-900/60 text-xs font-bold text-sky-700 dark:text-sky-300">E-mail &amp; WhatsApp</span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-900/60 text-xs font-bold text-rose-700 dark:text-rose-300">PDF Executivo</span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/70 dark:border-emerald-900/60 text-xs font-bold text-emerald-700 dark:text-emerald-300">Excel (.xlsx) &amp; CSV</span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/70 dark:border-indigo-900/60 text-xs font-bold text-indigo-700 dark:text-indigo-300">Agenda .ICS</span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300">JSON &amp; XML RH</span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-900/60 text-xs font-bold text-sky-700 dark:text-sky-300">WhatsApp &amp; E-mail</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ==================== COMPARATIVO: PLANILHA VS. SALDOHORAS + TRANSPARÊNCIA ==================== -->
-    <section id="comparativo" class="py-14 sm:py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-surface-900/30">
+    <!-- ==================== 4. COMPARATIVO + INSTALAÇÃO PWA ==================== -->
+    <section id="comparativo" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-surface-900/30">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div class="text-center max-w-2xl mx-auto space-y-2 reveal">
-          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Por que migrar</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Planilha Tradicional vs. SaldoHoras</h2>
-          <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            Veja na prática o que você ganha ao sair do controle manual para um aplicativo pensado para banco de horas.
-          </p>
+          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Comparativo prático</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Por que trocar a planilha pelo SaldoHoras</h2>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Coluna Planilha Tradicional (4 pontos diretos) -->
-          <div class="reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div class="flex items-center gap-2.5">
-                <span class="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                  <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </span>
-                <div>
-                  <h3 class="text-base font-bold text-slate-900 dark:text-white">Planilha Tradicional</h3>
-                  <p class="text-xs text-slate-600 dark:text-slate-400">Controle manual em Excel ou notas</p>
-                </div>
+          <div class="reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+            <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <span class="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">✕</span>
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Planilha Manual</h3>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Fórmulas frágeis e consulta difícil</p>
               </div>
             </div>
-
-            <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✕</span>
-                <span>Fórmulas quebram facilmente e somas em decimal geram diferenças de minutos.</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✕</span>
-                <span>Fácil esquecer créditos antigos vencendo porque não abate folgas em ordem FIFO.</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✕</span>
-                <span>Ruim de consultar e lançar pelo celular no dia a dia.</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✕</span>
-                <span>Precisa cadastrar feriados na mão todo ano e redigir e-mails do zero para o gestor.</span>
-              </li>
+            <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
+              <li>• Somas em decimal viram diferença de minutos no fechamento.</li>
+              <li>• Folgas soltas não mostram quais créditos antigos ainda restam.</li>
+              <li>• Ruim de abrir e preencher rapidamente pelo celular.</li>
+              <li>• Depende de atualização manual anual de datas e textos ao gestor.</li>
             </ul>
           </div>
 
-          <!-- Coluna SaldoHoras (4 pontos diretos, sem duplicação) -->
-          <div class="reveal rounded-3xl bg-gradient-to-br from-indigo-600/10 via-white to-emerald-500/10 dark:from-indigo-950/60 dark:via-surface-900 dark:to-emerald-950/30 border-2 border-indigo-500/40 dark:border-indigo-500/50 p-6 sm:p-7 space-y-4 shadow-lg shadow-indigo-950/10" style="--reveal-delay: 100ms;">
+          <div class="reveal rounded-3xl bg-gradient-to-br from-indigo-600/10 via-white to-emerald-500/10 dark:from-indigo-950/60 dark:via-surface-900 dark:to-emerald-950/30 border-2 border-indigo-500/40 dark:border-indigo-500/50 p-6 space-y-4 shadow-lg shadow-indigo-950/10" style="--reveal-delay: 80ms;">
             <div class="flex items-center justify-between pb-3 border-b border-indigo-200/60 dark:border-slate-800">
               <div class="flex items-center gap-2.5">
-                <span class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
-                  <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </span>
+                <span class="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">✓</span>
                 <div>
                   <h3 class="text-base font-bold text-slate-900 dark:text-white">SaldoHoras</h3>
                   <p class="text-xs text-indigo-700 dark:text-indigo-300 font-medium">Web + App PWA sincronizado</p>
                 </div>
               </div>
-              <span class="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold">Recomendado</span>
+              <span class="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold">Gratuito</span>
             </div>
-
-            <ul class="space-y-3 text-sm text-slate-700 dark:text-slate-200">
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✓</span>
-                <span>Cálculo exato em <strong>HH:MM</strong> (minutos inteiros) com multiplicador automático por sindicato ou ramo (como <strong class="font-mono">1,4x</strong> no SINDPD-SP).</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✓</span>
-                <span>Alerta de vencimento <strong>FIFO real</strong>: abate folgas já tiradas e avisa só o saldo ainda aberto.</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✓</span>
-                <span>Interface dedicada para celular (PWA em tela cheia) e painel em 2 colunas no computador com <strong>Modo Privacidade</strong>.</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 text-[10px] font-bold">✓</span>
-                <span>Calendário oficial automático + envio pronto para E-mail/WhatsApp + PDF e CSV em 1 clique.</span>
-              </li>
+            <ul class="space-y-2.5 text-sm text-slate-700 dark:text-slate-200">
+              <li>• Motor em minutos exatos com bônus aplicados automaticamente.</li>
+              <li>• Histórico e fila FIFO atualizados em tempo real a cada lançamento.</li>
+              <li>• App instalável no iPhone e Android + painel amplo em 2 colunas no PC.</li>
+              <li>• Seus dados isolados por conta (RLS) e exportáveis a qualquer momento.</li>
             </ul>
           </div>
         </div>
 
-        <!-- Faixa de Transparência -->
-        <div class="reveal rounded-2xl bg-slate-900 dark:bg-surface-900 border border-slate-800 px-5 py-5 sm:px-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-slate-100" style="--reveal-delay: 140ms;">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
-              <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-            </div>
+        <!-- Guia Compacto de Instalação PWA -->
+        <div id="instalar" class="reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p class="text-xs font-bold text-white">100% Gratuito</p>
-              <p class="text-[11px] text-slate-400">Sem mensalidade ou pegadinhas</p>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Sem loja de aplicativos</span>
+              <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">Instale direto na tela inicial do celular</h3>
             </div>
-          </div>
-
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center shrink-0">
-              <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728" /></svg>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-white">Zero Anúncios</p>
-              <p class="text-[11px] text-slate-400">Interface limpa e focada</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0">
-              <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-white">Privacidade RLS</p>
-              <p class="text-[11px] text-slate-400">Só sua conta vê seus dados</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0">
-              <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" /></svg>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-white">Seus Dados São Seus</p>
-              <p class="text-[11px] text-slate-400">Exporte PDF, CSV ou JSON</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ==================== COMO FUNCIONA (3 PASSOS) ==================== -->
-    <section id="como-funciona" class="py-16 sm:py-24 border-t border-slate-200/80 dark:border-slate-800/80">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center max-w-2xl mx-auto mb-12 space-y-2 reveal">
-          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Simples de começar</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Em 3 passos seu banco está sob controle</h2>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3">
-            <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white font-mono text-sm font-extrabold">01</span>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Configure seu perfil</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Crie sua conta gratuita com e-mail e escolha seu sindicato ou ramo da empresa. A jornada e os multiplicadores já vêm prontos.
-            </p>
-          </div>
-
-          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3" style="--reveal-delay: 80ms;">
-            <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white font-mono text-sm font-extrabold">02</span>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Lance feriados e folgas</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Adicione feriados direto do calendário automático ou registre horas extras e folgas realizadas/previstas em segundos.
-            </p>
-          </div>
-
-          <div class="reveal rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 space-y-3" style="--reveal-delay: 160ms;">
-            <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-600 text-white font-mono text-sm font-extrabold">03</span>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Simule e alinhe com o RH</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Simule quantos dias pode folgar, confira prazos FIFO e envie o resumo pronto por WhatsApp, E-mail ou PDF.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ==================== INSTALAR COMO APP (PWA) ==================== -->
-    <section id="instalar" class="py-14 sm:py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-surface-900/40">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center max-w-2xl mx-auto mb-8 space-y-2 reveal">
-          <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Sem loja de aplicativos</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Use como aplicativo no seu celular</h2>
-          <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            O SaldoHoras é um PWA leve: abra em tela cheia direto da tela inicial do iPhone ou Android, sem ocupar espaço.
-          </p>
-        </div>
-
-        <div class="reveal rounded-3xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-6">
-          <div class="flex justify-center">
-            <div class="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-surface-950 border border-slate-200 dark:border-slate-800">
-              <button type="button" data-pwa-os="ios" aria-pressed="true" class="pwa-os-btn px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition cursor-pointer">
+            <div class="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 self-start sm:self-auto">
+              <button type="button" data-pwa-os="ios" aria-pressed="true" class="pwa-os-btn px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-sm transition cursor-pointer">
                 iPhone (Safari)
               </button>
-              <button type="button" data-pwa-os="android" aria-pressed="false" class="pwa-os-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer">
+              <button type="button" data-pwa-os="android" aria-pressed="false" class="pwa-os-btn px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer">
                 Android (Chrome)
               </button>
             </div>
           </div>
 
-          <!-- Passos iOS -->
-          <div id="pwa-steps-ios" class="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-tab-in">
-            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1.5">
-              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">PASSO 1</span>
-              <p class="text-sm font-bold text-slate-900 dark:text-white">Abra o app no Safari</p>
-              <p class="text-xs text-slate-600 dark:text-slate-400">Acesse o SaldoHoras no Safari e faça login na sua conta.</p>
+          <div id="pwa-steps-ios" class="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-tab-in">
+            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1">
+              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">1. Abra o App</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400">Acesse <strong>SaldoHoras</strong> pelo Safari no iPhone.</p>
             </div>
-            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1.5">
-              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">PASSO 2</span>
-              <p class="text-sm font-bold text-slate-900 dark:text-white">Toque em Compartilhar</p>
-              <p class="text-xs text-slate-600 dark:text-slate-400">Clique no ícone de quadrado com seta para cima na barra inferior.</p>
+            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1">
+              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">2. Toque em Compartilhar</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400">Use o ícone de compartilhamento na barra inferior.</p>
             </div>
-            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1.5">
-              <span class="font-mono text-xs font-extrabold text-emerald-700 dark:text-emerald-400">PASSO 3</span>
-              <p class="text-sm font-bold text-slate-900 dark:text-white">Adicionar à Tela de Início</p>
-              <p class="text-xs text-slate-600 dark:text-slate-400">Confirme em "Adicionar" e o ícone do SaldoHoras aparece na sua tela.</p>
+            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1">
+              <span class="font-mono text-xs font-extrabold text-emerald-700 dark:text-emerald-400">3. Tela de Início</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400">Escolha <strong>Adicionar à Tela de Início</strong> para abrir em tela cheia.</p>
             </div>
           </div>
 
-          <!-- Passos Android -->
-          <div id="pwa-steps-android" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4 animate-tab-in">
-            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1.5">
-              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">PASSO 1</span>
-              <p class="text-sm font-bold text-slate-900 dark:text-white">Abra no Google Chrome</p>
-              <p class="text-xs text-slate-600 dark:text-slate-400">Entre no SaldoHoras pelo Chrome no seu Android.</p>
+          <div id="pwa-steps-android" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3 animate-tab-in">
+            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1">
+              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">1. Abra no Chrome</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400">Acesse o aplicativo pelo Google Chrome no Android.</p>
             </div>
-            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1.5">
-              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">PASSO 2</span>
-              <p class="text-sm font-bold text-slate-900 dark:text-white">Toque no menu (⋮)</p>
-              <p class="text-xs text-slate-600 dark:text-slate-400">Toque nos três pontinhos no canto superior direito do navegador.</p>
+            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1">
+              <span class="font-mono text-xs font-extrabold text-indigo-600 dark:text-indigo-400">2. Abra o menu (⋮)</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400">Toque nos três pontinhos no canto superior direito.</p>
             </div>
-            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1.5">
-              <span class="font-mono text-xs font-extrabold text-emerald-700 dark:text-emerald-400">PASSO 3</span>
-              <p class="text-sm font-bold text-slate-900 dark:text-white">Instalar aplicativo</p>
-              <p class="text-xs text-slate-600 dark:text-slate-400">Selecione "Instalar aplicativo" ou "Adicionar à tela inicial".</p>
+            <div class="rounded-2xl bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-slate-800 p-4 space-y-1">
+              <span class="font-mono text-xs font-extrabold text-emerald-700 dark:text-emerald-400">3. Instalar app</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400">Confirme em <strong>Instalar aplicativo</strong> e use inclusive offline.</p>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ==================== PERGUNTAS FREQUENTES (FAQ) ==================== -->
-    <section id="faq" class="py-16 sm:py-24 border-t border-slate-200/80 dark:border-slate-800/80">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-10 space-y-2 reveal">
+    <!-- ==================== 5. FAQ OBJETIVO + CTA FINAL ==================== -->
+    <section id="faq" class="py-12 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div class="text-center space-y-2 reveal">
           <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Dúvidas frequentes</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Perguntas comuns</h2>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Respostas rápidas</h2>
         </div>
 
         <div class="space-y-3 reveal">
           <div class="faq-item rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
             <button type="button" aria-expanded="false" class="faq-trigger w-full px-5 py-4 text-left flex items-center justify-between gap-4 cursor-pointer">
-              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Meus dados ficam visíveis para outras pessoas?</span>
+              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Posso experimentar o app antes de criar minha conta?</span>
               <svg aria-hidden="true" class="faq-chevron w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
             <div class="faq-panel">
               <div class="px-5 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Não. Cada conta é protegida por autenticação com senha e políticas de segurança em nível de linha (RLS) no Supabase. Apenas você consegue visualizar, adicionar, editar ou excluir seus lançamentos.
+                Sim. No botão <strong>Testar sem criar conta</strong> você usa tudo localmente neste aparelho e pode migrar seus registros para a nuvem depois sem perder nada.
               </div>
             </div>
           </div>
 
           <div class="faq-item rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
             <button type="button" aria-expanded="false" class="faq-trigger w-full px-5 py-4 text-left flex items-center justify-between gap-4 cursor-pointer">
-              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Como funciona o multiplicador de 1,4x no SINDPD-SP?</span>
+              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Outras pessoas ou empresas conseguem ver meus lançamentos?</span>
               <svg aria-hidden="true" class="faq-chevron w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
             <div class="faq-panel">
               <div class="px-5 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Quando tudo vai para banco de horas sob a convenção SINDPD-SP, cada 1 hora trabalhada em feriado recebe +40% em tempo (01:24). Em uma jornada de 08:00, o SaldoHoras credita exatamente +11:12 no seu saldo. Você também pode escolher outros sindicatos, ramos ou ajustar o fator manualmente.
+                Não. Cada conta possui isolamento estrito em banco de dados (RLS no Supabase): somente você acessa seus horários, ajustes e exportações.
               </div>
             </div>
           </div>
 
           <div class="faq-item rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
             <button type="button" aria-expanded="false" class="faq-trigger w-full px-5 py-4 text-left flex items-center justify-between gap-4 cursor-pointer">
-              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">O calendário de feriados apaga meus lançamentos antigos?</span>
+              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">O calendário de feriados altera ou apaga registros que já lancei?</span>
               <svg aria-hidden="true" class="faq-chevron w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
             <div class="faq-panel">
               <div class="px-5 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Nunca. Você pode apenas consultar o calendário oficial ou selecionar os feriados específicos em que trabalhou para adicionar ao seu extrato. Datas já registradas ficam protegidas contra duplicação.
+                Nunca. Ele serve para consulta de feriados nacionais/estaduais e adição pontual apenas dos dias em que você trabalhou, bloqueando duplicidades.
               </div>
             </div>
           </div>
 
           <div class="faq-item rounded-2xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
             <button type="button" aria-expanded="false" class="faq-trigger w-full px-5 py-4 text-left flex items-center justify-between gap-4 cursor-pointer">
-              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Posso exportar meu histórico para enviar ao RH?</span>
+              <span class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">E quando fechar o ciclo do banco de horas na empresa?</span>
               <svg aria-hidden="true" class="faq-chevron w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
             <div class="faq-panel">
               <div class="px-5 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Sim! O sistema gera relatório executivo em PDF, planilha CSV/Excel, arquivo de agenda (.ics), backup completo em JSON e textos prontos editáveis para enviar por E-mail ou WhatsApp.
+                Use <strong>Ciclos e Histórico</strong> no perfil para arquivar o ciclo anterior, zerar ou levar seu saldo remanescente e gerar relatórios em PDF/Excel para conferência.
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ==================== CTA FINAL ==================== -->
-    <section class="pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-5xl mx-auto reveal rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-8 sm:p-12 text-center space-y-5 shadow-2xl shadow-indigo-950/30 relative overflow-hidden">
-        <div class="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-emerald-400/20 blur-3xl" aria-hidden="true"></div>
-        <h2 class="text-2xl sm:text-4xl font-black tracking-tight relative z-10">
-          Pronto para assumir o controle do seu Banco de Horas?
-        </h2>
-        <p class="text-sm sm:text-base text-indigo-100 max-w-xl mx-auto relative z-10">
-          Crie sua conta gratuita em menos de 1 minuto e tenha seu extrato, feriados e simulador de folgas sempre à mão no computador e no celular.
-        </p>
-        <div class="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 relative z-10">
-          <a
-            id="footer-signup-btn"
-            href="app.html?mode=signup"
-            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold text-sm sm:text-base shadow-lg transition"
-          >
-            <span id="footer-signup-text">Começar grátis agora</span>
-            <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </a>
+        <!-- CTA Final Compacto -->
+        <div class="reveal rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-7 sm:p-10 text-center space-y-4 shadow-2xl shadow-indigo-950/30 relative overflow-hidden">
+          <div class="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald-400/20 blur-3xl" aria-hidden="true"></div>
+          <h2 class="text-2xl sm:text-3xl font-black tracking-tight relative z-10">
+            Pronto para deixar a planilha para trás?
+          </h2>
+          <p class="text-sm text-indigo-100 max-w-lg mx-auto relative z-10">
+            Comece gratuitamente agora em menos de 1 minuto no computador ou direto do celular.
+          </p>
+          <div class="pt-1 flex flex-col sm:flex-row items-center justify-center gap-3 relative z-10">
+            <a
+              id="footer-signup-btn"
+              href="app.html?mode=signup"
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold text-sm shadow-lg transition"
+            >
+              <span id="footer-signup-text">Criar conta grátis</span>
+              <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+            <a
+              id="footer-guest-btn"
+              href="app.html?mode=guest"
+              class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-3 rounded-2xl border border-white/30 bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition"
+            >
+              Testar sem conta
+            </a>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
   <!-- ==================== RODAPÉ ==================== -->
-  <footer class="border-t border-slate-200/80 dark:border-slate-800/80 py-8">
+  <footer class="border-t border-slate-200/80 dark:border-slate-800/80 py-7">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400">
       <div class="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-200">
         <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
@@ -1383,7 +1156,7 @@
       if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
       // =========================================================================
-      // 1. ALTERNÂNCIA DE TEMA (CLARO / ESCURO)
+      // 1. TEMA CLARO / ESCURO
       // =========================================================================
       var themeMeta = document.querySelector('meta[name="theme-color"]');
       function syncThemeMeta(isDark) {
@@ -1403,38 +1176,44 @@
       }
 
       // =========================================================================
-      // 2. CALCULADORA INTERATIVA DE FERIADOS POR SINDICATO / RAMO
+      // 2. SIMULADOR ALINHADO COM rules-catalog.js (FERIADO & HORA EXTRA)
       // =========================================================================
       var DEMO_PRESETS = {
         sindpd: {
-          mult: 1.4,
+          holidayMult: 1.4,
+          overtimeMult: 1.5,
           dailyMinutes: 480,
-          desc: 'Regra SINDPD-SP (Banco de Horas): cada 01:00 trabalhada em feriado gera 01:24 (+40%) em horas para compensação, sem precisar fazer contas manuais.'
+          desc: 'Regra SINDPD-SP (Banco de Horas): jornada 08:00/dia, hora extra 1,5x e feriado trabalhado 1,4x (+40% em horas: 08:00 = 11:12).'
         },
         industria: {
-          mult: 2.0,
+          holidayMult: 2.0,
+          overtimeMult: 1.5,
           dailyMinutes: 528,
-          desc: 'Perfil Indústria / Metalúrgicos: feriados trabalhados costumam converter em dobro (2,0x / +100%) no banco. Base de jornada de referência: 08:48/dia.'
+          desc: 'Perfil Indústria / Metalúrgicos: jornada 08:48/dia (44h seg–sex), extra 1,5x e feriado em dobro (2,0x / +100%).'
         },
         bancarios: {
-          mult: 1.5,
+          holidayMult: 2.0,
+          overtimeMult: 1.5,
           dailyMinutes: 360,
-          desc: 'Perfil Bancários / Financeiro: conversão de referência 1,5x (+50%) sobre jornada típica de 06:00/dia.'
+          desc: 'Perfil Bancários / Financeiro: jornada 06:00/dia (30h/sem), extra 1,5x e feriado 2,0x (+100%).'
         },
         saude: {
-          mult: 2.0,
-          dailyMinutes: 720,
-          desc: 'Perfil Saúde / Escala 12x36: referência de feriado trabalhado com adicional de 100% (2,0x) convertido em banco.'
+          holidayMult: 2.0,
+          overtimeMult: 1.5,
+          dailyMinutes: 360,
+          desc: 'Perfil Saúde / Clínicas: referência 06:00/dia (editável para 12:00 em escala 12x36), extra 1,5x e feriado 2,0x.'
         },
         comercio: {
-          mult: 1.0,
+          holidayMult: 1.0,
+          overtimeMult: 1.5,
           dailyMinutes: 440,
-          desc: 'Perfil Comércio & Varejo: compensação simples 1:1 (1,0x) para folga compensatória equivalente, com jornada típica 6x1 (07:20/dia).'
+          desc: 'Perfil Comércio & Varejo: jornada 07:20/dia (6x1), extra 1,5x e compensação simples de feriado 1,0x (1:1).'
         },
         servicos: {
-          mult: 1.0,
+          holidayMult: 1.0,
+          overtimeMult: 1.0,
           dailyMinutes: 480,
-          desc: 'Perfil Serviços / CLT Padrão: compensação 1:1 (1,0x) sobre jornada padrão de 08:00/dia, ajustável livremente dentro do app.'
+          desc: 'Acordo Individual CLT (1:1): compensação 1,0x sobre jornada de 08:00/dia, ajustável livremente dentro do app.'
         }
       };
 
@@ -1442,7 +1221,10 @@
       var hoursInput = document.getElementById('demo-hours');
       var minutesInput = document.getElementById('demo-minutes');
       var demoSaveLink = document.getElementById('demo-save-link');
+      var demoGuestLink = document.getElementById('demo-guest-link');
       var quickShiftBtns = document.querySelectorAll('.quick-shift-btn');
+      var simCatBtns = document.querySelectorAll('.sim-cat-btn');
+      var activeSimCat = 'holiday';
       var hasActiveSession = false;
 
       function formatHHMM(totalMinutes) {
@@ -1465,25 +1247,30 @@
       function updateDemoCalculator(animate) {
         if (!unionSelect || !hoursInput || !minutesInput) return;
         var preset = DEMO_PRESETS[unionSelect.value] || DEMO_PRESETS.sindpd;
+        var mult = activeSimCat === 'overtime' ? preset.overtimeMult : preset.holidayMult;
         var h = Math.max(0, Math.min(24, parseInt(hoursInput.value, 10) || 0));
         var m = Math.max(0, Math.min(59, parseInt(minutesInput.value, 10) || 0));
         var workedMins = h * 60 + m;
-        var creditMins = Math.round(workedMins * preset.mult);
+        var creditMins = Math.round(workedMins * mult);
         var bonusMins = Math.max(0, creditMins - workedMins);
         var daysEq = (creditMins / preset.dailyMinutes).toFixed(1).replace('.', ',');
-        var multStr = preset.mult.toFixed(1).replace('.', ',');
+        var multStr = mult.toFixed(1).replace('.', ',');
 
+        var cardLabelEl = document.getElementById('demo-card-label');
         var resultEl = document.getElementById('demo-result-time');
         var badgeEl = document.getElementById('demo-badge-mult');
         var formulaEl = document.getElementById('demo-result-formula');
         var daysEl = document.getElementById('demo-result-days');
         var descEl = document.getElementById('demo-rule-desc');
 
+        if (cardLabelEl) {
+          cardLabelEl.textContent = activeSimCat === 'overtime' ? 'Crédito por Hora Extra' : 'Crédito por Feriado Trabalhado';
+        }
         if (resultEl) resultEl.textContent = '+' + formatHHMM(creditMins);
         if (badgeEl) badgeEl.textContent = multStr + 'x';
         if (formulaEl) {
           formulaEl.textContent = bonusMins > 0
-            ? formatHHMM(workedMins) + ' × ' + preset.mult.toFixed(2).replace('.', ',') + ' = +' + formatHHMM(creditMins) + ' (+' + formatHHMM(bonusMins) + ' bônus)'
+            ? formatHHMM(workedMins) + ' × ' + mult.toFixed(2).replace('.', ',') + ' = +' + formatHHMM(creditMins) + ' (+' + formatHHMM(bonusMins) + ' bônus)'
             : formatHHMM(workedMins) + ' × 1,00 = +' + formatHHMM(creditMins) + ' (compensação 1:1)';
         }
         if (daysEl) daysEl.textContent = daysEq + ' dias';
@@ -1491,8 +1278,12 @@
 
         highlightQuickShift(h, m);
 
+        var query = 'preset=' + encodeURIComponent(unionSelect.value) + '&cat=' + encodeURIComponent(activeSimCat) + '&h=' + h + '&m=' + m;
         if (demoSaveLink && !hasActiveSession) {
-          demoSaveLink.href = 'app.html?mode=signup&preset=' + encodeURIComponent(unionSelect.value) + '&h=' + h + '&m=' + m;
+          demoSaveLink.href = 'app.html?mode=signup&' + query;
+        }
+        if (demoGuestLink && !hasActiveSession) {
+          demoGuestLink.href = 'app.html?mode=guest&' + query;
         }
 
         if (animate && resultEl) {
@@ -1502,15 +1293,22 @@
         }
       }
 
-      if (unionSelect) {
-        unionSelect.addEventListener('change', function () { updateDemoCalculator(true); });
-      }
-      if (hoursInput) {
-        hoursInput.addEventListener('input', function () { updateDemoCalculator(false); });
-      }
-      if (minutesInput) {
-        minutesInput.addEventListener('input', function () { updateDemoCalculator(false); });
-      }
+      simCatBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          activeSimCat = btn.dataset.simCat === 'overtime' ? 'overtime' : 'holiday';
+          simCatBtns.forEach(function (b) {
+            var active = b.dataset.simCat === activeSimCat;
+            b.setAttribute('aria-pressed', String(active));
+            b.className = active
+              ? 'sim-cat-btn py-1.5 rounded-lg bg-indigo-600 text-white transition cursor-pointer'
+              : 'sim-cat-btn py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition cursor-pointer';
+          });
+          updateDemoCalculator(true);
+        });
+      });
+      if (unionSelect) unionSelect.addEventListener('change', function () { updateDemoCalculator(true); });
+      if (hoursInput) hoursInput.addEventListener('input', function () { updateDemoCalculator(false); });
+      if (minutesInput) minutesInput.addEventListener('input', function () { updateDemoCalculator(false); });
       quickShiftBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
           hoursInput.value = btn.dataset.quickH;
@@ -1543,8 +1341,26 @@
           if (deviceHint) {
             deviceHint.innerHTML = target === 'mobile'
               ? '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span><span>Clique em <strong>Extrato</strong>, <strong>Feriados</strong> ou <strong>Gráficos</strong> no celular acima</span>'
-              : '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span><span>Teste os <strong>filtros rápidos</strong> e o <strong>ícone de olho</strong> (Modo Privacidade) na prévia Web</span>';
+              : '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span><span>Clique nas <strong>abas</strong>, digite na <strong>busca</strong> ou teste o <strong>olho de privacidade</strong> acima</span>';
           }
+        });
+      });
+
+      // Abas clicáveis na prévia Desktop Web (Extrato / Feriados / Gráficos / RH)
+      var webTabBtns = document.querySelectorAll('.web-mock-tab-btn');
+      var webScreens = document.querySelectorAll('.web-mock-screen');
+      webTabBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var tab = btn.dataset.webTab;
+          webTabBtns.forEach(function (b) {
+            var active = b.dataset.webTab === tab;
+            b.className = active
+              ? 'web-mock-tab-btn px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 cursor-pointer transition'
+              : 'web-mock-tab-btn px-1.5 py-0.5 rounded-md text-slate-400 hover:text-white cursor-pointer transition';
+          });
+          webScreens.forEach(function (scr) {
+            scr.classList.toggle('hidden', scr.id !== 'web-screen-' + tab);
+          });
         });
       });
 
@@ -1569,37 +1385,53 @@
       if (desktopEyeBtn) desktopEyeBtn.addEventListener('click', toggleDesktopPrivacy);
       if (desktopCardEyeBtn) desktopCardEyeBtn.addEventListener('click', toggleDesktopPrivacy);
 
-      // Pílulas de filtro clicáveis na prévia Web
+      // Filtros e busca em tempo real na prévia Web
       var webFilterBtns = document.querySelectorAll('.web-mock-filter');
       var webMockCards = document.querySelectorAll('.web-mock-card');
       var webMockCount = document.getElementById('web-mock-count');
+      var webMockSearch = document.getElementById('web-mock-search');
+      var currentWebFilter = 'all';
+
+      function normalizeSearchText(str) {
+        return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      }
+
+      function applyWebMockFilters() {
+        var q = normalizeSearchText(webMockSearch && webMockSearch.value ? webMockSearch.value : '');
+        var visible = 0;
+        webMockCards.forEach(function (card) {
+          var tags = (card.dataset.tags || '').split(' ');
+          var hay = normalizeSearchText((card.dataset.search || '') + ' ' + (card.textContent || ''));
+          var tagMatch = currentWebFilter === 'all' || tags.indexOf(currentWebFilter) !== -1;
+          var textMatch = !q || hay.indexOf(q) !== -1;
+          var show = tagMatch && textMatch;
+          card.classList.toggle('hidden', !show);
+          if (show) visible += 1;
+        });
+        if (webMockCount) {
+          webMockCount.textContent = visible + ' de ' + webMockCards.length + ' registros';
+        }
+      }
 
       webFilterBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var filter = btn.dataset.webFilter;
+          currentWebFilter = btn.dataset.webFilter || 'all';
           webFilterBtns.forEach(function (b) {
-            var active = b.dataset.webFilter === filter;
+            var active = b.dataset.webFilter === currentWebFilter;
             b.className = active
               ? 'web-mock-filter px-2 py-0.5 rounded-full bg-indigo-600 text-white transition cursor-pointer'
               : 'web-mock-filter px-2 py-0.5 rounded-full bg-slate-800/90 text-slate-300 hover:bg-slate-700 transition cursor-pointer';
           });
-          var visible = 0;
-          webMockCards.forEach(function (card) {
-            var tags = (card.dataset.tags || '').split(' ');
-            var match = filter === 'all' || tags.indexOf(filter) !== -1;
-            card.classList.toggle('hidden', !match);
-            if (match) visible += 1;
-          });
-          if (webMockCount) {
-            webMockCount.textContent = visible + ' de ' + webMockCards.length + ' registros';
-          }
+          applyWebMockFilters();
         });
       });
+      if (webMockSearch) {
+        webMockSearch.addEventListener('input', applyWebMockFilters);
+      }
 
       // Abas clicáveis no mockup mobile
       var mockTabBtns = document.querySelectorAll('.mock-tab-btn');
       var mockScreens = document.querySelectorAll('.mock-screen');
-
       mockTabBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
           var tab = btn.dataset.mockTab;
@@ -1614,7 +1446,7 @@
         });
       });
 
-      // Contador animado suave no saldo do celular (+00:00 -> +88:48)
+      // Contador animado no saldo do celular
       (function animateBalance() {
         var el = document.getElementById('mock-balance-counter');
         if (!el) return;
@@ -1624,20 +1456,19 @@
           el.textContent = '+' + formatHHMM(targetMinutes);
           return;
         }
-        var duration = 900;
+        var duration = 850;
         var start = performance.now();
         function step(now) {
           var progress = Math.min(1, (now - start) / duration);
           var eased = 1 - Math.pow(1 - progress, 3);
-          var current = Math.round(targetMinutes * eased);
-          el.textContent = '+' + formatHHMM(current);
+          el.textContent = '+' + formatHHMM(Math.round(targetMinutes * eased));
           if (progress < 1) requestAnimationFrame(step);
         }
         requestAnimationFrame(step);
       })();
 
       // =========================================================================
-      // 4. SELETOR DE INSTALAÇÃO PWA (iOS / ANDROID) E FAQ ACORDEÃO ACESSÍVEL
+      // 4. SELETOR DE INSTALAÇÃO PWA E FAQ ACESSÍVEL
       // =========================================================================
       var pwaBtns = document.querySelectorAll('.pwa-os-btn');
       var pwaIos = document.getElementById('pwa-steps-ios');
@@ -1650,8 +1481,8 @@
             var active = b.dataset.pwaOs === os;
             b.setAttribute('aria-pressed', String(active));
             b.className = active
-              ? 'pwa-os-btn px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition cursor-pointer'
-              : 'pwa-os-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer';
+              ? 'pwa-os-btn px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-sm transition cursor-pointer'
+              : 'pwa-os-btn px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer';
           });
           if (pwaIos) pwaIos.classList.toggle('hidden', os !== 'ios');
           if (pwaAndroid) pwaAndroid.classList.toggle('hidden', os !== 'android');
@@ -1677,7 +1508,7 @@
       });
 
       // =========================================================================
-      // 5. MENU MOBILE + SCROLLSPY + REVEAL + BARRA DE PROGRESSO + VOLTAR AO TOPO
+      // 5. MENU MOBILE + SCROLLSPY + REVEAL + BARRA DE PROGRESSO + TOPO
       // =========================================================================
       var mobileMenuBtn = document.getElementById('btn-mobile-menu');
       var mobileDrawer = document.getElementById('mobile-nav-drawer');
@@ -1698,16 +1529,13 @@
           setMobileMenuOpen(!isOpen);
         });
       }
-
       document.querySelectorAll('.mobile-nav-link').forEach(function (link) {
         link.addEventListener('click', function () { setMobileMenuOpen(false); });
       });
-
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') setMobileMenuOpen(false);
       });
 
-      // ScrollSpy Desktop
       var desktopNavLinks = document.querySelectorAll('.nav-link[data-section]');
       var trackedSections = Array.prototype.slice
         .call(desktopNavLinks)
@@ -1731,7 +1559,6 @@
         trackedSections.forEach(function (sec) { spyObserver.observe(sec); });
       }
 
-      // Scroll Reveal
       var revealEls = document.querySelectorAll('.reveal');
       if ('IntersectionObserver' in window) {
         var revealObserver = new IntersectionObserver(
@@ -1750,7 +1577,6 @@
         revealEls.forEach(function (el) { el.classList.add('is-visible'); });
       }
 
-      // Barra de Progresso + Botão Voltar ao Topo
       var progressBar = document.getElementById('reading-progress');
       var backToTopBtn = document.getElementById('btn-back-to-top');
 
@@ -1760,9 +1586,7 @@
         var maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
         var ratio = Math.min(1, Math.max(0, scrollTop / maxScroll));
 
-        if (progressBar) {
-          progressBar.style.transform = 'scaleX(' + ratio.toFixed(4) + ')';
-        }
+        if (progressBar) progressBar.style.transform = 'scaleX(' + ratio.toFixed(4) + ')';
         if (backToTopBtn) {
           var show = scrollTop > 420;
           backToTopBtn.classList.toggle('opacity-0', !show);
@@ -1781,7 +1605,7 @@
       }
 
       // =========================================================================
-      // 6. DETECÇÃO INTELIGENTE DE SESSÃO ATIVA NO SUPABASE
+      // 6. DETECÇÃO LEVE DE SESSÃO ATIVA NO SUPABASE
       // =========================================================================
       async function detectActiveSession() {
         try {
@@ -1799,17 +1623,20 @@
             var navLogin = document.getElementById('nav-login-btn');
             var mobileLogin = document.getElementById('mobile-login-btn');
             var mobileSignup = document.getElementById('mobile-signup-btn');
+            var mobileGuest = document.getElementById('mobile-guest-btn');
             var heroSignup = document.getElementById('hero-signup-btn');
             var heroSignupText = document.getElementById('hero-signup-text');
             var heroLogin = document.getElementById('hero-login-btn');
             var footerSignup = document.getElementById('footer-signup-btn');
             var footerSignupText = document.getElementById('footer-signup-text');
+            var footerGuest = document.getElementById('footer-guest-btn');
             var demoSaveText = document.getElementById('demo-save-text');
 
             if (navCta) navCta.href = 'app.html';
             if (navCtaText) navCtaText.textContent = 'Ir para o Painel';
             if (navLogin) navLogin.classList.add('hidden');
             if (mobileLogin) mobileLogin.classList.add('hidden');
+            if (mobileGuest) mobileGuest.classList.add('hidden');
             if (mobileSignup) {
               mobileSignup.href = 'app.html';
               mobileSignup.textContent = 'Ir para o Painel';
@@ -1820,11 +1647,13 @@
             if (heroLogin) heroLogin.classList.add('hidden');
             if (footerSignup) footerSignup.href = 'app.html';
             if (footerSignupText) footerSignupText.textContent = 'Ir para o Painel';
+            if (footerGuest) footerGuest.classList.add('hidden');
             if (demoSaveLink) demoSaveLink.href = 'app.html';
             if (demoSaveText) demoSaveText.textContent = 'Ir para o Painel';
+            if (demoGuestLink) demoGuestLink.classList.add('hidden');
           }
         } catch (err) {
-          // Em modo preview/offline apenas mantém os links padrão
+          // Modo offline/preview mantém os links padrão
         }
       }
 

@@ -881,32 +881,42 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   const authSource = fs.readFileSync(new URL('../js/auth.js', import.meta.url), 'utf8');
   const profileSource = fs.readFileSync(new URL('../js/profile.js', import.meta.url), 'utf8');
 
-  // 1. Links e seções essenciais na Landing Page
+  // 1. Links, interatividade e CSS estático na Landing Page (sem Tailwind CDN em runtime)
   assert.match(landingHtml, /href="app\.html\?mode=login"/);
   assert.match(landingHtml, /href="app\.html\?mode=signup"/);
+  assert.match(landingHtml, /href="app\.html\?mode=guest"/);
+  assert.match(landingHtml, /href="\.\/assets\/landing\.css\?v=28"/);
+  assert.doesNotMatch(landingHtml, /cdn\.tailwindcss\.com/);
   assert.match(landingHtml, /id="demo-union"/);
   assert.match(landingHtml, /id="preview-device-mobile"/);
   assert.match(landingHtml, /id="preview-device-desktop"/);
   assert.match(landingHtml, /id="desktop-mock-eye-btn"/);
+  assert.match(landingHtml, /id="web-mock-search"/);
+  assert.match(landingHtml, /web-mock-tab-btn/);
   assert.match(landingHtml, /web-mock-filter/);
   assert.match(landingHtml, /Ir para o Painel/);
   assert.match(landingHtml, /sb\.auth\.getSession/);
 
-  // 2. Parser de parâmetros (?mode=, ?preset=, ?h=, ?m=, ?atalho=) preservando PKCE ?code=
+  // 2. Parser de parâmetros (?mode=, ?preset=, ?cat=, ?h=, ?m=, ?atalho=) preservando PKCE ?code=
   const signupWithPreset = parseAndCleanAppLaunchUrl(
-    'https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=signup&preset=industria&h=8&m=48&code=pkce-123'
+    'https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=signup&preset=industria&cat=overtime&h=8&m=48&code=pkce-123'
   );
   assert.equal(signupWithPreset.mode, 'signup');
   assert.equal(signupWithPreset.preset?.unionCode, 'metalurgicos');
+  assert.equal(signupWithPreset.category, 'overtime');
   assert.equal(signupWithPreset.hours, 8);
   assert.equal(signupWithPreset.minutes, 48);
   assert.equal(signupWithPreset.cleanUrl, '/MeuBancodeHoras.brunosantos/app.html?code=pkce-123');
+
+  const guestLaunch = parseAndCleanAppLaunchUrl('https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=guest');
+  assert.equal(guestLaunch.mode, 'guest');
+  assert.equal(guestLaunch.cleanUrl, '/MeuBancodeHoras.brunosantos/app.html');
 
   const loginLaunch = parseAndCleanAppLaunchUrl('https://vb2103.github.io/MeuBancodeHoras.brunosantos/app.html?mode=login');
   assert.equal(loginLaunch.mode, 'login');
   assert.equal(loginLaunch.cleanUrl, '/MeuBancodeHoras.brunosantos/app.html');
 
-  // 3. Persistência temporária em sessionStorage do preset do simulador
+  // 3. Persistência temporária em sessionStorage do preset do simulador (incl. category)
   const mockSessionStorage = (() => {
     const map = new Map();
     return {
@@ -917,6 +927,7 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   })();
   assert.equal(savePendingRulePreset(signupWithPreset, mockSessionStorage), true);
   assert.equal(loadPendingRulePreset(mockSessionStorage)?.unionCode, 'metalurgicos');
+  assert.equal(loadPendingRulePreset(mockSessionStorage)?.category, 'overtime');
   clearPendingRulePreset(mockSessionStorage);
   assert.equal(loadPendingRulePreset(mockSessionStorage), null);
 
@@ -932,9 +943,10 @@ test('Landing page (index.html), rotas app.html (?mode=, ?preset=), redirectTo S
   assert.match(authSource, /getAppRedirectUrl\(/);
   assert.match(profileSource, /getAppRedirectUrl\(/);
 
-  // 5. sw.js inclui landing + app.html + assets/og-cover.png e distingue rota app.html no fallback offline
+  // 5. sw.js inclui landing + landing.css + app.html + assets/og-cover.png e distingue rota app.html no fallback offline
   assert.match(swSource, /'\.\/app\.html'/);
   assert.match(swSource, /'\.\/index\.html'/);
+  assert.match(swSource, /'\.\/assets\/landing\.css\?v=28'/);
   assert.match(swSource, /'\.\/assets\/og-cover\.png'/);
   assert.match(swSource, /isAppRoute/);
 });

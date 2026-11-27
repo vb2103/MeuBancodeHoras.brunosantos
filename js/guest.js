@@ -106,7 +106,7 @@ export function createDemoEntries(settings = createDefaultSettings(), baseDateIS
     {
       id: generateUUID(),
       date: dPastExpiring,
-      title: 'Plantão de implantação (exemplo)',
+      title: 'Plantão de implantação',
       type: 'credit',
       minutes: applyMultiplierToMinutes(180, otMult),
       workedMinutes: 180,
@@ -121,7 +121,7 @@ export function createDemoEntries(settings = createDefaultSettings(), baseDateIS
     {
       id: generateUUID(),
       date: dPastExtra,
-      title: 'Hora extra fechamento mensal (exemplo)',
+      title: 'Hora extra fechamento',
       type: 'credit',
       minutes: applyMultiplierToMinutes(120, otMult),
       workedMinutes: 120,
@@ -136,7 +136,7 @@ export function createDemoEntries(settings = createDefaultSettings(), baseDateIS
     {
       id: generateUUID(),
       date: dPastHol,
-      title: 'Feriado trabalhado (exemplo)',
+      title: 'Feriado trabalhado',
       type: 'credit',
       minutes: applyMultiplierToMinutes(daily, holMult),
       workedMinutes: daily,
@@ -151,7 +151,7 @@ export function createDemoEntries(settings = createDefaultSettings(), baseDateIS
     {
       id: generateUUID(),
       date: dPastLeave,
-      title: 'Saída antecipada (exemplo)',
+      title: 'Saída antecipada',
       type: 'debit',
       minutes: Math.round(daily / 2),
       workedMinutes: Math.round(daily / 2),
@@ -166,7 +166,7 @@ export function createDemoEntries(settings = createDefaultSettings(), baseDateIS
     {
       id: generateUUID(),
       date: dPlanned,
-      title: 'Folga planejada (exemplo)',
+      title: 'Folga planejada',
       type: 'debit',
       minutes: daily,
       workedMinutes: daily,

@@ -28,8 +28,10 @@ export function setupAuth({
   initialMode = null,
   onAuthModalOpen
 }) {
-  const requestedInitialMode = initialMode === 'signup' || initialMode === 'login' ? initialMode : null;
-  let authMode = requestedInitialMode || 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
+  const requestedInitialMode = initialMode === 'signup' || initialMode === 'login' || initialMode === 'guest'
+    ? initialMode
+    : null;
+  let authMode = requestedInitialMode === 'signup' ? 'signup' : 'login'; // 'login' | 'signup' | 'reset' | 'update_password'
   let consumedInitialModeRedirect = false;
   let loadedUserId = null;
   let isAuthBusy = false;
@@ -392,7 +394,7 @@ export function setupAuth({
     onEnterGuestMode?.();
   });
 
-  if (requestedInitialMode) {
+  if (requestedInitialMode === 'signup' || requestedInitialMode === 'login') {
     switchAuthMode(requestedInitialMode);
   }
 
@@ -419,11 +421,16 @@ export function setupAuth({
       if (explicitLogoutInFlight) {
         return;
       }
+      if (event !== 'SIGNED_OUT' && !consumedInitialModeRedirect && requestedInitialMode === 'guest') {
+        consumedInitialModeRedirect = true;
+        onEnterGuestMode?.();
+        return;
+      }
       if (event !== 'SIGNED_OUT' && shouldRestoreGuest?.() && !requestedInitialMode) {
         onEnterGuestMode?.({ restoring: true });
         return;
       }
-      if (!consumedInitialModeRedirect && requestedInitialMode) {
+      if (!consumedInitialModeRedirect && (requestedInitialMode === 'signup' || requestedInitialMode === 'login')) {
         consumedInitialModeRedirect = true;
         switchAuthMode(requestedInitialMode);
       }

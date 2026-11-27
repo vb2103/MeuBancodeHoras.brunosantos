@@ -121,7 +121,7 @@ let isFlushingQueue = false;
 let defaultTemplatesCache = { emailTemplate: '', whatsappTemplate: '' };
 const initialAppLaunch = (() => {
   if (typeof window === 'undefined') {
-    return { shortcut: null, mode: null, preset: null, hours: null, minutes: null };
+    return { shortcut: null, mode: null, preset: null, category: null, hours: null, minutes: null };
   }
   const parsed = parseAndCleanAppLaunchUrl(window.location.href);
   if (parsed.preset) {
@@ -134,6 +134,16 @@ const initialAppLaunch = (() => {
 })();
 let pendingUrlShortcut = initialAppLaunch.shortcut;
 const pendingAuthMode = initialAppLaunch.mode;
+let pendingSimulatorEntry = (() => {
+  if (initialAppLaunch.hours === null && initialAppLaunch.minutes === null) {
+    const saved = loadPendingRulePreset();
+    if (!saved || (saved.hours === null && saved.minutes === null)) return null;
+    const total = (Number(saved.hours) || 0) * 60 + (Number(saved.minutes) || 0);
+    return total > 0 ? { category: saved.category || 'holiday', minutes: total } : null;
+  }
+  const total = (Number(initialAppLaunch.hours) || 0) * 60 + (Number(initialAppLaunch.minutes) || 0);
+  return total > 0 ? { category: initialAppLaunch.category || 'holiday', minutes: total } : null;
+})();
 let privacyMode = (() => {
   try {
     return localStorage.getItem(STORAGE_KEYS.PRIVACY) === '1';
@@ -502,6 +512,11 @@ const modals = createModalManager({
   showToast,
   onOnboardingCompleted() {
     if (currentUser?.id) markOnboardingCompleted(currentUser.id);
+    if (pendingSimulatorEntry && !modals.hasOpenModal()) {
+      window.setTimeout(() => {
+        if (!modals.hasOpenModal()) consumePendingSimulatorEntry();
+      }, 220);
+    }
   },
   async saveEntry(entryObj) {
     if (!hasActiveWorkspace()) return false;
@@ -1136,6 +1151,9 @@ function renderAll() {
       const plannedPill = isRealized
         ? ''
         : '<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 shrink-0">Previsto</span>';
+      const demoPill = item.isDemo
+        ? '<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 shrink-0">Exemplo</span>'
+        : '';
       const urgentDisplayText = urgentNote
         ? (privacyMode ? urgentNote.text.replace(/\d{2,}:\d{2}/g, '••:••') : urgentNote.text)
         : '';
@@ -1155,7 +1173,7 @@ function renderAll() {
               <span class="font-mono tabular-nums shrink-0">${formatDateBR(item.date)}</span>
               <span aria-hidden="true" class="shrink-0">•</span>
               <span class="truncate">${escapeHtml(simpleCat)}</span>
-              ${plannedPill}
+              ${plannedPill}${demoPill}
             </div>
             ${urgentLineHtml}
           </div>
@@ -2774,6 +2792,18 @@ function syncAuthPresetNoticeUI({ mode = 'login' } = {}) {
   }
 }
 
+function consumePendingSimulatorEntry() {
+  if (!pendingSimulatorEntry || !pendingSimulatorEntry.minutes) return false;
+  const sim = pendingSimulatorEntry;
+  pendingSimulatorEntry = null;
+  modals.openEntryModal(
+    { type: 'credit', category: sim.category || 'holiday', minutes: sim.minutes },
+    false,
+    { source: 'intent' }
+  );
+  return true;
+}
+
 function enterGuestMode() {
   currentUser = null;
   isGuestMode = true;
@@ -2788,8 +2818,8 @@ function enterGuestMode() {
   const saved = loadGuestState();
   settings = saved.settings;
   entries = saved.entries;
-  if (!hasExistingGuest) {
-    const pendingPreset = loadPendingRulePreset();
+  const pendingPreset = loadPendingRulePreset();
+  if (!hasExistingGuest && pendingPreset) {
     const u = pendingPreset?.unionCode ? findUnionByCode(pendingPreset.unionCode) : null;
     if (u) {
       settings = {
@@ -2804,9 +2834,9 @@ function enterGuestMode() {
         stateUf: u.stateUf || settings.stateUf
       };
       saveGuestState({ settings, entries });
-      clearPendingRulePreset();
     }
   }
+  clearPendingRulePreset();
   archivedCycles = loadArchivedCycles('guest');
   try {
     if (settings.stateUf) localStorage.setItem(STORAGE_KEYS.HOLIDAY_UF, settings.stateUf);
@@ -2816,7 +2846,9 @@ function enterGuestMode() {
   setSyncStatus('local');
   renderAll();
   authController?.revealLoadingOverlay?.();
-  consumePendingUrlShortcut();
+  if (!consumePendingUrlShortcut() && pendingSimulatorEntry && entries.length === 0 && !modals.hasOpenModal()) {
+    consumePendingSimulatorEntry();
+  }
 }
 
 let pendingMigrationState = null;

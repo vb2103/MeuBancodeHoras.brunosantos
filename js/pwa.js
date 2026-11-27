@@ -79,6 +79,7 @@ export function parseAndCleanAppLaunchUrl(href) {
     shortcut: null,
     mode: null,
     preset: null,
+    category: null,
     hours: null,
     minutes: null,
     cleanUrl: './',
@@ -87,16 +88,19 @@ export function parseAndCleanAppLaunchUrl(href) {
   if (!href || typeof href !== 'string') return empty;
   try {
     const url = new URL(href, 'https://saldohoras.local/');
-    const launchKeys = ['atalho', 'mode', 'preset', 'h', 'm'];
+    const launchKeys = ['atalho', 'mode', 'preset', 'cat', 'h', 'm'];
     const hadParam = launchKeys.some((k) => url.searchParams.has(k));
 
     const rawShortcut = String(url.searchParams.get('atalho') || '').trim().toLowerCase();
     const shortcut = rawShortcut === 'ganho' || rawShortcut === 'folga' ? rawShortcut : null;
 
     const rawMode = String(url.searchParams.get('mode') || '').trim().toLowerCase();
-    const mode = rawMode === 'login' || rawMode === 'signup' ? rawMode : null;
+    const mode = rawMode === 'login' || rawMode === 'signup' || rawMode === 'guest' ? rawMode : null;
 
     const preset = resolvePresetRule(url.searchParams.get('preset'));
+
+    const rawCat = String(url.searchParams.get('cat') || '').trim().toLowerCase();
+    const category = rawCat === 'holiday' || rawCat === 'overtime' ? rawCat : null;
 
     const rawH = url.searchParams.get('h');
     const rawM = url.searchParams.get('m');
@@ -115,6 +119,7 @@ export function parseAndCleanAppLaunchUrl(href) {
       shortcut,
       mode,
       preset,
+      category,
       hours: parsedH,
       minutes: parsedM,
       cleanUrl,
@@ -137,6 +142,7 @@ export function savePendingRulePreset(data, storageOverride) {
         unionCode: preset.unionCode,
         sectorCode: preset.sectorCode,
         label: preset.label,
+        category: data?.category === 'overtime' ? 'overtime' : (data?.category === 'holiday' ? 'holiday' : null),
         hours: Number.isFinite(Number(data?.hours)) ? Number(data.hours) : null,
         minutes: Number.isFinite(Number(data?.minutes)) ? Number(data.minutes) : null,
         savedAt: Date.now()
@@ -162,6 +168,7 @@ export function loadPendingRulePreset(storageOverride) {
       unionCode: parsed?.unionCode || base?.unionCode || 'sindpd_sp',
       sectorCode: parsed?.sectorCode || base?.sectorCode || 'tecnologia',
       label: parsed?.label || base?.label || '',
+      category: parsed?.category === 'overtime' ? 'overtime' : (parsed?.category === 'holiday' ? 'holiday' : null),
       hours: Number.isFinite(Number(parsed?.hours)) ? Number(parsed.hours) : null,
       minutes: Number.isFinite(Number(parsed?.minutes)) ? Number(parsed.minutes) : null
     };
